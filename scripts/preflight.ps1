@@ -5,6 +5,7 @@ param(
   [string]$ReportDirectory='',
   [string]$QtRoot='C:/Qt/6.12.0/mingw_64',
   [switch]$SkipBuild,
+  [switch]$ParallelFuzz,
   [ValidateRange(3,86400)][int]$SoakSeconds=600,
   [ValidateRange(1,86400)][int]$FuzzSeconds=300
 )
@@ -18,7 +19,7 @@ $env:QT_QPA_PLATFORM='offscreen';$results=[Collections.Generic.List[object]]::ne
 $commit=(& git -C $project rev-parse HEAD).Trim();$dirty=![string]::IsNullOrWhiteSpace((& git -C $project status --porcelain | Out-String))
 function Write-Receipt {
   $state=if(@($results | Where-Object status -eq 'FAIL').Count){'FAIL'}elseif(@($results | Where-Object status -eq 'BLOCKED').Count){'BLOCKED'}else{'PASS'}
-  $receipt=@{schema='aerotrace.preflight.v1';profile=$Profile;status=$state;commit=$commit;workingTreeDirty=$dirty;desktopBuild=$BuildDirectory;backendBuild=$BackendBuild;reusedDesktopBuild=[bool]$SkipBuild;startedUtc=$started;updatedUtc=[DateTime]::UtcNow.ToString('o');physicalQualification='NOT RUN';ciCd='NOT CONFIGURED / NOT RUN';results=$results.ToArray()}
+  $receipt=@{schema='aerotrace.preflight.v1';profile=$Profile;status=$state;commit=$commit;workingTreeDirty=$dirty;desktopBuild=$BuildDirectory;backendBuild=$BackendBuild;reusedDesktopBuild=[bool]$SkipBuild;parallelFuzz=[bool]$ParallelFuzz;startedUtc=$started;updatedUtc=[DateTime]::UtcNow.ToString('o');physicalQualification='NOT RUN';ciCd='NOT CONFIGURED / NOT RUN';results=$results.ToArray()}
   $receipt | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath (Join-Path $ReportDirectory 'receipt.json') -Encoding UTF8
   $rows=@('# Local preflight',"","Profile: $Profile; commit: $commit","",'Physical qualification: NOT RUN. No CI/CD workflows or remote operations.','', '| Check | Status | Evidence |','|---|---|---|')
   foreach($r in $results){$rows+='| '+$r.name+' | '+$r.status+' | '+$r.evidence+' |'}
@@ -56,7 +57,7 @@ Check 'mandatory-test-inventory' {
 Check 'desktop-regressions' {& 'C:/Qt/Tools/CMake_64/bin/ctest.exe' --test-dir $BuildDirectory --output-on-failure --output-junit (Join-Path $ReportDirectory 'desktop-tests.xml')}
 if($Profile -eq 'Full'){
   Check 'native-sanitizer-build-tests' {& "$PSScriptRoot/build-verified-backend.ps1" -BuildDirectory $BackendBuild -Test}
-  Check 'parser-fuzzing' {& "$PSScriptRoot/run-fuzz.ps1" -BuildDirectory $BackendBuild -OutputDirectory (Join-Path $ReportDirectory 'fuzz') -Seconds $FuzzSeconds}
+  Check 'parser-fuzzing' {& "$PSScriptRoot/run-fuzz.ps1" -BuildDirectory $BackendBuild -OutputDirectory (Join-Path $ReportDirectory 'fuzz') -Seconds $FuzzSeconds -Parallel:$ParallelFuzz}
   # Do not run CPU-heavy fuzzers while collecting baseline GUI timing.
   Check 'four-stream-soak' {Run-Stress $SoakSeconds (Join-Path $ReportDirectory 'soak') $false}
   Check 'document-contention' {Run-Stress 30 (Join-Path $ReportDirectory 'contention') $true}
