@@ -118,7 +118,8 @@ void Window::refreshOperatorState() {
   captureButton->setText(savingSession ? "Saving…" : connecting ? "Cancel connection" : backend.acquisition.connected() || backend.acquisition.active() ? "Disconnect devices" : !backend.captureConfig.hardware ? "Start simulator" : metrics.failed ? "Retry connection" : "Connect devices");
   stateBadge->setText(connecting ? "Checking devices" : backend.acquisition.active() ? "● Recording" : metrics.failed ? "● SDK error" : backend.acquisition.connected() ? "Connected" : "Disconnected");
   const auto color=metrics.failed ? "#b33a32" : backend.acquisition.active() && backend.captureConfig.hardware ? "#28624d" : "#62685f";
-  stateBadge->setStyleSheet(QString("color:%1;font-size:14px;padding:6px;").arg(color));
+  const auto badgeStyle=QString("color:%1;font-size:14px;padding:6px;").arg(color);
+  if(stateBadge->styleSheet()!=badgeStyle)stateBadge->setStyleSheet(badgeStyle);
   for(unsigned i=0;i<2;++i) if(deviceStatuses[i]) {
     if(deviceTitles[i]) deviceTitles[i]->setText(QString("Device %1  /  %2").arg(backend.captureConfig.logicalDevices[i]).arg(i ? "Internal" : "External"));
     const auto &device=metrics.devices[i];QString status,ink="#62685f";
@@ -135,7 +136,8 @@ void Window::refreshOperatorState() {
     if(backend.captureConfig.enabled[i*2]) buses="A";
     if(backend.captureConfig.enabled[i*2+1]) buses+=(buses.isEmpty() ? "B" : " + B");
     deviceStatuses[i]->setText(QString("Channel %1  ·  %2  ·  %3").arg(i+1).arg(buses.isEmpty() ? "No buses" : buses,status));
-    deviceStatuses[i]->setStyleSheet(QString("color:%1;font-size:13px;").arg(ink));
+    const auto deviceStyle=QString("color:%1;font-size:13px;").arg(ink);
+    if(deviceStatuses[i]->styleSheet()!=deviceStyle)deviceStatuses[i]->setStyleSheet(deviceStyle);
     deviceStatuses[i]->setToolTip(QString::fromStdString(device.message));
   }
   for(unsigned c=0;c<2;++c)if(paneCounts[c]) {

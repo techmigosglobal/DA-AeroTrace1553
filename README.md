@@ -59,7 +59,7 @@ The Windows adapter builds against the selected installed aceXtreme SDK, loads i
 
 The supplied November 2 SES notes report BU-67113U, started acexusb 3.6.15.1 and logical channels 0/1. The original zero-message check was followed by loopback: 6,041 messages over 600 seconds before clock correction, then six corrected-clock runs totaling 606 messages with populated CSV verification. These are historical results from SES, not live inventory of the computer reading this source. See `.codebase-memory/RecordingFix-validation-20261102.md`.
 
-`DDC_SDK_ROOT` is a CMake cache path. The licensed SDK remains external to the source tree. The Windows package includes the selected runtime/license for this PC; external redistribution remains subject to the vendor license. Qt 6.11.1 and SDK 3.6.15 were tested here. Other Qt 6 and DDC SDK versions require a matching rebuild and validation; universal version compatibility is not established.
+`DDC_SDK_ROOT` is a CMake cache path. The licensed SDK remains external to the source tree. The Windows package includes the selected runtime/license for this PC; external redistribution remains subject to the vendor license. The supplied SES evidence used Qt 6.11.1 and SDK 3.6.15. Current development verification uses Qt 6.12.0 and a provider built against the locally installed SDK 4.10.2; its physical qualification remains NOT RUN. Other SDKs require their own provider build and evidence, as described in the [provider contract](docs/provider-contract.md).
 
 ## Automatic ICD workflow
 
@@ -69,7 +69,7 @@ The supplied November 2 SES notes report BU-67113U, started acexusb 3.6.15.1 and
 4. Approved mappings feed worker-side engineering conversion and live plots. Integer fields up to 64 bits, signed values, IEEE float32/64, packed BCD, scale/offset, word order, channel and bus constraints are supported.
 5. Search imported ICDs using **SQLite FTS5 BM25 + local MiniLM semantic vectors**. Extractive answers include document/page citations. An optional loopback OpenAI-compatible model endpoint can synthesize prose; no language-model server or generative weights are bundled.
 
-Document originals, hashes, page evidence, profiles and indexes stay in the per-user application data directory. Processing uses one cancellable child process. On Windows it has a 1 GiB commit limit, a requested 20% CPU hard cap, below-normal priority, two inference threads and a 15-minute job timeout. The document process never owns hardware state. Package setup downloads dependencies/models once; document import itself needs no network.
+Document originals, hashes, page evidence, profiles and indexes stay in the per-user application data directory. Processing uses one cancellable child process. On Windows it has a 1 GiB commit limit, a requested 20% CPU hard cap, normal scheduling priority, two inference threads, single-threaded BLAS/OpenMP settings and a 15-minute job timeout. The document process never owns hardware state. Package setup downloads dependencies/models once; document import itself needs no network.
 
 Supported table columns and review behavior are documented in `docs/icd-documents.md`. Arbitrary PDFs are not guaranteed to contain enough information to generate a correct engineering mapping.
 

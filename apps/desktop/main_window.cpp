@@ -10,6 +10,12 @@
 #include "services/session_store.hpp"
 #include "services/workspace_style.hpp"
 
+namespace desktop {
+namespace {std::array<aero::TimingHistogram,8> updateStages;}
+void resetGuiUpdateStages(){updateStages={};}
+std::array<aero::TimingHistogram,8> guiUpdateStages(){return updateStages;}
+}
+
 Window::Window()
       : settings(desktop::preferencesPath(),
                  QSettings::IniFormat){
@@ -392,7 +398,8 @@ void Window::toggleCapture(){
 
 void Window::updateLive(){
     QElapsedTimer updateElapsed;updateElapsed.start();
-    struct ObserveUpdate {aero::TimingHistogram &h;QElapsedTimer &t;~ObserveUpdate(){h.observe(t.nsecsElapsed());}} observeUpdate{guiUpdateTiming,updateElapsed};
+    const unsigned viewStage=page==4?(rtGrouped?0:1):page==7?2:3;
+    struct ObserveUpdate {aero::TimingHistogram &h;QElapsedTimer &t;unsigned mode;~ObserveUpdate(){const auto ns=t.nsecsElapsed();h.observe(ns);desktop::updateStages[mode].observe(ns);}} observeUpdate{guiUpdateTiming,updateElapsed,viewStage};
     static QElapsedTimer heartbeat;static qint64 previousHeartbeat=0;
     if(!heartbeat.isValid())heartbeat.start();const auto nowHeartbeat=heartbeat.elapsed();
     if(previousHeartbeat && nowHeartbeat-previousHeartbeat>qMax(500,tick.interval()*4))applicationEvent("ui_heartbeat_delay","",{{"gap_ms",nowHeartbeat-previousHeartbeat},{"page",page},{"recording",currentFile}});previousHeartbeat=nowHeartbeat;
@@ -401,18 +408,23 @@ void Window::updateLive(){
     auto incoming = backend.acquisition.drain();
     if (!incoming.empty()) {
       if(!backend.selected.id) backend.selected=incoming.front();
+      const auto cacheBegan=updateElapsed.nsecsElapsed();
       if (backend.accept(incoming)) {
         eventText = "In-memory analysis window trimmed; raw recording retained";
       }
+      desktop::updateStages[4].observe(updateElapsed.nsecsElapsed()-cacheBegan);
       if (!displayPaused) {
+        const auto modelsBegan=updateElapsed.nsecsElapsed();
         model.append(incoming);
         if(monitor && (!monitorWorkspace || !monitorWorkspace->isVisible()) && selectedMonitorId) for(int row=0;row<model.rowCount();++row)
           if(model.at(row)->id==selectedMonitorId) {monitor->selectionModel()->setCurrentIndex(model.index(row,selectedMonitorColumn),QItemSelectionModel::ClearAndSelect|QItemSelectionModel::Rows);break;}
         refreshMonitorPanes(true);
         if (monitor && (!monitorWorkspace || !monitorWorkspace->isVisible()) && settings.value("autoscroll", true).toBool())
           monitor->scrollToBottom();
+        desktop::updateStages[5].observe(updateElapsed.nsecsElapsed()-modelsBegan);
       }
     }
+    const auto chromeBegan=updateElapsed.nsecsElapsed();
     if (backend.acquisition.error()) {
       stateBadge->setText("● CAPTURE ERROR");
       const auto message=QString::fromStdString(backend.acquisition.metrics(false).error);
@@ -434,8 +446,12 @@ void Window::updateLive(){
               .arg(health.displayDrops).arg(health.hardwareLost).arg(health.hardwareOverflows).arg(health.failed?"   ·   INCOMPLETE — inspect diagnostics":""));
     refreshOperatorState();
     refreshRtDashboard();
-    if (!incoming.empty())
+    desktop::updateStages[6].observe(updateElapsed.nsecsElapsed()-chromeBegan);
+    if (!incoming.empty()) {
+      const auto dataBegan=updateElapsed.nsecsElapsed();
       refreshDataViews();
+      desktop::updateStages[7].observe(updateElapsed.nsecsElapsed()-dataBegan);
+    }
     if (backend.replayPlaying && backend.replayCount() && !replaySeekPending) {
       const auto delta=replayClock.restart();const auto target=backend.replayPositionNs+delta*1000000.*backend.replaySpeed;auto lo=backend.replayIndex,hi=backend.replayCount();
       while(lo<hi){const auto mid=lo+(hi-lo)/2;if((backend.recordingIndex?backend.recordingIndex->playbackTimestamp(mid):backend.replayTimestamp(mid))<=target)lo=mid+1;else hi=mid;}

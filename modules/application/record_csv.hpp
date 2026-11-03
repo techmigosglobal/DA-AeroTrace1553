@@ -50,17 +50,21 @@ inline std::string rawCsvRecord(const Record &r,bool backwards=false,const std::
 inline std::string sessionCsvHex(std::uint16_t value) {
   auto out=csvHex(value);for(auto &c:out)if(c>='A'&&c<='F')c=char(c-'A'+'a');return out;
 }
+inline void sessionCsvNumber(std::string &out,std::uint64_t value,unsigned width) {
+  char digits[32];const auto end=std::to_chars(digits,digits+sizeof(digits),value).ptr;
+  const auto length=unsigned(end-digits);if(length<width)out.append(width-length,'0');out.append(digits,end);
+}
 inline std::string sessionCsvTime(std::uint64_t ns) {
   const auto us=ns/1000;const auto hours=us/3600000000ULL;
-  std::ostringstream s;s.imbue(std::locale::classic());s<<std::setfill('0')<<std::setw(2)<<hours<<':'
-    <<std::setw(2)<<(us/60000000)%60<<':'<<std::setw(2)<<(us/1000000)%60<<' '
-    <<std::setw(3)<<(us/1000)%1000<<'.'<<std::setw(3)<<us%1000;return s.str();
+  std::string out;out.reserve(24);sessionCsvNumber(out,hours,2);out+=':';
+  sessionCsvNumber(out,(us/60000000)%60,2);out+=':';sessionCsvNumber(out,(us/1000000)%60,2);out+=' ';
+  sessionCsvNumber(out,(us/1000)%1000,3);out+='.';sessionCsvNumber(out,us%1000,3);return out;
 }
 inline std::string sessionCsvCommand(std::uint16_t word) {
-  const auto c=command(word);std::ostringstream s;s.imbue(std::locale::classic());
+  const auto c=command(word);auto out=sessionCsvHex(word);out.reserve(24);
   // The final field is the encoded 5-bit word-count/mode field (00 means 32 data words).
-  s<<sessionCsvHex(word)<<" --> "<<std::setfill('0')<<std::setw(2)<<c.rt<<'-'<<(c.transmit?'T':'R')
-   <<'-'<<std::setw(2)<<c.sa<<'-'<<std::setw(2)<<unsigned(word&31);return s.str();
+  out+=" --> ";sessionCsvNumber(out,c.rt,2);out+='-';out+=c.transmit?'T':'R';out+='-';
+  sessionCsvNumber(out,c.sa,2);out+='-';sessionCsvNumber(out,word&31,2);return out;
 }
 inline std::string sessionCsvHeader() {
   std::string s="DateTime,DeltaT,BlockStatus,MessageType,Bus,Rx_Cmd,Tx_Cmd,Tx_Status,Rx_Status,WordCount";

@@ -2,6 +2,7 @@
 #include "services/session_store.hpp"
 #include "qualification_source.hpp"
 #include "record_csv.hpp"
+namespace desktop {void resetGuiUpdateStages();std::array<aero::TimingHistogram,8> guiUpdateStages();}
 #ifdef Q_OS_WIN
 #include <windows.h>
 #include <psapi.h>
@@ -26,7 +27,7 @@ bool Window::performanceTest(const QString &directory){
   for(int c=0;c<2;++c){settings.setValue(QString("pane%1Bus").arg(c),"");settings.setValue(QString("pane%1Rt").arg(c),-1);settings.setValue(QString("pane%1Search").arg(c),"");}settings.setValue("monitorRowMode","rt");settings.setValue("monitorLayout","windows");
   auto generated=std::make_shared<std::atomic<std::uint64_t>>(0);bool passed=backend.acquisition.startConfigured(path,backend.captureConfig,std::make_unique<aero::QualificationSource>(50000,generated));
   tick.setInterval(50);resize(1700,1000);navigate(4);
-  guiUpdateTiming={};
+  guiUpdateTiming={};desktop::resetGuiUpdateStages();
   PaintObserver observer;observer.displayedHost=[&]()->std::uint64_t{if(page!=4)return 0;if(rtGrouped){const auto *r=rtModels[0].recordFor(rtModels[0].index(0,0));return r?r->hostMonotonicNs:0;}const auto *r=paneModels[0].at(paneModels[0].rowCount()-1);return r?r->hostMonotonicNs:0;};
   auto watchPaint=[&]{for(auto v:rtViews)if(v)v->viewport()->installEventFilter(&observer);for(auto v:paneViews)if(v)v->viewport()->installEventFilter(&observer);};watchPaint();
   QElapsedTimer clock;clock.start();qint64 last=0,maxGap=0;std::vector<qint64> gaps;QJsonArray memorySamples;aero::TimingHistogram guiUpdate;int stage=0;
@@ -53,16 +54,20 @@ bool Window::performanceTest(const QString &directory){
   const bool documentComplete=!contention||(documentWorkerObserved&&importedDocument());if(documentDialog)documentDialog->close();
   std::array<std::uint64_t,4> observed{};bool contents=true;std::uint64_t ordinal=0;
   const auto recorded=aero::scanRecording(path,[&](const aero::Record &r,auto){auto expected=aero::qualificationRecord(ordinal++);expected.hostMonotonicNs=r.hostMonotonicNs;contents&=r==expected;if(r.channel<1||r.channel>2||r.bus>1)return false;++observed[(r.channel-1)*2+r.bus];return true;});
-  bool counts=recorded.count==total&&metrics.recorded==total&&live&&live->records==total;for(unsigned k=0;k<4;++k)counts&=observed[k]==(total+3-k)/4&&observed[k]==metrics.sourceCounts[k];
+  const auto rtFrame=backend.acquisition.rtFrame();
+  bool counts=recorded.count==total&&metrics.recorded==total&&rtFrame&&rtFrame->revision==total;for(unsigned k=0;k<4;++k)counts&=observed[k]==(total+3-k)/4&&observed[k]==metrics.sourceCounts[k];
   std::sort(gaps.begin(),gaps.end());const auto p95=gaps.empty()?0:gaps[gaps.size()*95/100];const auto p99=gaps.empty()?0:gaps[gaps.size()*99/100];
   qint64 warm=0,peak=0;for(auto entry:memorySamples){const auto o=entry.toObject();if(o["elapsed_ms"].toInteger()>=60000){const auto bytes=o["private_bytes"].toInteger();if(!warm)warm=bytes;peak=qMax(peak,bytes);}}
   const auto effective=total*1000./qMax<qint64>(1,elapsed);bool bounded=true;if(live)for(const auto &trace:live->traces)bounded&=trace.size()<=1024;
   passed&=counts&&contents&&!metrics.failed&&!recorded.recovered&&recorded.error.empty()&&!metrics.hardwareLost&&!metrics.hardwareOverflows&&metrics.queueHighWater<=8192&&bounded&&p95<100&&effective>=49000&&(!warm||peak-warm<128ll*1024*1024)&&documentComplete&&(duration<65||warm>0)&&plotSamples>0;
   QJsonObject stages;for(unsigned k=0;k<aero::TimingStageCount;++k)stages[aero::timingNames[k]]=timingJson(metrics.timings[k]);
   stages["gui_update"]=timingJson(guiUpdateTiming);
+  const auto guiStages=desktop::guiUpdateStages();const char *guiNames[]={"gui_rt_grouped","gui_chronological","gui_plots","gui_other_pages","gui_analysis_cache","gui_record_models","gui_operator_controls","gui_data_views"};for(unsigned k=0;k<guiStages.size();++k)stages[guiNames[k]]=timingJson(guiStages[k]);
   stages["capture_ingress_to_viewport_paint"]=timingJson(observer.latency);
   QJsonObject result{{"schema","aerotrace.software-qualification.v2"},{"status",passed?"PASS":"FAIL"},{"source","deterministic software fixture; no physical hardware"},{"physical_qualification","NOT RUN"},{"requested_events_per_second",50000},{"generated",double(total)},{"recorded",double(metrics.recorded)},{"exact_record_contents",contents},{"exact_stream_counts",counts},{"seconds",elapsed/1000.},{"effective_records_per_second",effective},{"p95_gui_heartbeat_ms",p95},{"p99_gui_heartbeat_ms",p99},{"max_gui_heartbeat_gap_ms",maxGap},{"capture_to_paint_scope","Host ingress to Paint event for an applied External RT/raw row; excludes plot-only interval and physical wire latency"},{"stage_timings",stages},{"display_skips",double(metrics.displayDrops)},{"queue_high_water",double(metrics.queueHighWater)},{"hardware_lost",double(metrics.hardwareLost)},{"hardware_overflows",double(metrics.hardwareOverflows)},{"memory_samples",memorySamples},{"memory_gate_measured",warm>0},{"post_warmup_growth_bytes",peak-warm},{"plots_exercised",plotSamples>0},{"plot_samples",double(plotSamples)},{"trace_bounds",bounded},{"document_contention",contention},{"document_import_complete",documentComplete},{"recording",currentFile},{"application_log",applicationLogPath()},{"build_qt",qVersion()}};
   result["document_worker_observed_during_capture"]=documentWorkerObserved;result["document_completed_during_capture"]=documentCompletedDuringCapture;result["document_sha256"]=documentHash;
+  result["rt_capture_records"]=double(rtFrame?rtFrame->revision:0);result["engineering_revision_records"]=double(live?live->records:0);
+  QJsonArray streamCounts;for(unsigned k=0;k<4;++k)streamCounts.append(QJsonObject{{"channel",int(k/2+1)},{"bus",k%2?"B":"A"},{"expected",double((total+3-k)/4)},{"recorded",double(observed[k])},{"acquisition",double(metrics.sourceCounts[k])}});result["stream_counts"]=streamCounts;
   const auto csvRoot=temporary.path()+"/CSV";QDir().mkpath(csvRoot);
   if(duration>=30){
     QFutureWatcher<QJsonObject> job;QEventLoop finished;connect(&job,&QFutureWatcher<QJsonObject>::finished,&finished,&QEventLoop::quit);

@@ -32,6 +32,8 @@ Deterministic input carries independent per-stream sequences, RT 2/3 activity, k
 
 Acceptance: exact counts/payloads, intact recording CRCs, no capture loss/overflow, throughput at least 49,000/s, p95 GUI heartbeat below 100 ms, bounded queue/trace sizes, actual plotting and private-memory growth below 128 MiB after 60 seconds of warm-up. Record p99 and maximum heartbeat as well; a passing percentile does not mean zero lag.
 
+The memory-growth and GUI heartbeat gates cover the timed live-capture window. Subsequent full CSV comparison and replay verification run after recording stops. The current replay index stores one entry per record, so its offline memory requirement grows with the recording; that allocation is not covered by the live-capture memory gate.
+
 Stage distributions use fixed-memory log2 histograms with inclusive upper-bound quantiles. Separate SDK polling, packet processing, packet/record writes, conversion, RT aggregation, publication, flush, checks, overall worker and GUI update costs. Software ingress-to-Paint samples concern an applied External RT/raw row, exclude the plot-only interval and do not measure physical wire latency. SDK stages are naturally empty in a direct software-source run; the hardware collector emits those stages on the bench.
 
 The 50k software workload is not a proposed physical 1553 bus schedule. Physical rates, traffic mix, timing accuracy, electrical behavior and reconnect/endurance acceptance require the real bench and reference equipment.

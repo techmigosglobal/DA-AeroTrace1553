@@ -28,7 +28,11 @@ Test providers live under `fixtures`, require explicit selection and refuse runt
 
 The script compiles a separate, uniquely named production DLL, descriptor and contract fixtures. It does not install drivers or transmit traffic. Licensed headers, runtimes and driver packages remain outside Git. Supply the appropriate runtime/driver/card/firmware evidence for the actual target PC.
 
-4.10.2 is available locally. For 3.6.15, set AEROTRACE_SDK_3615_ROOT to the licensed SDK folder; until available, its vendor compilation and verification status is BLOCKED. The common provider contract and rejection fixtures are executable independently of that missing package. No universal future-SDK compatibility is claimed.
+Use -SdkIdentity for an explicit package label when the folder is named generically, for example -SdkIdentity aceXtremeSDK-4.4.2.4. -Runtime selects an exact runtime DLL from the supplied package when it differs from the standard SDK-folder location. The provider is compiled against the supplied headers, fingerprinted against that DLL, contract-tested, and inspected without opening a card. This does not establish compatibility with a different header/runtime combination. Use a separate provider ID and retain the package evidence for each combination.
+
+4.10.2 is available locally. The supplied BU-69092S0 4.4.2.4 package has also been built as a separate provider, contract-tested and inspected against its x64 runtime. Both providers can coexist; selection follows the chosen runtime fingerprint. For 3.6.15, set AEROTRACE_SDK_3615_ROOT to the licensed SDK folder; until available, its vendor compilation and verification status is BLOCKED. The common provider contract and rejection fixtures are executable independently of that missing package. No universal future-SDK compatibility is claimed.
+
+The supplied BU-69065 4.5.0 archive is a separate Tester/Simulator Menu product. Its TestSim32.dll files are COFF-i386, and matching x64 SDK headers/runtime were not supplied. This is a separate provider/architecture requirement, not another aceXtreme version. The x64 application rejects a 32-bit runtime instead of interpreting it through an incompatible interface. See [family evidence](../modules/acquisition/providers/families.json).
 
 ## Checks and qualification states
 
