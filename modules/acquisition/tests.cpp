@@ -2,6 +2,17 @@
 #include <chrono>
 #include <iostream>
 #include <stdexcept>
+#include <condition_variable>
+
+struct OpenGate {std::mutex mutex;std::condition_variable changed;bool entered{},released{};};
+class GatedOpen final : public aero::CaptureSource {
+  std::shared_ptr<OpenGate> gate;
+public:
+  explicit GatedOpen(std::shared_ptr<OpenGate> value):gate(std::move(value)){}
+  std::string open(const aero::CaptureConfig &) override {std::unique_lock lock(gate->mutex);gate->entered=true;gate->changed.notify_all();gate->changed.wait(lock,[&]{return gate->released;});return {};}
+  std::string poll(aero::SourceBatch &,std::stop_token) override {std::this_thread::sleep_for(std::chrono::milliseconds(1));return {};}
+  void close() override {}
+};
 
 class SlowOpen final : public aero::CaptureSource {
 public:
@@ -60,11 +71,14 @@ int main() {
     if (!acquisition.start(directory / "restart.atd")) throw std::runtime_error("restart failed");
     acquisition.stop();
     aero::CaptureConfig delayed;delayed.hardware=false;
-    const auto before=std::chrono::steady_clock::now();
-    auto future=acquisition.beginConfigured(directory/"delayed.atd",delayed,std::make_unique<SlowOpen>());
-    if(std::chrono::steady_clock::now()-before>std::chrono::milliseconds(100) || future.wait_for(std::chrono::milliseconds(20))!=std::future_status::timeout)
-      throw std::runtime_error("Device initialization blocked its caller");
-    if(!future.get() || !acquisition.active()) throw std::runtime_error("Asynchronous initialization did not complete");
+    auto gate=std::make_shared<OpenGate>();
+    auto returned=std::async(std::launch::async,[&]{return acquisition.beginConfigured(directory/"delayed.atd",delayed,std::make_unique<GatedOpen>(gate));});
+    bool entered=false;{std::unique_lock lock(gate->mutex);entered=gate->changed.wait_for(lock,std::chrono::seconds(5),[&]{return gate->entered;});}
+    const bool returnedWhileOpenBlocked=returned.wait_for(std::chrono::seconds(5))==std::future_status::ready;
+    {std::lock_guard lock(gate->mutex);gate->released=true;}gate->changed.notify_all();
+    auto initialized=returned.get();
+    if(!entered||!returnedWhileOpenBlocked)throw std::runtime_error("Device initialization did not return while open was blocked");
+    if(!initialized.get() || !acquisition.active()) throw std::runtime_error("Asynchronous initialization did not complete");
     acquisition.stop();
     auto cancelled=acquisition.beginConfigured(directory/"cancelled.atd",delayed,std::make_unique<SlowOpen>());
     acquisition.requestStop();if(cancelled.get()) throw std::runtime_error("Cancelled initialization started capture");acquisition.stop();

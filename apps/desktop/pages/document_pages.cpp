@@ -119,12 +119,15 @@ void Window::documentCenter(QString pdf) {
     connect(process,&QProcess::started,dialog,[process,resourceJob,form] {
       HANDLE child=OpenProcess(PROCESS_SET_QUOTA|PROCESS_TERMINATE|PROCESS_SET_INFORMATION,FALSE,DWORD(process->processId()));
       const bool assigned=child && AssignProcessToJobObject(resourceJob.get(),child);
-      if(child) {SetPriorityClass(child,BELOW_NORMAL_PRIORITY_CLASS);CloseHandle(child);}
+      // A hard CPU cap already reserves acquisition headroom. Below-normal
+      // priority can starve startup indefinitely on a busy workstation.
+      if(child) {SetPriorityClass(child,NORMAL_PRIORITY_CLASS);CloseHandle(child);}
       if(!assigned) {form.status->setText("Cannot enforce document worker limits; job stopped.");process->kill();}
     });
 #endif
     auto environment=QProcessEnvironment::systemEnvironment();environment.insert("PYTHONUTF8","1");environment.insert("PYTHONUNBUFFERED","1");
     environment.insert("PYTHONNOUSERSITE","1");environment.remove("PYTHONHOME");environment.remove("PYTHONPATH");
+    environment.insert("OPENBLAS_NUM_THREADS","1");environment.insert("OMP_NUM_THREADS","1");environment.insert("MKL_NUM_THREADS","1");
     process->setProcessEnvironment(environment);
     process->setProcessChannelMode(QProcess::SeparateChannels);
     form.importButton->setEnabled(false);form.askButton->setEnabled(false);form.cancelButton->setEnabled(true);form.activateButton->setEnabled(false);
