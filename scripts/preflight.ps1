@@ -18,7 +18,7 @@ $env:QT_QPA_PLATFORM='offscreen';$results=[Collections.Generic.List[object]]::ne
 $commit=(& git -C $project rev-parse HEAD).Trim();$dirty=![string]::IsNullOrWhiteSpace((& git -C $project status --porcelain | Out-String))
 function Write-Receipt {
   $state=if(@($results | Where-Object status -eq 'FAIL').Count){'FAIL'}elseif(@($results | Where-Object status -eq 'BLOCKED').Count){'BLOCKED'}else{'PASS'}
-  $receipt=@{schema='aerotrace.preflight.v1';profile=$Profile;status=$state;commit=$commit;workingTreeDirty=$dirty;startedUtc=$started;updatedUtc=[DateTime]::UtcNow.ToString('o');physicalQualification='NOT RUN';ciCd='NOT CONFIGURED / NOT RUN';results=$results.ToArray()}
+  $receipt=@{schema='aerotrace.preflight.v1';profile=$Profile;status=$state;commit=$commit;workingTreeDirty=$dirty;desktopBuild=$BuildDirectory;backendBuild=$BackendBuild;reusedDesktopBuild=[bool]$SkipBuild;startedUtc=$started;updatedUtc=[DateTime]::UtcNow.ToString('o');physicalQualification='NOT RUN';ciCd='NOT CONFIGURED / NOT RUN';results=$results.ToArray()}
   $receipt | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath (Join-Path $ReportDirectory 'receipt.json') -Encoding UTF8
   $rows=@('# Local preflight',"","Profile: $Profile; commit: $commit","",'Physical qualification: NOT RUN. No CI/CD workflows or remote operations.','', '| Check | Status | Evidence |','|---|---|---|')
   foreach($r in $results){$rows+='| '+$r.name+' | '+$r.status+' | '+$r.evidence+' |'}
@@ -35,7 +35,9 @@ function Run-Stress([int]$Seconds,[string]$Folder,[bool]$Contention){
   New-Item -ItemType Directory -Force $env:AEROTRACE_SOAK_ROOT | Out-Null
   if($Contention){$env:AEROTRACE_SOAK_CONTENTION='1'}else{Remove-Item Env:AEROTRACE_SOAK_CONTENTION -ErrorAction SilentlyContinue}
   Remove-Item Env:AEROTRACE_DDC_PROVIDER -ErrorAction SilentlyContinue
-  $exe=Join-Path $BuildDirectory 'apps/desktop/aerotrace_desktop.exe';$proc=Start-Process -FilePath $exe -ArgumentList @('--performance-test',('"'+$Folder+'"')) -WorkingDirectory $project -WindowStyle Hidden -PassThru -Wait -RedirectStandardOutput (Join-Path $Folder 'stdout.log') -RedirectStandardError (Join-Path $Folder 'stderr.log')
+  $exe=Join-Path $BuildDirectory 'apps/desktop/aerotrace_desktop.exe'
+  @{schema='aerotrace.stress-launch.v1';sourceCommit=$commit;workingTreeDirty=$dirty;executable=$exe;executableSha256=(Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash;requestedSeconds=$Seconds;documentContention=$Contention;startedUtc=[DateTime]::UtcNow.ToString('o')} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $Folder 'launch.json') -Encoding UTF8
+  $proc=Start-Process -FilePath $exe -ArgumentList @('--performance-test',('"'+$Folder+'"')) -WorkingDirectory $project -WindowStyle Hidden -PassThru -Wait -RedirectStandardOutput (Join-Path $Folder 'stdout.log') -RedirectStandardError (Join-Path $Folder 'stderr.log')
   if($proc.ExitCode -ne 0){throw "Stress process failed with exit $($proc.ExitCode)"}
   $report=Get-Content -LiteralPath (Join-Path $Folder 'performance.json') -Raw | ConvertFrom-Json
   if(!$report.passed){throw 'Stress acceptance failed'}
