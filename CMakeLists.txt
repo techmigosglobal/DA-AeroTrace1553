@@ -80,11 +80,15 @@ set(document_python_candidates "${AEROTRACE_DOCUMENT_PYTHON}"
 set(AEROTRACE_DOCUMENT_PYTHON "")
 foreach(candidate IN LISTS document_python_candidates)
   if(EXISTS "${candidate}")
-    execute_process(COMMAND "${candidate}" -c "import numpy, onnxruntime, pdfplumber"
-      RESULT_VARIABLE python_healthy OUTPUT_QUIET ERROR_QUIET TIMEOUT 15)
+    execute_process(COMMAND ${CMAKE_COMMAND} -E env OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
+      "${candidate}" -c "import numpy, onnxruntime, pdfplumber"
+      RESULT_VARIABLE python_healthy OUTPUT_QUIET ERROR_QUIET TIMEOUT 60)
     if(python_healthy EQUAL 0)
       set(AEROTRACE_DOCUMENT_PYTHON "${candidate}")
+      set(AEROTRACE_DOCUMENT_PYTHON "${candidate}" CACHE FILEPATH "Python with AeroTrace document dependencies" FORCE)
       break()
+    else()
+      message(WARNING "Document runtime health check failed for ${candidate}: ${python_healthy}; document tests are unavailable")
     endif()
   endif()
 endforeach()

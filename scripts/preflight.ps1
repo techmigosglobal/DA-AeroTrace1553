@@ -47,6 +47,12 @@ function Run-Stress([int]$Seconds,[string]$Folder,[bool]$Contention){
 $started=[DateTime]::UtcNow.ToString('o')
 Check 'tool-inventory' {& git --version;& "$QtRoot/bin/qmake.exe" -query QT_VERSION;& 'C:/Qt/Tools/mingw1310_64/bin/g++.exe' --version;if(!(Test-Path -LiteralPath "$QtRoot/lib/cmake/Qt6Test/Qt6TestConfig.cmake")){throw 'BLOCKED: Qt Test kit missing'}}
 if(!$SkipBuild){Check 'desktop-build' {& "$PSScriptRoot/build.ps1" -QtRoot $QtRoot -BuildDirectory $BuildDirectory}}
+Check 'mandatory-test-inventory' {
+  $testJson=& 'C:/Qt/Tools/CMake_64/bin/ctest.exe' --test-dir $BuildDirectory --show-only=json-v1
+  if($LASTEXITCODE -ne 0){throw 'Test discovery failed'}
+  $names=@(($testJson | ConvertFrom-Json).tests | ForEach-Object name)
+  foreach($required in @('offline_pdf_ocr_and_retrieval','gui_pdf_to_live_conversion','gui_demo_icd_live','qt_model_consistency','ddc_adapter_contract','provider_runtime_inspection')){if($required -notin $names){throw "BLOCKED: mandatory test was not configured: $required"}}
+}
 Check 'desktop-regressions' {& 'C:/Qt/Tools/CMake_64/bin/ctest.exe' --test-dir $BuildDirectory --output-on-failure --output-junit (Join-Path $ReportDirectory 'desktop-tests.xml')}
 if($Profile -eq 'Full'){
   Check 'native-sanitizer-build-tests' {& "$PSScriptRoot/build-verified-backend.ps1" -BuildDirectory $BackendBuild -Test}
