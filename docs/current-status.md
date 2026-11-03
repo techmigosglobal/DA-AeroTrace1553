@@ -39,9 +39,9 @@ The adapter requests ACE_TT_2US: native MTI ticks represent **2,000 ns**, not 10
 
 Keep C++20, Qt Widgets/Designer/Qwt and isolated Python documents. SQLite session metadata, a DuckDB/Parquet benchmark, NumPy/SciPy analysis and development profiling remain separate stages, not features claimed by this update.
 
-The [development update](development-update-2026-11-02.md) records the current verification: all 25 software checks passed across a full run and one corrected test-setup rerun. No connected DDC card was available. The development executable is an isolated build, with the native plot fallback rather than a Qt-matched Qwt package; no installed release was replaced.
+The [2 November development update](development-update-2026-11-02.md) records an earlier baseline: all 25 software checks passed across a full run and one corrected test-setup rerun. That build used the native plot fallback. The newer qualification build uses Qt 6.12.0 with a matching local Qwt build and an expanded test inventory. No connected DDC card was available, and no installed release was replaced.
 
-The [3 November readiness audit](development-readiness-2026-11-03.md) distinguishes existing OCR/ONNX/document SQLite from the unimplemented session catalog, DuckDB/Parquet, scientific jobs and expanded CI/model/sanitizer tooling. SDK folder/environment selection passed four targeted regression checks after that audit. Lag-free physical operation has not been established.
+The [earlier 3 November readiness audit](development-readiness-2026-11-03.md) distinguishes existing OCR/ONNX/document SQLite from the unimplemented session catalog, DuckDB/Parquet and scientific jobs. The local model/sanitizer/fuzz tooling has since been added. CI/CD remains intentionally unconfigured. Lag-free physical operation has not been established.
 
 ## Provider and verification development — 3 November
 

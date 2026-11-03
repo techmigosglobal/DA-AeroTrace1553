@@ -1,6 +1,6 @@
 # Development readiness — 3 November 2026
 
-This is an implementation audit of the development source, not a declaration that every proposed technology has been integrated or that physical hardware is qualified.
+This is the audit made before the provider and qualification implementation on 3 November. It is retained as a dated baseline. The provider boundary, Qt model tester, native sanitizer builds and fuzz targets described below as outstanding have since been implemented; see the [current status](current-status.md), [provider contract](provider-contract.md) and [local verification](local-verification.md). No CI/CD configuration was added. This audit does not establish physical hardware qualification.
 
 | Capability | Actual status |
 |---|---|

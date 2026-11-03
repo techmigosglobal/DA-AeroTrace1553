@@ -9,7 +9,7 @@ if(MSVC)
   # retain the MSVC container annotations; only fuzz binaries use this setting.
   target_compile_definitions(aerotrace_fuzz_core PUBLIC _DISABLE_STRING_ANNOTATION _DISABLE_VECTOR_ANNOTATION)
 endif()
-foreach(name recording protocol packet)
+foreach(name recording index protocol packet)
   add_executable(aerotrace_fuzz_${name} ${name}_fuzz.cpp)
   target_link_libraries(aerotrace_fuzz_${name} PRIVATE aerotrace_fuzz_core)
   target_compile_options(aerotrace_fuzz_${name} PRIVATE -fsanitize=fuzzer,address,undefined)

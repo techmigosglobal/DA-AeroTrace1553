@@ -3,6 +3,7 @@
 #include "ddc_runtime.hpp"
 #include "protocol.hpp"
 #include "capture_time.hpp"
+#include "evidence_identity.hpp"
 #include <algorithm>
 #include <chrono>
 #include <fstream>
@@ -58,6 +59,7 @@ int main(int argc,char **argv) {
     ownsOutput=true;
     std::ofstream runtime(output/"runtime.json");const auto selection=aero::selectDdcRuntime(config.runtime);runtimeJson(runtime,selection);runtime.flush();
     if(!runtime)throw std::runtime_error("Cannot save runtime evidence");
+    const auto executableHash=bench::executableSha256();
     std::ofstream report(output/"runs.jsonl");if(!report)throw std::runtime_error("Cannot create run report");
     if(!selection.error.empty())throw std::runtime_error(selection.error);config.runtime=selection.path;
     std::ofstream connection(output/"connection.jsonl");
@@ -87,9 +89,10 @@ int main(int argc,char **argv) {
       const auto verdict=!intact?"capture_failed":!traffic?"missing_required_stream":!responses?"response_coverage_missing":"capture_evidence_complete";
       complete&=intact&&traffic&&responses;
       report<<"{\"schema\":\"aerotrace.qualification.v1\",\"run_id\":"<<aero::jsonString(config.runId)<<",\"source\":"<<aero::jsonString(sourceLabel)
+        <<",\"executable_sha256\":"<<aero::jsonString(executableHash)<<",\"evidence_directory\":"<<aero::jsonString(bench::pathText(std::filesystem::absolute(output)))
         <<",\"cycle\":"<<cycle<<",\"requested_seconds\":"<<seconds<<",\"elapsed_ms\":"<<duration_cast<milliseconds>(steady_clock::now()-began).count()
         <<",\"recording\":"<<aero::jsonString(file.string())<<",\"recorded\":"<<m.recorded<<",\"hardware_lost\":"<<m.hardwareLost
-        <<",\"hardware_overflows\":"<<m.hardwareOverflows<<",\"display_skips\":"<<m.displayDrops<<",\"connected_after_stop\":"<<(acquisition.connected()?"true":"false")
+        <<",\"hardware_overflows\":"<<m.hardwareOverflows<<",\"display_skips\":"<<m.displayDrops<<",\"queue_high_water\":"<<m.queueHighWater<<",\"max_worker_batch_ms\":"<<m.maxBatchMilliseconds<<",\"connected_after_stop\":"<<(acquisition.connected()?"true":"false")
         <<",\"status\":"<<aero::jsonString(intact&&traffic&&responses?"PASS":"FAIL")<<",\"physical_qualification\":\"NOT RUN: independent reference comparison and operator sign-off required\",\"verdict\":"<<aero::jsonString(verdict)<<",\"qualification\":\"Reference counts, payloads, timing accuracy and physical reconnection require independent bench acceptance\",\"error\":"<<aero::jsonString(m.error+scan.error)<<",\"streams\":[";
       for(unsigned k=0;k<4;++k){if(k)report<<',';const auto &s=streams[k];report<<"{\"channel\":"<<k/2+1<<",\"bus\":"<<aero::jsonString(k%2?"B":"A")<<",\"required\":"<<(config.enabled[k]?"true":"false")
         <<",\"records\":"<<s.count<<",\"valid\":"<<s.valid<<",\"valid_with_response\":"<<s.responded<<",\"invalid\":"<<s.invalid<<",\"clock_backwards\":"<<s.backwards<<",\"first_ns\":"<<s.first<<",\"last_ns\":"<<s.last<<'}';}
@@ -102,7 +105,7 @@ int main(int argc,char **argv) {
     std::cout<<"Evidence: "<<output<<"; hardware qualification requires reference comparison and operator sign-off\n";
     return complete?0:4;
   }catch(const std::exception &e){
-    if(ownsOutput){std::ofstream failed(output/"failure.json");failed<<"{\"schema\":\"aerotrace.qualification.failure.v1\",\"error\":"<<aero::jsonString(e.what())<<"}\n";}
+    if(ownsOutput){std::ofstream failed(output/"failure.json");failed<<"{\"schema\":\"aerotrace.qualification.failure.v1\",\"status\":\"FAIL\",\"physical_qualification\":\"NOT RUN\",\"executable_sha256\":"<<aero::jsonString(bench::executableSha256())<<",\"evidence_directory\":"<<aero::jsonString(bench::pathText(std::filesystem::absolute(output)))<<",\"error\":"<<aero::jsonString(e.what())<<"}\n";}
     std::cerr<<"Qualification: "<<e.what()<<'\n';return 2;
   }
 }

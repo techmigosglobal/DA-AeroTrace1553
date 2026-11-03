@@ -2,6 +2,7 @@
 #include "qualification_source.hpp"
 #include "signal_checks.hpp"
 #include "capture_time.hpp"
+#include "evidence_identity.hpp"
 #include <array>
 #include <iostream>
 #include <sstream>
@@ -23,7 +24,7 @@ Summary summarize(const std::filesystem::path &path){Summary out;std::array<Hash
 });for(unsigned k=0;k<4;++k)out.digest[k]=hashes[k].finish();return out;}
 bool compare(const std::filesystem::path &reference,const std::filesystem::path &observed,std::ostream &out){const auto a=summarize(reference),b=summarize(observed);bool passed=a.scan.error.empty()&&b.scan.error.empty()&&!a.scan.recovered&&!b.scan.recovered&&a.scan.count>0;
   for(unsigned k=0;k<4;++k)passed&=a.count[k]==b.count[k]&&a.digest[k]==b.digest[k];
-  out<<"{\"schema\":\"aerotrace.reference-comparison.v1\",\"status\":\""<<(passed?"PASS":"FAIL")<<"\",\"physical_qualification\":\"NOT RUN: independent bench sign-off required\",\"timing_accuracy\":\"NOT MEASURED\",\"comparison\":\"Ordered per-stream SHA-256 of commands, statuses, flags, presence and payload; independent inter-stream ordering, identifiers and timestamps excluded\",\"error\":"<<aero::jsonString(a.scan.error+b.scan.error)<<",\"recovered\":"<<(a.scan.recovered||b.scan.recovered?"true":"false")<<",\"streams\":[";
+  out<<"{\"schema\":\"aerotrace.reference-comparison.v1\",\"status\":\""<<(passed?"PASS":"FAIL")<<"\",\"executable_sha256\":"<<aero::jsonString(bench::executableSha256())<<",\"reference\":"<<aero::jsonString(bench::pathText(std::filesystem::absolute(reference)))<<",\"observed\":"<<aero::jsonString(bench::pathText(std::filesystem::absolute(observed)))<<",\"physical_qualification\":\"NOT RUN: independent bench sign-off required\",\"timing_accuracy\":\"NOT MEASURED\",\"comparison\":\"Ordered per-stream SHA-256 of commands, statuses, flags, presence and payload; independent inter-stream ordering, identifiers and timestamps excluded\",\"error\":"<<aero::jsonString(a.scan.error+b.scan.error)<<",\"recovered\":"<<(a.scan.recovered||b.scan.recovered?"true":"false")<<",\"streams\":[";
   for(unsigned k=0;k<4;++k){if(k)out<<',';out<<"{\"channel\":"<<k/2+1<<",\"bus\":\""<<(k%2?'B':'A')<<"\",\"expected\":"<<a.count[k]<<",\"observed\":"<<b.count[k]<<",\"expected_sha256\":\""<<a.digest[k]<<"\",\"observed_sha256\":\""<<b.digest[k]<<"\"}";}out<<"]}\n";return passed;
 }
 int selfTest(){const auto root=std::filesystem::temp_directory_path()/("aerotrace-reference-"+std::to_string(GetCurrentProcessId())+"-"+std::to_string(GetTickCount64()));if(!std::filesystem::create_directory(root))return 1;
@@ -35,4 +36,4 @@ int selfTest(){const auto root=std::filesystem::temp_directory_path()/("aerotrac
   std::filesystem::resize_file(root/"observed.atd",20);if(compare(root/"expected.atd",root/"observed.atd",report))return 1;std::cout<<"PASS: independent inter-stream order, changed payload and truncated evidence\n";return 0;
 }
 }
-int main(int argc,char **argv){try{if(argc==2&&std::string(argv[1])=="--self-test")return selfTest();if(argc!=4){std::cerr<<"Usage: aerotrace_compare <reference.atd> <observed.atd> <report.json>\n";return 2;}std::ofstream report(std::filesystem::path(std::u8string(reinterpret_cast<const char8_t *>(argv[3]))));if(!report)throw std::runtime_error("Cannot create comparison report");const auto passed=compare(std::filesystem::path(std::u8string(reinterpret_cast<const char8_t *>(argv[1]))),std::filesystem::path(std::u8string(reinterpret_cast<const char8_t *>(argv[2]))),report);report.flush();if(!report)throw std::runtime_error("Cannot write comparison report");return passed?0:4;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 2;}}
+int main(int argc,char **argv){try{if(argc==2&&std::string(argv[1])=="--self-test")return selfTest();if(argc!=4){std::cerr<<"Usage: aerotrace_compare <reference.atd> <observed.atd> <new-report.json>\n";return 2;}const auto output=std::filesystem::path(std::u8string(reinterpret_cast<const char8_t *>(argv[3])));if(std::filesystem::exists(output))throw std::runtime_error("Choose a new comparison report; existing evidence is never overwritten");std::ofstream report(output);if(!report)throw std::runtime_error("Cannot create comparison report");const auto passed=compare(std::filesystem::path(std::u8string(reinterpret_cast<const char8_t *>(argv[1]))),std::filesystem::path(std::u8string(reinterpret_cast<const char8_t *>(argv[2]))),report);report.flush();if(!report)throw std::runtime_error("Cannot write comparison report");return passed?0:4;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 2;}}

@@ -217,8 +217,12 @@ ScanResult scanRecordingStream(std::istream &f,const std::function<bool(const Re
   ScanResult result;
   try {
     bool version2=false;if(!recordingHeader(f,version2)) {result.error="Unsupported recording header/version";return result;}
-    for(;;) {const auto offset=f.tellg();Record record;if(!readRecord(f,version2,record,result.recovered)) break;
-      ++result.count;if(!visit(record,std::uint64_t(offset))) break;}
+    // readRecord validates the exact format/word-count length. Track consumed
+    // bytes instead of querying the filesystem position for every message.
+    std::uint64_t offset=8;
+    for(;;) {Record record;if(!readRecord(f,version2,record,result.recovered)) break;
+      ++result.count;if(!visit(record,offset)) break;
+      offset+=8+26+(version2?31:0)+record.words.size()*2;}
   } catch(const std::exception &e) {result.error=e.what();}
   return result;
 }
