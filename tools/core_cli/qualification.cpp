@@ -90,10 +90,12 @@ int main(int argc,char **argv) {
         <<",\"cycle\":"<<cycle<<",\"requested_seconds\":"<<seconds<<",\"elapsed_ms\":"<<duration_cast<milliseconds>(steady_clock::now()-began).count()
         <<",\"recording\":"<<aero::jsonString(file.string())<<",\"recorded\":"<<m.recorded<<",\"hardware_lost\":"<<m.hardwareLost
         <<",\"hardware_overflows\":"<<m.hardwareOverflows<<",\"display_skips\":"<<m.displayDrops<<",\"connected_after_stop\":"<<(acquisition.connected()?"true":"false")
-        <<",\"verdict\":"<<aero::jsonString(verdict)<<",\"qualification\":\"Reference counts, payloads, timing accuracy and physical reconnection require independent bench acceptance\",\"error\":"<<aero::jsonString(m.error+scan.error)<<",\"streams\":[";
+        <<",\"status\":"<<aero::jsonString(intact&&traffic&&responses?"PASS":"FAIL")<<",\"physical_qualification\":\"NOT RUN: independent reference comparison and operator sign-off required\",\"verdict\":"<<aero::jsonString(verdict)<<",\"qualification\":\"Reference counts, payloads, timing accuracy and physical reconnection require independent bench acceptance\",\"error\":"<<aero::jsonString(m.error+scan.error)<<",\"streams\":[";
       for(unsigned k=0;k<4;++k){if(k)report<<',';const auto &s=streams[k];report<<"{\"channel\":"<<k/2+1<<",\"bus\":"<<aero::jsonString(k%2?"B":"A")<<",\"required\":"<<(config.enabled[k]?"true":"false")
         <<",\"records\":"<<s.count<<",\"valid\":"<<s.valid<<",\"valid_with_response\":"<<s.responded<<",\"invalid\":"<<s.invalid<<",\"clock_backwards\":"<<s.backwards<<",\"first_ns\":"<<s.first<<",\"last_ns\":"<<s.last<<'}';}
-      report<<"]}\n";report.flush();if(!report)throw std::runtime_error("Qualification report write failed");
+      report<<"],\"stage_timings\":{";
+      for(unsigned k=0;k<aero::TimingStageCount;++k){if(k)report<<',';const auto &h=m.timings[k];report<<aero::jsonString(aero::timingNames[k])<<":{\"samples\":"<<h.count<<",\"p95_upper_ns\":"<<h.quantile(95)<<",\"p99_upper_ns\":"<<h.quantile(99)<<",\"max_ns\":"<<h.maximumNs<<'}';}
+      report<<"}}\n";report.flush();if(!report)throw std::runtime_error("Qualification report write failed");
       if(m.failed||!acquisition.connected())break;
     }
     acquisition.stop();if(acquisition.error())complete=false;

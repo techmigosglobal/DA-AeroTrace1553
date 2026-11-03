@@ -22,6 +22,23 @@ int main(int argc,char **argv) {
     CHECK(explicitRuntime.candidates[0].usable);
     CHECK(explicitRuntime.candidates[0].legacyMt && explicitRuntime.candidates[0].mti);
     {
+      wchar_t saved[32768]{};CHECK(GetEnvironmentVariableW(L"AEROTRACE_DDC_PROVIDER",saved,32768)>0);
+      const std::filesystem::path good(saved);
+      SetEnvironmentVariableA("AEROTRACE_DDC_PROVIDER",AEROTRACE_TEST_BAD_PROVIDER);
+      CHECK(aero::inspectDdcRuntime(config.runtime).message.find("ABI mismatch")!=std::string::npos);
+      SetEnvironmentVariableW(L"AEROTRACE_DDC_PROVIDER",config.runtime.c_str());
+      CHECK(aero::inspectDdcRuntime(config.runtime).message.find("lacks aerotrace_provider_get_api")!=std::string::npos);
+      const auto wrong=root/"provider-x86.dll";std::filesystem::copy_file(good,wrong);
+      {std::fstream image(wrong,std::ios::binary|std::ios::in|std::ios::out);std::uint32_t offset{};image.seekg(0x3c);image.read(reinterpret_cast<char *>(&offset),4);image.seekp(offset+4);const std::uint16_t machine=0x14c;image.write(reinterpret_cast<const char *>(&machine),2);}
+      SetEnvironmentVariableW(L"AEROTRACE_DDC_PROVIDER",wrong.c_str());CHECK(!aero::inspectDdcRuntime(config.runtime).available);
+      const auto ambiguous=root/"ambiguous-providers";std::filesystem::create_directory(ambiguous);
+      std::filesystem::copy_file(good,ambiguous/"first.dll");std::filesystem::copy_file(good,ambiguous/"second.dll");
+      {std::ofstream changed(ambiguous/"second.dll",std::ios::binary|std::ios::app);changed<<'x';}
+      SetEnvironmentVariableW(L"AEROTRACE_DDC_PROVIDER",ambiguous.c_str());CHECK(aero::inspectDdcRuntime(config.runtime).message.find("Ambiguous")!=std::string::npos);
+      SetEnvironmentVariableW(L"AEROTRACE_DDC_PROVIDER",good.c_str());CHECK(aero::inspectDdcRuntime(config.runtime).available);
+      auto one=aero::makeDdcSource(),two=aero::makeDdcSource();CHECK(one->open(config).empty());CHECK(two->open(config).find("already owns")!=std::string::npos);one->close();CHECK(two->open(config).empty());two->close();
+    }
+    {
       struct RestoreSdkRoot {
         std::wstring value;bool present{};
         RestoreSdkRoot(){wchar_t saved[32768]{};const auto length=GetEnvironmentVariableW(L"DDC_SDK_ROOT",saved,32768);CHECK(length<32768);present=length>0;value=saved;}

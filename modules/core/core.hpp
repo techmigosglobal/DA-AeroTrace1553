@@ -47,6 +47,7 @@ Record synthetic(std::uint64_t index);
 std::uint32_t crc32(const std::vector<std::uint8_t> &);
 class Recorder {
   std::ofstream out;
+  std::vector<std::uint8_t> payloadBuffer,batchBuffer;
 
 public:
   bool open(const std::filesystem::path &);
@@ -70,6 +71,7 @@ struct ScanResult {
 // Validates each record before visiting it; memory use is independent of file size.
 ScanResult scanRecording(const std::filesystem::path &,
     const std::function<bool(const Record &,std::uint64_t)> &);
+ScanResult scanRecordingStream(std::istream &,const std::function<bool(const Record &,std::uint64_t)> &);
 class RecordingIndex {
   struct Entry { std::uint64_t offset{}, timestamp{}, playback{}; };
   std::vector<Entry> entries;

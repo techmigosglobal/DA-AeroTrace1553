@@ -392,6 +392,7 @@ void Window::toggleCapture(){
 
 void Window::updateLive(){
     QElapsedTimer updateElapsed;updateElapsed.start();
+    struct ObserveUpdate {aero::TimingHistogram &h;QElapsedTimer &t;~ObserveUpdate(){h.observe(t.nsecsElapsed());}} observeUpdate{guiUpdateTiming,updateElapsed};
     static QElapsedTimer heartbeat;static qint64 previousHeartbeat=0;
     if(!heartbeat.isValid())heartbeat.start();const auto nowHeartbeat=heartbeat.elapsed();
     if(previousHeartbeat && nowHeartbeat-previousHeartbeat>qMax(500,tick.interval()*4))applicationEvent("ui_heartbeat_delay","",{{"gap_ms",nowHeartbeat-previousHeartbeat},{"page",page},{"recording",currentFile}});previousHeartbeat=nowHeartbeat;

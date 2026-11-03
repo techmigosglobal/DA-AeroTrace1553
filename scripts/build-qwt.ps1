@@ -1,4 +1,4 @@
-param([string]$QtRoot='', [string]$CompilerRoot='C:\Qt\Tools\mingw1310_64')
+param([string]$QtRoot='', [string]$CompilerRoot='C:\Qt\Tools\mingw1310_64',[ValidateRange(1,32)][int]$Jobs=1)
 $ErrorActionPreference='Stop'
 $projectRoot=Split-Path $PSScriptRoot -Parent
 if(!$QtRoot){
@@ -10,7 +10,10 @@ $build=Join-Path $projectRoot 'out\build\qwt-local'
 $marker=Join-Path $build 'qt-root.txt'
 $identity=[IO.Path]::GetFullPath($QtRoot)
 if((Test-Path $marker) -and ((Get-Content $marker -Raw).Trim() -ne $identity)){
-  Remove-Item -LiteralPath $build -Recurse -Force
+  $resolvedBuild=[IO.Path]::GetFullPath($build)
+  $allowedBuild=[IO.Path]::GetFullPath((Join-Path $projectRoot 'out/build/qwt-local'))
+  if($resolvedBuild -ne $allowedBuild){throw 'Refusing to remove an unexpected Qwt build directory'}
+  Remove-Item -LiteralPath $resolvedBuild -Recurse -Force
 }
 $source=Join-Path $projectRoot 'third_party\qwt\src\src.pro'
 if(!(Test-Path $source)){throw "Qwt source missing: $source"}
@@ -20,7 +23,7 @@ Push-Location (Join-Path $build 'src')
 try {
   & "$QtRoot\bin\qmake.exe" $source 'CONFIG+=release'
   if($LASTEXITCODE -ne 0){throw 'Qwt qmake failed'}
-  & "$CompilerRoot\bin\mingw32-make.exe" -f Makefile.Release -j4
+  & "$CompilerRoot\bin\mingw32-make.exe" -f Makefile.Release "-j$Jobs"
   if($LASTEXITCODE -ne 0){throw 'Qwt build failed'}
 } finally {Pop-Location}
 $identity | Set-Content -LiteralPath $marker -Encoding ASCII

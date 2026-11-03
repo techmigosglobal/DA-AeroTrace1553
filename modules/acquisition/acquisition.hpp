@@ -4,6 +4,7 @@
 #include "capture_time.hpp"
 #include "rt_activity.hpp"
 #include "rt_monitor.hpp"
+#include "timing.hpp"
 #include <atomic>
 #include <deque>
 #include <mutex>
@@ -15,6 +16,7 @@ struct CaptureMetrics {
   std::uint64_t recorded{}, displayDrops{}, hardwareLost{}, hardwareOverflows{}, batches{};
   std::size_t queueDepth{}, queueHighWater{};
   double maxBatchMilliseconds{};
+  std::array<TimingHistogram,TimingStageCount> timings{};
   std::uint64_t decodedValues{},invalidValues{};
   std::array<std::uint64_t,4> sourceCounts{};
   std::array<std::uint64_t,2> channelLost{},channelOverflows{};

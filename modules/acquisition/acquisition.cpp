@@ -172,6 +172,9 @@ std::future<bool> Acquisition::beginConfigured(const std::filesystem::path &path
         if(changeTraces) {decoder.selectTraces(traces);std::string indices;for(auto index:traces) {if(!indices.empty()) indices+=',';indices+=std::to_string(index);}emit("trace_selection","\"signal_indices\":["+indices+"]");}
         SourceBatch batch;
         const auto sourceError=source->poll(batch,stop);
+        std::array<std::uint64_t,TimingStageCount> durations{};auto timedAt=steady_clock::now();
+        durations[SdkPoll]=config.hardware?(batch.pollNs?batch.pollNs:duration_cast<nanoseconds>(timedAt-began).count()):0;durations[PacketProcessing]=batch.packetProcessingNs;
+        auto measured=[&](TimingStage stage){const auto end=steady_clock::now();durations[stage]+=duration_cast<nanoseconds>(end-timedAt).count();timedAt=end;};
         for(const auto &packet:batch.packets) {
           if(packet.channel<1 || packet.channel>2) throw std::runtime_error("Invalid source packet channel");
           auto &output=packets[packet.channel-1];
@@ -179,6 +182,7 @@ std::future<bool> Acquisition::beginConfigured(const std::filesystem::path &path
           output.write(reinterpret_cast<const char *>(packet.bytes.data()),packet.bytes.size());
           if(!output) throw std::runtime_error("Raw DDC packet write failed");
         }
+        measured(PacketWrite);
         if(revisionPending && !batch.records.empty()) {
           const auto profile=serializeProfile(activeMappings);
           profileTimeline<<"{\"revision\":"<<decoderRevision<<",\"first_record\":"<<(batch.records.empty() ? 0 : batch.records.front().id)<<",\"profile\":"<<profile<<"}\n";
@@ -188,9 +192,10 @@ std::future<bool> Acquisition::beginConfigured(const std::filesystem::path &path
           if(!profileTimeline || !snapshot) throw std::runtime_error("Cannot preserve ICD profile provenance");
           revisionPending=false;
         }
+        timedAt=steady_clock::now();
         if(!writer.appendBatch(batch.records)) throw std::runtime_error("Recording write failed");
-        decoder.consume(batch.records);
-        for(const auto &r:batch.records)rtMonitor.consume(r);
+        measured(RecordingWrite);decoder.consume(batch.records);measured(Conversion);
+        for(const auto &r:batch.records)rtMonitor.consume(r);measured(RtAggregation);
         const auto now=steady_clock::now();
         for(const auto &record:batch.records) {
           checks.consume(record);publishChecks();
@@ -200,16 +205,19 @@ std::future<bool> Acquisition::beginConfigured(const std::filesystem::path &path
         for(unsigned k=0;k<4;++k) if(lastHost[k]!=steady_clock::time_point{}) {
           checks.advance(k,lastCard[k]+duration_cast<nanoseconds>(now-lastHost[k]).count());publishChecks();
         }
+        measured(SignalChecking);
         std::shared_ptr<const LiveFrame> snapshot;
         std::shared_ptr<const RtMonitorFrame> rtSnapshot;
         if(now-published>=milliseconds(50) || replace || changeTraces) {
           snapshot=std::make_shared<LiveFrame>(decoder.snapshot());rtSnapshot=std::make_shared<RtMonitorFrame>(rtMonitor);published=now;
         }
+        measured(Publication);
         if(now-flushed>=milliseconds(100)) {
           if(!writer.flush()) throw std::runtime_error("Recording flush failed");
           for(auto &output:packets) if(output.is_open()) { output.flush();if(!output) throw std::runtime_error("DDC packet flush failed"); }
           flushed=now;
         }
+        measured(Flush);
         const bool healthDue=now-checked>=seconds(1);
         if(healthDue) {
           const auto free=std::filesystem::space(parent,error);
@@ -218,6 +226,7 @@ std::future<bool> Acquisition::beginConfigured(const std::filesystem::path &path
         }
         {
           std::lock_guard lock(mutex);
+          const auto publicationBegan=steady_clock::now();
           state.recorded+=batch.records.size();++state.batches;
           state.decodedValues=decoder.conversions();state.invalidValues=decoder.invalidConversions();
           if(snapshot && snapshot->revision==profileRevision) live=std::move(snapshot);
@@ -232,6 +241,9 @@ std::future<bool> Acquisition::beginConfigured(const std::filesystem::path &path
           }
           state.queueDepth=pending.size();state.queueHighWater=std::max(state.queueHighWater,pending.size());
           state.maxBatchMilliseconds=std::max(state.maxBatchMilliseconds,duration<double,std::milli>(steady_clock::now()-began).count());
+          durations[Publication]+=duration_cast<nanoseconds>(steady_clock::now()-publicationBegan).count();
+          durations[WorkerBatch]=duration_cast<nanoseconds>(steady_clock::now()-began).count();
+          for(unsigned k=0;k<TimingStageCount;++k)if(durations[k])state.timings[k].observe(durations[k]);
         }
         if(healthDue) {
           const auto health=metrics();std::ostringstream fields;
@@ -329,7 +341,7 @@ bool Acquisition::error() const { std::lock_guard lock(mutex);return state.faile
 std::uint64_t Acquisition::displayDrops() const { std::lock_guard lock(mutex);return state.displayDrops; }
 CaptureMetrics Acquisition::metrics(bool includeEvents) const { std::lock_guard lock(mutex);
   if(includeEvents)return state;
-  CaptureMetrics result;result.recorded=state.recorded;result.displayDrops=state.displayDrops;result.hardwareLost=state.hardwareLost;result.hardwareOverflows=state.hardwareOverflows;result.batches=state.batches;result.queueDepth=state.queueDepth;result.queueHighWater=state.queueHighWater;result.maxBatchMilliseconds=state.maxBatchMilliseconds;result.decodedValues=state.decodedValues;result.invalidValues=state.invalidValues;result.sourceCounts=state.sourceCounts;result.channelLost=state.channelLost;result.channelOverflows=state.channelOverflows;result.devices=state.devices;result.clocks=state.clocks;result.rtActivity=state.rtActivity;result.hardware=state.hardware;result.failed=state.failed;result.error=state.error;result.checkCount=state.checkCount;return result;
+  CaptureMetrics result;result.recorded=state.recorded;result.displayDrops=state.displayDrops;result.hardwareLost=state.hardwareLost;result.hardwareOverflows=state.hardwareOverflows;result.batches=state.batches;result.queueDepth=state.queueDepth;result.queueHighWater=state.queueHighWater;result.maxBatchMilliseconds=state.maxBatchMilliseconds;result.timings=state.timings;result.decodedValues=state.decodedValues;result.invalidValues=state.invalidValues;result.sourceCounts=state.sourceCounts;result.channelLost=state.channelLost;result.channelOverflows=state.channelOverflows;result.devices=state.devices;result.clocks=state.clocks;result.rtActivity=state.rtActivity;result.hardware=state.hardware;result.failed=state.failed;result.error=state.error;result.checkCount=state.checkCount;return result;
 }
 std::string Acquisition::setProfile(std::vector<Signal> profile) {
   if(auto error=validateProfile(profile);!error.empty()) return error;

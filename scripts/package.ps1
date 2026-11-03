@@ -60,6 +60,9 @@ else {
   Copy-Item -LiteralPath (Join-Path $installed 'licenses\Microsoft-CRT-NOTICE.txt') -Destination "$packageRoot\licenses" -Force
   Copy-Item -LiteralPath (Join-Path $installed 'licenses\Microsoft-CRT-provenance.json') -Destination "$packageRoot\licenses" -Force
 }
+$providerRoot=Join-Path $projectRoot "$BuildDirectory/providers"
+if(!(Test-Path -LiteralPath $providerRoot)){throw 'Build the SDK provider before packaging'}
+Copy-Item -LiteralPath $providerRoot -Destination $packageRoot -Recurse -Force
 Copy-Item -LiteralPath $ddcRuntime -Destination $packageRoot -Force
 $ddcLicense=@("$sdkRoot\docs\license.txt","$sdkRoot\Documentation\license.txt") | Where-Object {Test-Path -LiteralPath $_} | Select-Object -First 1
 if(!$ddcLicense){throw "DDC SDK license text missing: $sdkRoot"}

@@ -40,7 +40,11 @@ int main() {
     CHECK(acquisition.setProfile({aero::Signal{"TEMP","degC"}}).empty());
     const auto began=steady_clock::now();
     CHECK(acquisition.startConfigured(root/"burst.atd",config,std::make_unique<Burst>()));
+#ifdef AEROTRACE_SANITIZED_TEST
+    const auto deadline=steady_clock::now()+seconds(120);
+#else
     const auto deadline=steady_clock::now()+seconds(15);
+#endif
     while(acquisition.metrics().recorded<100000 && acquisition.active() && steady_clock::now()<deadline) std::this_thread::sleep_for(milliseconds(1));
     acquisition.stop();const auto elapsed=duration<double>(steady_clock::now()-began).count();
     const auto metrics=acquisition.metrics();CHECK(!metrics.failed && metrics.recorded==100000);

@@ -10,8 +10,23 @@
 #include <windows.h>
 #include <setupapi.h>
 #include <cfgmgr32.h>
+#include <bcrypt.h>
 #endif
 namespace aero {
+std::string ddcRuntimeSha256(const std::filesystem::path &path){
+#ifdef _WIN32
+  BCRYPT_ALG_HANDLE algorithm{};BCRYPT_HASH_HANDLE hash{};
+  if(BCryptOpenAlgorithmProvider(&algorithm,BCRYPT_SHA256_ALGORITHM,nullptr,0)<0)return {};
+  struct Cleanup {BCRYPT_ALG_HANDLE &a;BCRYPT_HASH_HANDLE &h;~Cleanup(){if(h)BCryptDestroyHash(h);if(a)BCryptCloseAlgorithmProvider(a,0);}} cleanup{algorithm,hash};
+  if(BCryptCreateHash(algorithm,&hash,nullptr,0,nullptr,0,0)<0)return {};
+  std::ifstream input(path,std::ios::binary);if(!input)return {};std::array<unsigned char,65536> buffer{};
+  while(input){input.read(reinterpret_cast<char *>(buffer.data()),buffer.size());if(input.gcount()&&BCryptHashData(hash,buffer.data(),ULONG(input.gcount()),0)<0)return {};}
+  if(!input.eof())return {};std::array<unsigned char,32> digest{};if(BCryptFinishHash(hash,digest.data(),digest.size(),0)<0)return {};
+  constexpr char hex[]="0123456789abcdef";std::string text;for(auto b:digest){text+=hex[b>>4];text+=hex[b&15];}return text;
+#else
+  (void)path;return {};
+#endif
+}
 #ifdef _WIN32
 namespace {
 std::string utf8(const std::filesystem::path &path){const auto s=path.u8string();return {s.begin(),s.end()};}

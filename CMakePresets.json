@@ -1,13 +1,20 @@
 {
   "version": 5,
-  "cmakeMinimumRequired": { "major": 3, "minor": 24, "patch": 0 },
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 24,
+    "patch": 0
+  },
   "configurePresets": [
     {
       "name": "desktop-release",
       "displayName": "Desktop Release (select a Qt kit or set CMAKE_PREFIX_PATH)",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/out/build/desktop-release",
-      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "AEROTRACE_BUILD_GUI": "ON" }
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "AEROTRACE_BUILD_GUI": "ON"
+      }
     },
     {
       "name": "desktop-local",
@@ -25,17 +32,73 @@
       "displayName": "Qt-free backend Release",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/out/build/core-release",
-      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "AEROTRACE_BUILD_GUI": "OFF" }
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "AEROTRACE_BUILD_GUI": "OFF"
+      }
+    },
+    {
+      "name": "backend-native-sanitized",
+      "displayName": "Native Windows Clang ASan/UBSan + fuzzing (use build-verified-backend.ps1)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/out/build/backend-clang",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_CXX_COMPILER": "${sourceDir}/out/toolchains/llvm-22.1.0/bin/clang-cl.exe",
+        "AEROTRACE_BUILD_GUI": "OFF",
+        "AEROTRACE_ENABLE_DDC": "OFF",
+        "AEROTRACE_SANITIZERS": "ON",
+        "AEROTRACE_BUILD_FUZZERS": "ON",
+        "AEROTRACE_RELEASE_IPO": "OFF"
+      }
     }
   ],
   "buildPresets": [
-    { "name": "desktop-release", "configurePreset": "desktop-release" },
-    { "name": "desktop-local", "configurePreset": "desktop-local" },
-    { "name": "core-release", "configurePreset": "core-release" }
+    {
+      "name": "desktop-release",
+      "configurePreset": "desktop-release"
+    },
+    {
+      "name": "desktop-local",
+      "configurePreset": "desktop-local"
+    },
+    {
+      "name": "core-release",
+      "configurePreset": "core-release"
+    },
+    {
+      "name": "backend-native-sanitized",
+      "configurePreset": "backend-native-sanitized"
+    }
   ],
   "testPresets": [
-    { "name": "desktop-release", "configurePreset": "desktop-release", "output": { "outputOnFailure": true } },
-    { "name": "desktop-local", "configurePreset": "desktop-local", "output": { "outputOnFailure": true } },
-    { "name": "core-release", "configurePreset": "core-release", "output": { "outputOnFailure": true } }
+    {
+      "name": "desktop-release",
+      "configurePreset": "desktop-release",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "desktop-local",
+      "configurePreset": "desktop-local",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "core-release",
+      "configurePreset": "core-release",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "backend-native-sanitized",
+      "configurePreset": "backend-native-sanitized",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
   ]
 }

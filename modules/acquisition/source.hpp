@@ -27,12 +27,14 @@ struct CaptureConfig {
   std::function<void(unsigned,DevicePhase,const std::string &)> deviceState;
   std::function<void(const std::string &,int,const std::string &)> diagnostic;
   std::stop_token stopToken;
+  std::function<bool()> cancelRequested; // Provider-local bridge; never passed across the DLL ABI.
 };
 struct SourceBatch {
   std::vector<Record> records;
   struct Packet { unsigned channel{}; std::vector<std::uint8_t> bytes;bool chapter10{true}; };
   std::vector<Packet> packets;
   std::uint64_t hardwareLost{}, hardwareOverflows{};
+  std::uint64_t pollNs{},packetProcessingNs{};
   // Observed per-channel high-water counters, not a claimed lifetime loss total.
   std::array<std::uint64_t,2> channelLost{},channelOverflows{};
 };

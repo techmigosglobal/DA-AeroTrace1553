@@ -42,3 +42,7 @@ Keep C++20, Qt Widgets/Designer/Qwt and isolated Python documents. SQLite sessio
 The [development update](development-update-2026-11-02.md) records the current verification: all 25 software checks passed across a full run and one corrected test-setup rerun. No connected DDC card was available. The development executable is an isolated build, with the native plot fallback rather than a Qt-matched Qwt package; no installed release was replaced.
 
 The [3 November readiness audit](development-readiness-2026-11-03.md) distinguishes existing OCR/ONNX/document SQLite from the unimplemented session catalog, DuckDB/Parquet, scientific jobs and expanded CI/model/sanitizer tooling. SDK folder/environment selection passed four targeted regression checks after that audit. Lag-free physical operation has not been established.
+
+## Provider and verification development — 3 November
+
+The source now contains an in-process C ABI provider DLL boundary, runtime/header fingerprints and a local build recipe for additional SDK families. See [provider contract](provider-contract.md) and [local verification](local-verification.md). The installed 4.10.2 SDK supplies the current provider build; licensed 3.6.15 inputs remain unavailable. Physical qualification stays NOT RUN. Final software run results are recorded separately from the earlier validation baseline.

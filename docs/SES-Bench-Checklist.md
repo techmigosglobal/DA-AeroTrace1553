@@ -44,3 +44,7 @@ CTest runs this collector only against a test-only SDK DLL and labels output sdk
 ## Sign-off
 
 Record PASS / FAIL / NOT RUN, operator/date, duration/source, expected/observed counts per stream, missing/extra/invalid messages, CSV/replay comparison, timing verdict, diagnostics paths and raw hashes. Support ZIPs omit full recordings/packet sidecars; preserve those separately. Driver crashes remain open until cause and corrective evidence are established.
+
+## Prepared software kit
+
+The [local verification guide](local-verification.md) documents package-bench-kit.ps1, run-bench.ps1, exact per-stream reference comparison, provider selection and stage histograms. No physical test was run while developing the kit. SDK 3.6.15 vendor evidence remains unavailable; fixtures do not close that gap.

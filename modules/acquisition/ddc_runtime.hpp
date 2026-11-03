@@ -18,4 +18,5 @@ struct DdcRuntimeSelection {
 };
 // Discovery loads candidate DLLs only to inspect exports/version; never opens a card.
 DdcRuntimeSelection selectDdcRuntime(const std::filesystem::path &overridePath={});
+std::string ddcRuntimeSha256(const std::filesystem::path &);
 }

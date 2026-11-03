@@ -132,3 +132,7 @@ DDC MTI packet timestamps follow the selected native TTRES setting. The adapter 
 ## 0.5.5 installation
 
 The installer requires administrator rights and installs in `C:\Program Files\AeroTrace1553`. Recordings, preferences, profiles and logs remain outside the application installation. Uninstall removes the installed runtime trees and their generated Python caches. Build and package tools are excluded from the source ZIP; run `scripts/build.ps1` to regenerate the local build.
+
+### Local qualification and SDK providers
+
+This development source includes [versioned SDK provider DLLs](docs/provider-contract.md) and [native Windows preflight, Qt model tests, sanitizers, fuzzing and a passive bench kit](docs/local-verification.md). No CI/CD workflows are configured. Run `scripts/preflight.ps1 -Profile Full` for local evidence; unavailable SDK packages are BLOCKED and physical qualification remains NOT RUN until bench acceptance.

@@ -56,6 +56,12 @@ int main() {
     auto replay = aero::read(path);
     CHECK(replay.error.empty() && !replay.recovered &&
           replay.records == source);
+    auto batchPath=path;batchPath+=".batch";
+    CHECK(writer.open(batchPath));CHECK(writer.appendBatch(source));CHECK(writer.close());
+    CHECK(aero::read(batchPath).records==source);
+    {std::ifstream first(path,std::ios::binary),second(batchPath,std::ios::binary);
+      CHECK(std::string(std::istreambuf_iterator<char>(first),{})==std::string(std::istreambuf_iterator<char>(second),{}));}
+    std::filesystem::remove(batchPath);
     auto size = std::filesystem::file_size(path);
     std::filesystem::resize_file(path, size - 3);
     auto recovered = aero::read(path);

@@ -3,6 +3,7 @@ param(
   [string]$CompilerRoot = 'C:\Qt\Tools\mingw1310_64',
   [string]$BuildDirectory = 'out\build\desktop-local',
   [switch]$CoreOnly,
+  [ValidateRange(1,32)][int]$Jobs=1,
   [switch]$Test
 )
 $ErrorActionPreference = 'Stop'
@@ -22,11 +23,11 @@ if (!$CoreOnly -and !(Test-Path -LiteralPath "$QtRoot\lib\cmake\Qt6\Qt6Config.cm
 }
 $env:PATH = "$CompilerRoot\bin;$QtRoot\bin;" + $env:PATH
 $relativeBuild = if($CoreOnly){'out\build\core-local'}else{$BuildDirectory}
-$buildDir = Join-Path $projectRoot $relativeBuild
+$buildDir = if([IO.Path]::IsPathRooted($relativeBuild)){$relativeBuild}else{Join-Path $projectRoot $relativeBuild}
 $gui = if ($CoreOnly) { 'OFF' } else { 'ON' }
 $compilerCmake=$CompilerRoot.Replace('\','/')
 if(!$CoreOnly){
-  & "$PSScriptRoot\build-qwt.ps1" -QtRoot $QtRoot -CompilerRoot $CompilerRoot
+  & "$PSScriptRoot\build-qwt.ps1" -QtRoot $QtRoot -CompilerRoot $CompilerRoot -Jobs $Jobs
   $qwtLibrary=(Join-Path $projectRoot 'out\build\qwt-local\lib\libqwt.a').Replace('\','/')
   if(!(Test-Path $qwtLibrary)){throw "Qt-matched Qwt library missing: $qwtLibrary"}
 }
@@ -38,7 +39,7 @@ if (!$CoreOnly) {
   & $cmake --build $buildDir --target aerotrace_desktop_autogen
   if ($LASTEXITCODE -ne 0) { throw 'Designer form generation failed' }
 }
-& $cmake --build $buildDir --parallel 4
+& $cmake --build $buildDir --parallel $Jobs
 if ($LASTEXITCODE -ne 0) { throw 'Build failed' }
 if ($Test) {
   & 'C:\Qt\Tools\CMake_64\bin\ctest.exe' --test-dir $buildDir --output-on-failure

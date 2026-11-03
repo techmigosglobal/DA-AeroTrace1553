@@ -141,10 +141,17 @@ bool Recorder::open(const std::filesystem::path &p) {
     out.write("ATD2\x02\x00\x00\x00", 8);
   return bool(out);
 }
-bool Recorder::append(const Record &r) {
-  if (!out || r.words.size() > 32)
-    return false;
-  std::vector<std::uint8_t> v;
+bool Recorder::append(const Record &r) {return appendBatch(std::span<const Record>(&r,1));}
+bool Recorder::appendBatch(std::span<const Record> records) {
+  if(!out)return false;
+  constexpr std::size_t blockLimit=65536;
+  if(payloadBuffer.capacity()<121)payloadBuffer.reserve(121);
+  if(batchBuffer.capacity()<blockLimit)batchBuffer.reserve(blockLimit);
+  batchBuffer.clear();
+  for(const auto &r:records){
+    if(r.words.size()>32)return false;
+    if(batchBuffer.size()+129>blockLimit){out.write(reinterpret_cast<const char *>(batchBuffer.data()),batchBuffer.size());if(!out)return false;batchBuffer.clear();}
+    auto &v=payloadBuffer;v.clear();
   put(v, r.id);
   put(v, r.timestampNs);
   put(v, r.channel);
@@ -157,15 +164,11 @@ bool Recorder::append(const Record &r) {
     put(v, w);
   put(v,r.source); put(v,r.vendorStatus); put(v,r.commandWord2); put(v,r.statusWord2);
   put(v,r.validity); put(v,r.messageType); put(v,r.deviceTicks); put(v,r.hostMonotonicNs); put(v,r.tickResolutionNs);
-  std::vector<std::uint8_t> h;
-  put(h, static_cast<std::uint32_t>(v.size()));
-  put(h, crc32(v));
-  out.write(reinterpret_cast<const char *>(h.data()), h.size());
-  out.write(reinterpret_cast<const char *>(v.data()), v.size());
-  return bool(out);
-}
-bool Recorder::appendBatch(std::span<const Record> records) {
-  for(const auto &record:records) if(!append(record)) return false;
+
+    put(batchBuffer,static_cast<std::uint32_t>(v.size()));put(batchBuffer,crc32(v));
+    batchBuffer.insert(batchBuffer.end(),v.begin(),v.end());
+  }
+  if(!batchBuffer.empty())out.write(reinterpret_cast<const char *>(batchBuffer.data()),batchBuffer.size());
   return bool(out);
 }
 bool Recorder::flush() { out.flush();return bool(out); }
@@ -210,15 +213,17 @@ bool recordingHeader(std::istream &f,bool &version2) {
   return f.gcount()==8 && (version2 || std::memcmp(magic,"ATD1\x01\x00\x00\x00",8)==0);
 }
 }
-ScanResult scanRecording(const std::filesystem::path &path,const std::function<bool(const Record &,std::uint64_t)> &visit) {
+ScanResult scanRecordingStream(std::istream &f,const std::function<bool(const Record &,std::uint64_t)> &visit) {
   ScanResult result;
   try {
-    std::ifstream f(path,std::ios::binary);if(!f) {result.error="Cannot open recording";return result;}
     bool version2=false;if(!recordingHeader(f,version2)) {result.error="Unsupported recording header/version";return result;}
     for(;;) {const auto offset=f.tellg();Record record;if(!readRecord(f,version2,record,result.recovered)) break;
       ++result.count;if(!visit(record,std::uint64_t(offset))) break;}
   } catch(const std::exception &e) {result.error=e.what();}
   return result;
+}
+ScanResult scanRecording(const std::filesystem::path &path,const std::function<bool(const Record &,std::uint64_t)> &visit) {
+  std::ifstream f(path,std::ios::binary);if(!f)return {0,false,"Cannot open recording"};return scanRecordingStream(f,visit);
 }
 ReadResult read(const std::filesystem::path &path) {
   ReadResult result;const auto status=scanRecording(path,[&](const Record &r,std::uint64_t){result.records.push_back(r);return true;});

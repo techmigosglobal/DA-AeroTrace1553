@@ -15,7 +15,7 @@ qt_add_executable(aerotrace_desktop
   main.cpp main_window.hpp main_window.cpp ui_helpers.hpp
   widgets/plot.hpp models/record_model.hpp models/rt_record_model.hpp forms/rt_channel_body.ui
   pages/workspace_pages.cpp pages/monitor_pages.cpp pages/session_pages.cpp pages/icd_pages.cpp
-  pages/system_pages.cpp tests/gui_checks.cpp tests/session_gui.cpp
+  pages/system_pages.cpp tests/gui_checks.cpp tests/performance_qualification.cpp tests/session_gui.cpp
   pages/form_support.cpp pages/document_pages.cpp pages/operator_shell.cpp services/profile_io.cpp
   services/profile_io.hpp forms/document_dialog.ui
   services/task_services.hpp services/task_services.cpp pages/task_pages.cpp forms/task_dialog.ui
@@ -128,4 +128,11 @@ set_tests_properties(gui_session_stop_save_and_layout PROPERTIES ENVIRONMENT "QT
 if(TARGET aerotrace_ddc_test_runtime)
   add_test(NAME gui_hardware_connection_recording COMMAND aerotrace_desktop --hardware-connection-test "${CMAKE_BINARY_DIR}/test-results/hardware-connection" "$<TARGET_FILE:aerotrace_ddc_test_runtime>")
   set_tests_properties(gui_hardware_connection_recording PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 90)
+  set_property(TEST gui_hardware_connection_recording APPEND PROPERTY ENVIRONMENT "AEROTRACE_DDC_PROVIDER=$<TARGET_FILE:aerotrace_ddc_fixture_provider>")
 endif()
+find_package(Qt6 REQUIRED COMPONENTS Test)
+add_executable(aerotrace_model_tests tests/model_tests.cpp)
+target_include_directories(aerotrace_model_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(aerotrace_model_tests PRIVATE Qt6::Widgets Qt6::Concurrent Qt6::Test aerotrace_acquisition)
+add_test(NAME qt_model_consistency COMMAND aerotrace_model_tests)
+set_tests_properties(qt_model_consistency PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 90)

@@ -20,6 +20,7 @@ class Window : public QMainWindow {
   std::array<QPointer<QTreeView>,2> rtViews;
   std::array<RtRecordModel,2> rtModels;
   bool rtGrouped{true},rtDisplayPaused{};
+  aero::TimingHistogram guiUpdateTiming;
   void refreshRtMonitor();
   std::array<QLabel *,2> paneCounts{};
   std::array<quint64,2> paneSelection{};
