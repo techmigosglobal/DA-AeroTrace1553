@@ -15,11 +15,11 @@ if(!$ReportDirectory){$ReportDirectory=Join-Path $project ('out/preflight/'+[Dat
 if((Test-Path -LiteralPath $ReportDirectory) -and @(Get-ChildItem -LiteralPath $ReportDirectory -Force).Count){throw 'Report directory must be new or empty'}
 New-Item -ItemType Directory -Force $ReportDirectory | Out-Null;$ReportDirectory=(Resolve-Path -LiteralPath $ReportDirectory).Path
 $env:PATH='C:\Qt\Tools\mingw1310_64\bin;C:\Qt\Tools\Ninja;'+(Join-Path $QtRoot 'bin')+';'+$env:PATH
-$env:QT_QPA_PLATFORM='offscreen';$results=[Collections.Generic.List[object]]::new()
+$env:QT_QPA_PLATFORM='offscreen';$results=[Collections.Generic.List[object]]::new();$completed=$false
 $commit=(& git -C $project rev-parse HEAD).Trim();$dirty=![string]::IsNullOrWhiteSpace((& git -C $project status --porcelain | Out-String))
 function Write-Receipt {
-  $state=if(@($results | Where-Object status -eq 'FAIL').Count){'FAIL'}elseif(@($results | Where-Object status -eq 'BLOCKED').Count){'BLOCKED'}else{'PASS'}
-  $receipt=@{schema='aerotrace.preflight.v1';profile=$Profile;status=$state;commit=$commit;workingTreeDirty=$dirty;desktopBuild=$BuildDirectory;backendBuild=$BackendBuild;reusedDesktopBuild=[bool]$SkipBuild;parallelFuzz=[bool]$ParallelFuzz;startedUtc=$started;updatedUtc=[DateTime]::UtcNow.ToString('o');physicalQualification='NOT RUN';ciCd='NOT CONFIGURED / NOT RUN';results=$results.ToArray()}
+  $state=if(!$completed){'RUNNING'}elseif(@($results | Where-Object status -eq 'FAIL').Count){'FAIL'}elseif(@($results | Where-Object status -eq 'BLOCKED').Count){'BLOCKED'}else{'PASS'}
+  $receipt=@{schema='aerotrace.preflight.v1';profile=$Profile;status=$state;completed=$completed;commit=$commit;workingTreeDirty=$dirty;desktopBuild=$BuildDirectory;backendBuild=$BackendBuild;reusedDesktopBuild=[bool]$SkipBuild;parallelFuzz=[bool]$ParallelFuzz;startedUtc=$started;updatedUtc=[DateTime]::UtcNow.ToString('o');physicalQualification='NOT RUN';ciCd='NOT CONFIGURED / NOT RUN';results=$results.ToArray()}
   $receipt | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath (Join-Path $ReportDirectory 'receipt.json') -Encoding UTF8
   $rows=@('# Local preflight',"","Profile: $Profile; commit: $commit","",'Physical qualification: NOT RUN. No CI/CD workflows or remote operations.','', '| Check | Status | Evidence |','|---|---|---|')
   foreach($r in $results){$rows+='| '+$r.name+' | '+$r.status+' | '+$r.evidence+' |'}
@@ -66,7 +66,7 @@ Check 'sdk-3.6.15' {
   if(!$env:AEROTRACE_SDK_3615_ROOT){throw 'BLOCKED: licensed SDK 3.6.15 headers/runtime and target driver evidence are unavailable. Set AEROTRACE_SDK_3615_ROOT to build its provider.'}
   & "$PSScriptRoot/build-provider.ps1" -SdkRoot $env:AEROTRACE_SDK_3615_ROOT -ProviderId 'ddc-3.6.15'
 }
-Write-Receipt
+$completed=$true;Write-Receipt
 if(@($results | Where-Object status -eq 'FAIL').Count){exit 1}
 if(@($results | Where-Object status -eq 'BLOCKED').Count){exit 2}
 exit 0
