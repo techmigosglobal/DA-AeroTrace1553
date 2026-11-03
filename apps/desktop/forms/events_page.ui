@@ -1,0 +1,589 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>EventsPage</class>
+ <widget class="QWidget" name="EventsPage">
+  <layout class="QVBoxLayout" name="bodyLayout">
+   <property name="leftMargin">
+    <number>0</number>
+   </property>
+   <property name="topMargin">
+    <number>0</number>
+   </property>
+   <property name="rightMargin">
+    <number>0</number>
+   </property>
+   <property name="bottomMargin">
+    <number>0</number>
+   </property>
+   <property name="spacing">
+    <number>15</number>
+   </property>
+   <item>
+    <widget class="QWidget" name="actionBar">
+     <layout class="QHBoxLayout" name="actionBarLayout">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <property name="spacing">
+       <number>15</number>
+      </property>
+      <item>
+       <widget class="QPushButton" name="exportEventsButton">
+        <property name="text">
+         <string>Export event list</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="eventInspectorButton">
+        <property name="text">
+         <string>Open inspector</string>
+        </property>
+        <property name="primary" stdset="0">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QWidget" name="eventMetrics">
+     <layout class="QHBoxLayout" name="eventMetricsLayout">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <property name="spacing">
+       <number>15</number>
+      </property>
+      <item>
+       <widget class="QFrame" name="criticalCard">
+        <property name="card" stdset="0">
+         <bool>true</bool>
+        </property>
+        <layout class="QVBoxLayout" name="criticalCardLayout">
+         <property name="leftMargin">
+          <number>19</number>
+         </property>
+         <property name="topMargin">
+          <number>16</number>
+         </property>
+         <property name="rightMargin">
+          <number>19</number>
+         </property>
+         <property name="bottomMargin">
+          <number>16</number>
+         </property>
+         <property name="spacing">
+          <number>7</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="criticalCaption">
+           <property name="text">
+            <string>Critical</string>
+           </property>
+           <property name="wordWrap">
+            <bool>false</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>muted</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="critical">
+           <property name="text">
+            <string>0</string>
+           </property>
+           <property name="wordWrap">
+            <bool>false</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>metric</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="criticalHint">
+           <property name="text">
+            <string />
+           </property>
+           <property name="wordWrap">
+            <bool>false</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>muted</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>116</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>16777215</width>
+          <height>116</height>
+         </size>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QFrame" name="warningsCard">
+        <property name="card" stdset="0">
+         <bool>true</bool>
+        </property>
+        <layout class="QVBoxLayout" name="warningsCardLayout">
+         <property name="leftMargin">
+          <number>19</number>
+         </property>
+         <property name="topMargin">
+          <number>16</number>
+         </property>
+         <property name="rightMargin">
+          <number>19</number>
+         </property>
+         <property name="bottomMargin">
+          <number>16</number>
+         </property>
+         <property name="spacing">
+          <number>7</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="warningsCaption">
+           <property name="text">
+            <string>Warnings</string>
+           </property>
+           <property name="wordWrap">
+            <bool>false</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>muted</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="warnings">
+           <property name="text">
+            <string>0</string>
+           </property>
+           <property name="wordWrap">
+            <bool>false</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>metric</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="warningsHint">
+           <property name="text">
+            <string />
+           </property>
+           <property name="wordWrap">
+            <bool>false</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>muted</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>116</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>16777215</width>
+          <height>116</height>
+         </size>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QFrame" name="informationCard">
+        <property name="card" stdset="0">
+         <bool>true</bool>
+        </property>
+        <layout class="QVBoxLayout" name="informationCardLayout">
+         <property name="leftMargin">
+          <number>19</number>
+         </property>
+         <property name="topMargin">
+          <number>16</number>
+         </property>
+         <property name="rightMargin">
+          <number>19</number>
+         </property>
+         <property name="bottomMargin">
+          <number>16</number>
+         </property>
+         <property name="spacing">
+          <number>7</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="informationCaption">
+           <property name="text">
+            <string>Informational</string>
+           </property>
+           <property name="wordWrap">
+            <bool>false</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>muted</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="information">
+           <property name="text">
+            <string>0</string>
+           </property>
+           <property name="wordWrap">
+            <bool>false</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>metric</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="informationHint">
+           <property name="text">
+            <string />
+           </property>
+           <property name="wordWrap">
+            <bool>false</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>muted</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>116</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>16777215</width>
+          <height>116</height>
+         </size>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QFrame" name="dropsCard">
+        <property name="card" stdset="0">
+         <bool>true</bool>
+        </property>
+        <layout class="QVBoxLayout" name="dropsCardLayout">
+         <property name="leftMargin">
+          <number>19</number>
+         </property>
+         <property name="topMargin">
+          <number>16</number>
+         </property>
+         <property name="rightMargin">
+          <number>19</number>
+         </property>
+         <property name="bottomMargin">
+          <number>16</number>
+         </property>
+         <property name="spacing">
+          <number>7</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="dropsCaption">
+           <property name="text">
+            <string>Display drops</string>
+           </property>
+           <property name="wordWrap">
+            <bool>false</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>muted</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="drops">
+           <property name="text">
+            <string>0</string>
+           </property>
+           <property name="wordWrap">
+            <bool>false</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>metric</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="dropsHint">
+           <property name="text">
+            <string />
+           </property>
+           <property name="wordWrap">
+            <bool>false</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>muted</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>116</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>16777215</width>
+          <height>116</height>
+         </size>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QWidget" name="eventDetails">
+     <layout class="QHBoxLayout" name="eventDetailsLayout" stretch="3,2">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <property name="spacing">
+       <number>15</number>
+      </property>
+      <item>
+       <widget class="QFrame" name="timeline">
+        <property name="card" stdset="0">
+         <bool>true</bool>
+        </property>
+        <layout class="QVBoxLayout" name="timelineLayout">
+         <property name="leftMargin">
+          <number>19</number>
+         </property>
+         <property name="topMargin">
+          <number>19</number>
+         </property>
+         <property name="rightMargin">
+          <number>19</number>
+         </property>
+         <property name="bottomMargin">
+          <number>19</number>
+         </property>
+         <property name="spacing">
+          <number>15</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="timelineTitle">
+           <property name="text">
+            <string>Event timeline</string>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>cardtitle</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="OrangePlot" name="eventsPlot">
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>180</height>
+            </size>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QTableWidget" name="eventsTable">
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>220</height>
+            </size>
+           </property>
+           <property name="alternatingRowColors">
+            <bool>true</bool>
+           </property>
+           <property name="showGrid">
+            <bool>false</bool>
+           </property>
+           <property name="selectionBehavior">
+            <enum>QAbstractItemView::SelectRows</enum>
+           </property>
+           <property name="selectionMode">
+            <enum>QAbstractItemView::SingleSelection</enum>
+           </property>
+           <property name="editTriggers">
+            <set>QAbstractItemView::NoEditTriggers</set>
+           </property>
+           <column>
+            <property name="text">
+             <string>TIME</string>
+            </property>
+           </column>
+           <column>
+            <property name="text">
+             <string>LEVEL</string>
+            </property>
+           </column>
+           <column>
+            <property name="text">
+             <string>EVENT</string>
+            </property>
+           </column>
+           <column>
+            <property name="text">
+             <string>REFERENCE</string>
+            </property>
+           </column>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QFrame" name="rules">
+        <property name="card" stdset="0">
+         <bool>true</bool>
+        </property>
+        <layout class="QVBoxLayout" name="rulesLayout">
+         <property name="leftMargin">
+          <number>19</number>
+         </property>
+         <property name="topMargin">
+          <number>19</number>
+         </property>
+         <property name="rightMargin">
+          <number>19</number>
+         </property>
+         <property name="bottomMargin">
+          <number>19</number>
+         </property>
+         <property name="spacing">
+          <number>15</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="rulesTitle">
+           <property name="text">
+            <string>Rule configuration</string>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>cardtitle</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="protocolRule">
+           <property name="text">
+            <string>Source protocol flags</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="statusRule">
+           <property name="text">
+            <string>Status word flags</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="missingRule">
+           <property name="text">
+            <string>Missing update (derived)</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="rangeRule">
+           <property name="text">
+            <string>Engineering out-of-range</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="diskRule">
+           <property name="text">
+            <string>Disk/USB interruptions</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="rulesNotice">
+           <property name="text">
+            <string>Protocol flags originate from the selected source. Other rule engines require qualification.</string>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>notice</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>OrangePlot</class>
+   <extends>QWidget</extends>
+   <header>widgets/plot.hpp</header>
+  </customwidget>
+ </customwidgets>
+ <resources />
+ <connections />
+</ui>

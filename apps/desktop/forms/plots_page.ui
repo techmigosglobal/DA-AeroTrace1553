@@ -1,0 +1,673 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>PlotsPage</class>
+ <widget class="QWidget" name="PlotsPage">
+  <layout class="QVBoxLayout" name="bodyLayout">
+   <property name="leftMargin">
+    <number>0</number>
+   </property>
+   <property name="topMargin">
+    <number>0</number>
+   </property>
+   <property name="rightMargin">
+    <number>0</number>
+   </property>
+   <property name="bottomMargin">
+    <number>0</number>
+   </property>
+   <property name="spacing">
+    <number>15</number>
+   </property>
+   <item>
+    <widget class="QWidget" name="actionBar">
+     <layout class="QHBoxLayout" name="actionBarLayout">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <property name="spacing">
+       <number>15</number>
+      </property>
+      <item>
+       <widget class="QComboBox" name="plotSource">
+        <property name="accessibleName"><string>Plot channel and bus</string></property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QComboBox" name="plotSignal">
+        <property name="accessibleName"><string>Signal plotted against card time</string></property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="pausePlotsButton">
+        <property name="text">
+         <string>Pause plots</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="addSignalButton">
+        <property name="text">
+         <string>Add signal</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="exportPlotButton">
+        <property name="text">
+         <string>Export visible plot</string>
+        </property>
+        <property name="primary" stdset="0">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QFrame" name="plotControls">
+     <property name="card" stdset="0">
+      <bool>true</bool>
+     </property>
+     <layout class="QVBoxLayout" name="plotControlsLayout">
+      <property name="leftMargin">
+       <number>19</number>
+      </property>
+      <property name="topMargin">
+       <number>19</number>
+      </property>
+      <property name="rightMargin">
+       <number>19</number>
+      </property>
+      <property name="bottomMargin">
+       <number>19</number>
+      </property>
+      <property name="spacing">
+       <number>15</number>
+      </property>
+      <item>
+       <widget class="QWidget" name="plotControlRow">
+        <layout class="QHBoxLayout" name="plotControlRowLayout">
+         <property name="leftMargin">
+          <number>0</number>
+         </property>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="rightMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <property name="spacing">
+          <number>15</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="timeWindow">
+           <property name="text">
+            <string>Bounded recent signal history</string>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>notice</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="gestures">
+           <property name="text">
+            <string>Wheel to zoom · Drag to pan · Double-click to reset</string>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>muted</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="refresh">
+           <property name="text">
+            <string>Bounded refresh cadence</string>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>muted</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QWidget" name="plotTop">
+     <layout class="QHBoxLayout" name="plotTopLayout">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <property name="spacing">
+       <number>15</number>
+      </property>
+      <item>
+       <widget class="QFrame" name="plotCard0">
+        <property name="card" stdset="0">
+         <bool>true</bool>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>233</height>
+         </size>
+        </property>
+        <layout class="QVBoxLayout" name="plotCard0Layout">
+         <property name="leftMargin">
+          <number>19</number>
+         </property>
+         <property name="topMargin">
+          <number>19</number>
+         </property>
+         <property name="rightMargin">
+          <number>19</number>
+         </property>
+         <property name="bottomMargin">
+          <number>19</number>
+         </property>
+         <property name="spacing">
+          <number>15</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="plotCard0Title">
+           <property name="text">
+            <string>Sample Temperature</string>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>cardtitle</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="SignalPlot" name="signalPlot0">
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>145</height>
+            </size>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="plotHint0">
+           <property name="text">
+            <string>Click trace to inspect timestamp and value.</string>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>muted</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QFrame" name="plotCard1">
+        <property name="card" stdset="0">
+         <bool>true</bool>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>233</height>
+         </size>
+        </property>
+        <layout class="QVBoxLayout" name="plotCard1Layout">
+         <property name="leftMargin">
+          <number>19</number>
+         </property>
+         <property name="topMargin">
+          <number>19</number>
+         </property>
+         <property name="rightMargin">
+          <number>19</number>
+         </property>
+         <property name="bottomMargin">
+          <number>19</number>
+         </property>
+         <property name="spacing">
+          <number>15</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="plotCard1Title">
+           <property name="text">
+            <string>Hydraulic Pressure</string>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>cardtitle</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="TealPlot" name="signalPlot1">
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>145</height>
+            </size>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="plotHint1">
+           <property name="text">
+            <string>Click trace to inspect timestamp and value.</string>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>muted</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QWidget" name="plotBottom">
+     <layout class="QHBoxLayout" name="plotBottomLayout">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <property name="spacing">
+       <number>15</number>
+      </property>
+      <item>
+       <widget class="QFrame" name="plotCard2">
+        <property name="card" stdset="0">
+         <bool>true</bool>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>233</height>
+         </size>
+        </property>
+        <layout class="QVBoxLayout" name="plotCard2Layout">
+         <property name="leftMargin">
+          <number>19</number>
+         </property>
+         <property name="topMargin">
+          <number>19</number>
+         </property>
+         <property name="rightMargin">
+          <number>19</number>
+         </property>
+         <property name="bottomMargin">
+          <number>19</number>
+         </property>
+         <property name="spacing">
+          <number>15</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="plotCard2Title">
+           <property name="text">
+            <string>Supply Voltage</string>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>cardtitle</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="PurplePlot" name="signalPlot2">
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>145</height>
+            </size>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="plotHint2">
+           <property name="text">
+            <string>Click trace to inspect timestamp and value.</string>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>muted</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QFrame" name="plotCard3">
+        <property name="card" stdset="0">
+         <bool>true</bool>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>233</height>
+         </size>
+        </property>
+        <layout class="QVBoxLayout" name="plotCard3Layout">
+         <property name="leftMargin">
+          <number>19</number>
+         </property>
+         <property name="topMargin">
+          <number>19</number>
+         </property>
+         <property name="rightMargin">
+          <number>19</number>
+         </property>
+         <property name="bottomMargin">
+          <number>19</number>
+         </property>
+         <property name="spacing">
+          <number>15</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="plotCard3Title">
+           <property name="text">
+            <string>Vibration Level</string>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>cardtitle</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="OrangePlot" name="signalPlot3">
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>145</height>
+            </size>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="plotHint3">
+           <property name="text">
+            <string>Click trace to inspect timestamp and value.</string>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>muted</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QWidget" name="extraPlots">
+     <layout class="QVBoxLayout" name="extraPlotsLayout">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QFrame" name="cursorTools">
+     <property name="card" stdset="0">
+      <bool>true</bool>
+     </property>
+     <layout class="QVBoxLayout" name="cursorToolsLayout">
+      <property name="leftMargin">
+       <number>19</number>
+      </property>
+      <property name="topMargin">
+       <number>19</number>
+      </property>
+      <property name="rightMargin">
+       <number>19</number>
+      </property>
+      <property name="bottomMargin">
+       <number>19</number>
+      </property>
+      <property name="spacing">
+       <number>15</number>
+      </property>
+      <item>
+       <widget class="QLabel" name="cursorToolsTitle">
+        <property name="text">
+         <string>Cursor / measurement tools</string>
+        </property>
+        <property name="wordWrap">
+         <bool>true</bool>
+        </property>
+        <property name="tone" stdset="0">
+         <string>cardtitle</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QWidget" name="cursorRow">
+        <layout class="QHBoxLayout" name="cursorRowLayout">
+         <property name="leftMargin">
+          <number>0</number>
+         </property>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="rightMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <property name="spacing">
+          <number>15</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="cursorA">
+           <property name="text">
+            <string>A: click a trace</string>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>muted</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="cursorB">
+           <property name="text">
+            <string>B: click a second point</string>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>muted</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="cursorDelta">
+           <property name="text">
+            <string>Δt / ΔY: —</string>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>cardtitle</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="cursorInspectButton">
+           <property name="text">
+            <string>Inspect cursor frame</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QWidget" name="pauseNoticeRow">
+        <layout class="QHBoxLayout" name="pauseNoticeRowLayout" stretch="1,1">
+         <property name="leftMargin">
+          <number>0</number>
+         </property>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="rightMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <property name="spacing">
+          <number>15</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="pauseNoticeKey">
+           <property name="text">
+            <string>Display pause</string>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>muted</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="pauseNotice">
+           <property name="text">
+            <string>Capture and recording continue independently</string>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignRight|Qt::AlignVCenter</set>
+           </property>
+           <property name="styleSheet">
+            <string>font-weight:600;font-size:11px;</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>32</height>
+         </size>
+        </property>
+        <property name="toolTip">
+         <string>Display pause</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>OrangePlot</class>
+   <extends>QWidget</extends>
+   <header>widgets/plot.hpp</header>
+  </customwidget>
+  <customwidget>
+   <class>PurplePlot</class>
+   <extends>QWidget</extends>
+   <header>widgets/plot.hpp</header>
+  </customwidget>
+  <customwidget>
+   <class>SignalPlot</class>
+   <extends>QWidget</extends>
+   <header>widgets/plot.hpp</header>
+  </customwidget>
+  <customwidget>
+   <class>TealPlot</class>
+   <extends>QWidget</extends>
+   <header>widgets/plot.hpp</header>
+  </customwidget>
+ </customwidgets>
+ <resources />
+ <connections />
+</ui>

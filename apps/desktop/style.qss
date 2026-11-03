@@ -1,0 +1,108 @@
+QWidget {font-family:'Segoe UI';font-size:15px;color:#272d29;}
+QMainWindow,QWidget#workspace,QWidget#centralWidget {background:#f3f3f0;}
+QFrame#sidebar,QWidget#navigation {background:#f3f3f0;border:0;}
+QFrame#sidebar {border-right:1px solid #dcded8;}
+QFrame#header {background:#f3f3f0;border:0;border-bottom:1px solid #dcded8;}
+QLabel {background:transparent;border:0;}
+QLabel#headerTitle {font-size:22px;font-weight:700;}
+QLabel[tone="title"],QLabel#title {font-size:25px;font-weight:700;}
+QLabel[tone="metric"],QLabel#metric {font-size:28px;font-weight:650;}
+QLabel[tone="muted"],QLabel#muted {font-size:13px;color:#6b7169;}
+QLabel[tone="cardtitle"],QLabel#cardtitle {font-size:16px;font-weight:600;}
+QFrame[card="true"],QFrame#card {background:#ffffff;border:1px solid #dcded8;border-radius:5px;}
+QLabel[tone="notice"],QLabel#notice {background:#f3f5f0;border:1px solid #dcded8;border-radius:4px;padding:10px;color:#596359;font-size:13px;}
+QLabel[tone="warning"],QLabel#warning {background:#faf4e8;border:1px solid #dfccaa;border-radius:4px;padding:10px;color:#875b1f;font-size:13px;}
+QLabel[tone="success"],QLabel#success {background:#eef5ef;border:1px solid #ccdece;border-radius:4px;padding:10px;color:#28624d;font-size:13px;}
+QLabel#error {background:#fcf0ed;border:1px solid #e5b7ae;color:#a73d32;border-radius:4px;padding:10px;}
+QLabel#group {font-size:12px;color:#737970;padding:8px;}
+QPushButton,QToolButton {background:#ffffff;border:1px solid #d0d5cd;border-radius:4px;padding:8px 12px;font-size:14px;font-weight:500;color:#30392f;min-height:20px;}
+QPushButton:hover,QToolButton:hover {background:#e9eee6;border-color:#a9b9a4;}
+QPushButton:pressed {background:#dce8db;}
+QPushButton:checked {background:#e1ece1;border-color:#729477;color:#234f39;}
+QPushButton:disabled {color:#92998f;background:#f1f2ee;border-color:#dfe2da;}
+QPushButton[primary="true"],QPushButton#primary,QPushButton#globalCaptureButton {background:#303831;color:#ffffff;border-color:#303831;}
+QPushButton[primary="true"]:hover,QPushButton#primary:hover,QPushButton#globalCaptureButton:hover {background:#475146;}
+QPushButton#danger {background:#a9473d;color:white;border-color:#a9473d;}
+QPushButton[navigation="true"] {text-align:left;background:transparent;border:0;border-radius:4px;padding:11px 10px;min-height:23px;font-size:15px;font-weight:400;}
+QPushButton[navigation="true"]:checked {background:#dfeadf;color:#234d36;font-weight:600;}
+QPushButton[navigation="true"]:hover {background:#e6e9e1;}
+QPushButton[navigation="true"][collapsed="true"] {padding:11px 7px;text-align:center;}
+QPushButton#sidebarToggle {border:0;background:transparent;padding:5px;min-width:22px;}
+QPushButton#moreTools {text-align:left;background:transparent;border:0;padding:11px 10px;font-size:15px;}
+QPushButton#preferencesButton {padding:7px;border:0;background:transparent;}
+QLineEdit,QComboBox,QSpinBox,QDoubleSpinBox,QPlainTextEdit,QTextEdit {background:white;border:1px solid #d0d5cd;border-radius:4px;padding:8px;color:#2f392f;min-height:20px;selection-background-color:#dfeadf;selection-color:#203b28;}
+QComboBox::drop-down {border:0;width:24px;}
+QTableView {background:#ffffff;alternate-background-color:#fafbf8;gridline-color:#e7eae3;border:1px solid #dcded8;border-radius:3px;selection-background-color:#e0eee0;selection-color:#233c29;font-size:14px;outline:none;}
+QTableView::item {padding:6px;border:0;border-bottom:1px solid #e9ece5;}
+QTreeView {background:#ffffff;alternate-background-color:#fafbf8;border:1px solid #dcded8;selection-background-color:#e0eee0;selection-color:#233c29;font-size:14px;outline:none;}
+QTreeView::item {padding:6px;border:0;border-bottom:1px solid #e9ece5;}
+QHeaderView::section {background:#eff1ec;color:#3e483e;border:0;border-right:1px solid #dfe3da;border-bottom:1px solid #d5dcd0;padding:9px 6px;font-size:12px;font-weight:600;}
+QTabBar::tab {background:#f3f3f0;border:0;border-bottom:3px solid #dcded8;padding:10px 22px;font-size:15px;min-height:20px;color:#5b6558;}
+QTabBar::tab:selected {background:white;color:#253d2c;border-bottom:3px solid #3f7651;font-weight:600;}
+QScrollArea {border:0;background:transparent;}
+QScrollBar:vertical {background:#edefe8;width:10px;}
+QScrollBar::handle:vertical {background:#c4ccbe;min-height:32px;border-radius:4px;}
+QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical {height:0;}
+QScrollBar:horizontal {background:#edefe8;height:10px;}
+QScrollBar::handle:horizontal {background:#b4bfad;min-width:36px;border-radius:4px;}
+QScrollBar::add-line:horizontal,QScrollBar::sub-line:horizontal {width:0;}
+QCheckBox {spacing:8px;padding:7px 0;}
+QCheckBox::indicator {width:18px;height:18px;border:1px solid #a8b1a0;border-radius:3px;background:#ffffff;}
+QCheckBox::indicator:checked {background:#3f7651;border-color:#3f7651;image:url(:/icons/check.svg); }
+QSlider::groove:horizontal {height:7px;background:#dfe4d9;border-radius:3px;}
+QSlider::sub-page:horizontal {background:#477453;}
+QSlider::handle:horizontal {width:16px;background:#315b3e;border-radius:4px;margin:-4px 0;}
+QToolTip,QMenu {background:#ffffff;color:#28342c;border:1px solid #c7d0bf;padding:6px;font-size:14px;}
+QMenu::item {padding:8px 18px;}
+QMenu::item:selected {background:#e2ecdc;}
+QGroupBox {background:white;border:1px solid #dcded8;border-radius:5px;margin-top:12px;padding:28px 16px 16px;font-size:16px;font-weight:600;}
+QGroupBox::title {subcontrol-origin:margin;left:12px;padding:2px 5px;}
+QStatusBar {background:#f0f2ec;border-top:1px solid #dcded8;font-size:13px;}
+
+/* Approved 0.5 workspace surfaces */
+QPushButton[navigation="true"]:checked {background:#22694f;color:#ffffff;font-weight:600;}
+QMdiArea {border:1px solid #d8ddda;}
+QMdiSubWindow {background:#ffffff;border:1px solid #cbd3ce;}
+QGroupBox {background:#ffffff;border:1px solid #dcded8;border-radius:4px;margin-top:12px;padding-top:14px;font-weight:600;}
+QGroupBox::title {subcontrol-origin:margin;left:10px;padding:0 4px;}
+
+/* Focused workspace polish: Welcome, Device setup, RT Dashboard, Monitor. */
+QWidget[workspacePolish="true"] {background:#f2f6fa;}
+QWidget[workspacePolish="true"] QLabel {background:transparent;color:#24364b;}
+QWidget[workspacePolish="true"] QLabel[tone="muted"] {color:#53677d;}
+QWidget[workspacePolish="true"] QLabel[tone="cardtitle"] {font-size:17px;font-weight:600;color:#153b59;}
+QWidget[workspacePolish="true"] QFrame[card="true"] {background:#ffffff;border:1px solid #ccd9e5;border-radius:8px;}
+QWidget[workspacePolish="true"] QLabel[tone="notice"] {background:#e9f2f8;border:1px solid #bed1e0;color:#315670;border-radius:6px;padding:12px;}
+QWidget[workspacePolish="true"] QPushButton {background:#ffffff;border:1px solid #a9bacb;color:#29445f;border-radius:5px;}
+QWidget[workspacePolish="true"] QPushButton:hover {background:#eaf3fa;border-color:#4c83aa;}
+QWidget[workspacePolish="true"] QPushButton:pressed {background:#d7e8f4;border-color:#285f8d;}
+QWidget[workspacePolish="true"] QPushButton:focus {border:2px solid #176d85;background:#edf7fb;}
+QWidget[workspacePolish="true"] QPushButton[primary="true"] {background:#146b63;border-color:#146b63;color:#ffffff;}
+QWidget[workspacePolish="true"] QPushButton[primary="true"]:hover {background:#0e574f;border-color:#0e574f;}
+QWidget[workspacePolish="true"] QPushButton[primary="true"]:pressed {background:#0b463f;}
+QWidget[workspacePolish="true"] QPushButton[primary="true"]:focus {background:#0e574f;border:2px solid #153b59;}
+QWidget[workspacePolish="true"] QPushButton:disabled {background:#edf1f5;color:#66788a;border-color:#ccd6e0;}
+QWidget[workspacePolish="true"] QLineEdit,QWidget[workspacePolish="true"] QComboBox,QWidget[workspacePolish="true"] QSpinBox {background:#ffffff;border:1px solid #90a5ba;color:#24364b;}
+QWidget[workspacePolish="true"] QLineEdit:focus,QWidget[workspacePolish="true"] QComboBox:focus,QWidget[workspacePolish="true"] QSpinBox:focus {border:2px solid #176d85;background:#f7fcff;}
+QWidget[workspacePolish="true"] QFrame[channelRole="external"],QWidget[workspacePolish="true"] QGroupBox[channelRole="external"],QWidget[workspacePolish="true"] QFrame#deviceState0 {background:#f5faff;border:1px solid #b6cce5;border-top:3px solid #245fa8;border-radius:6px;}
+QWidget[workspacePolish="true"] QFrame[channelRole="internal"],QWidget[workspacePolish="true"] QGroupBox[channelRole="internal"],QWidget[workspacePolish="true"] QFrame#deviceState1 {background:#faf7ff;border:1px solid #d5c6e5;border-top:3px solid #7445a5;border-radius:6px;}
+QWidget[workspacePolish="true"] QTableView {background:#ffffff;alternate-background-color:#f5f8fc;border:1px solid #ccd9e5;selection-background-color:#d5eee9;selection-color:#153b45;}
+QWidget[workspacePolish="true"] QTableView::item:hover {background:#eaf3fa;}
+QWidget[workspacePolish="true"] QHeaderView::section {background:#e7eff7;color:#2d4b68;border-color:#ccd9e5;}
+QWidget[workspacePolish="true"] QTabBar::tab {background:#eaf0f6;color:#405b76;border-bottom:3px solid #ccd9e5;}
+QWidget[workspacePolish="true"] QTabBar::tab:selected {background:#ffffff;color:#115b55;border-bottom:3px solid #146b63;}
+QWidget[workspacePolish="true"] QFrame[rtIndex] {background:#ffffff;border:1px solid #ccd9e5;}
+QWidget[workspacePolish="true"] QFrame[observedRt="true"] {background:#f0faf4;border-color:#95c6a8;}
+QWidget[workspacePolish="true"] QFrame[selectedRt="true"] {background:#eaf3fa;border:2px solid #245fa8;}
+QWidget[workspacePolish="true"] QPushButton[rtSelector="true"] {text-align:left;background:transparent;border:1px solid transparent;padding:2px;font-size:15px;font-weight:600;}
+QWidget[workspacePolish="true"] QPushButton[rtSelector="true"]:hover {background:#e0edf7;border-color:#aac5dc;}
+QWidget[workspacePolish="true"] QPushButton[rtSelector="true"]:focus {border:2px solid #245fa8;}
+
+QWidget#workspace[workspacePolish="true"] {background:#f2f6fa;}
+QWidget[workspacePolish="true"] QPushButton:checked {background:#d5eee9;border-color:#4b918a;color:#134e4a;}
+
+QWidget[workspacePolish="true"] QComboBox::down-arrow {image:url(:/icons/chevron-down.svg);width:14px;height:14px;}
+QWidget[workspacePolish="true"] QSpinBox::up-button {subcontrol-origin:border;subcontrol-position:top right;width:24px;border-left:1px solid #b5c6d8;background:#edf3f9;}
+QWidget[workspacePolish="true"] QSpinBox::down-button {subcontrol-origin:border;subcontrol-position:bottom right;width:24px;border-left:1px solid #b5c6d8;background:#edf3f9;}
+QWidget[workspacePolish="true"] QSpinBox::up-arrow {image:url(:/icons/chevron-up.svg);width:12px;height:12px;}
+QWidget[workspacePolish="true"] QSpinBox::down-arrow {image:url(:/icons/chevron-down.svg);width:12px;height:12px;}

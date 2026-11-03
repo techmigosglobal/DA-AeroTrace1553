@@ -1,0 +1,1067 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>DevicePage</class>
+ <widget class="QWidget" name="DevicePage">
+  <layout class="QVBoxLayout" name="bodyLayout">
+   <property name="leftMargin">
+    <number>0</number>
+   </property>
+   <property name="topMargin">
+    <number>0</number>
+   </property>
+   <property name="rightMargin">
+    <number>0</number>
+   </property>
+   <property name="bottomMargin">
+    <number>0</number>
+   </property>
+   <property name="spacing">
+    <number>15</number>
+   </property>
+   <item>
+    <widget class="QWidget" name="actionBar">
+     <layout class="QHBoxLayout" name="actionBarLayout">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <property name="spacing">
+       <number>15</number>
+      </property>
+      <item>
+       <widget class="QPushButton" name="scanButton">
+        <property name="text">
+         <string>Check DDC runtime</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="armButton">
+        <property name="text">
+         <string>Arm Monitor</string>
+        </property>
+        <property name="primary" stdset="0">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QFrame" name="captureSourceCard">
+     <property name="card" stdset="0">
+      <bool>true</bool>
+     </property>
+     <layout class="QFormLayout" name="captureSourceLayout">
+      <item row="0" column="0">
+       <widget class="QLabel" name="sourceModeCaption">
+        <property name="text">
+         <string>Capture source</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QComboBox" name="sourceMode">
+        <item>
+         <property name="text">
+          <string>DDC hardware - receive only</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Simulator - test traffic</string>
+         </property>
+        </item>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="logicalChannel1Caption">
+        <property name="text">
+         <string>Channel 1 SDK logical device</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="QSpinBox" name="logicalChannel1">
+        <property name="maximum">
+         <number>31</number>
+        </property>
+        <property name="value">
+         <number>0</number>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="0">
+       <widget class="QLabel" name="logicalChannel2Caption">
+        <property name="text">
+         <string>Channel 2 SDK logical device</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="1">
+       <widget class="QSpinBox" name="logicalChannel2">
+        <property name="maximum">
+         <number>31</number>
+        </property>
+        <property name="value">
+         <number>1</number>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="0">
+       <widget class="QLabel" name="simulatorRateCaption">
+        <property name="text">
+         <string>Simulator events/s</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="1">
+       <widget class="QSpinBox" name="simulatorRate">
+        <property name="maximum">
+         <number>100000</number>
+        </property>
+        <property name="value">
+         <number>12</number>
+        </property>
+        <property name="minimum">
+         <number>1</number>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="0">
+       <widget class="QLabel" name="runtimePathCaption">
+        <property name="text">
+         <string>DDC runtime (optional override)</string>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="1">
+       <widget class="QLineEdit" name="runtimePath" />
+      </item>
+      <item row="5" column="0">
+       <widget class="QLabel" name="runtimeStatusCaption">
+        <property name="text">
+         <string>Runtime status</string>
+        </property>
+       </widget>
+      </item>
+      <item row="5" column="1">
+       <widget class="QLabel" name="runtimeStatus">
+        <property name="wordWrap">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QFrame" name="connected">
+     <property name="card" stdset="0">
+      <bool>true</bool>
+     </property>
+     <property name="minimumSize">
+      <size>
+       <width>0</width>
+       <height>195</height>
+      </size>
+     </property>
+     <layout class="QVBoxLayout" name="connectedLayout">
+      <property name="leftMargin">
+       <number>19</number>
+      </property>
+      <property name="topMargin">
+       <number>19</number>
+      </property>
+      <property name="rightMargin">
+       <number>19</number>
+      </property>
+      <property name="bottomMargin">
+       <number>19</number>
+      </property>
+      <property name="spacing">
+       <number>15</number>
+      </property>
+      <item>
+       <widget class="QLabel" name="connectedTitle">
+        <property name="text">
+         <string>Connected interface</string>
+        </property>
+        <property name="wordWrap">
+         <bool>true</bool>
+        </property>
+        <property name="tone" stdset="0">
+         <string>cardtitle</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QWidget" name="deviceDetails">
+        <layout class="QHBoxLayout" name="deviceDetailsLayout" stretch="1,1,1">
+         <property name="leftMargin">
+          <number>0</number>
+         </property>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="rightMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <property name="spacing">
+          <number>15</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="deviceIcon">
+           <property name="text">
+            <string>⌘</string>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>title</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QWidget" name="detailsA">
+           <layout class="QVBoxLayout" name="detailsALayout">
+            <property name="leftMargin">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
+            <property name="spacing">
+             <number>15</number>
+            </property>
+            <item>
+             <widget class="QWidget" name="modelRow">
+              <layout class="QHBoxLayout" name="modelRowLayout" stretch="1,1">
+               <property name="leftMargin">
+                <number>0</number>
+               </property>
+               <property name="topMargin">
+                <number>0</number>
+               </property>
+               <property name="rightMargin">
+                <number>0</number>
+               </property>
+               <property name="bottomMargin">
+                <number>0</number>
+               </property>
+               <property name="spacing">
+                <number>15</number>
+               </property>
+               <item>
+                <widget class="QLabel" name="modelKey">
+                 <property name="text">
+                  <string>Model</string>
+                 </property>
+                 <property name="wordWrap">
+                  <bool>true</bool>
+                 </property>
+                 <property name="tone" stdset="0">
+                  <string>muted</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QLabel" name="model">
+                 <property name="text">
+                  <string>BU-67113U2 · SIMULATED</string>
+                 </property>
+                 <property name="wordWrap">
+                  <bool>true</bool>
+                 </property>
+                 <property name="alignment">
+                  <set>Qt::AlignRight|Qt::AlignVCenter</set>
+                 </property>
+                 <property name="styleSheet">
+                  <string>font-weight:600;font-size:11px;</string>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>32</height>
+               </size>
+              </property>
+              <property name="toolTip">
+               <string>Model</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QWidget" name="connectionRow">
+              <layout class="QHBoxLayout" name="connectionRowLayout" stretch="1,1">
+               <property name="leftMargin">
+                <number>0</number>
+               </property>
+               <property name="topMargin">
+                <number>0</number>
+               </property>
+               <property name="rightMargin">
+                <number>0</number>
+               </property>
+               <property name="bottomMargin">
+                <number>0</number>
+               </property>
+               <property name="spacing">
+                <number>15</number>
+               </property>
+               <item>
+                <widget class="QLabel" name="connectionKey">
+                 <property name="text">
+                  <string>Connection</string>
+                 </property>
+                 <property name="wordWrap">
+                  <bool>true</bool>
+                 </property>
+                 <property name="tone" stdset="0">
+                  <string>muted</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QLabel" name="connection">
+                 <property name="text">
+                  <string>Synthetic source</string>
+                 </property>
+                 <property name="wordWrap">
+                  <bool>true</bool>
+                 </property>
+                 <property name="alignment">
+                  <set>Qt::AlignRight|Qt::AlignVCenter</set>
+                 </property>
+                 <property name="styleSheet">
+                  <string>font-weight:600;font-size:11px;</string>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>32</height>
+               </size>
+              </property>
+              <property name="toolTip">
+               <string>Connection</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QWidget" name="modeRow">
+              <layout class="QHBoxLayout" name="modeRowLayout" stretch="1,1">
+               <property name="leftMargin">
+                <number>0</number>
+               </property>
+               <property name="topMargin">
+                <number>0</number>
+               </property>
+               <property name="rightMargin">
+                <number>0</number>
+               </property>
+               <property name="bottomMargin">
+                <number>0</number>
+               </property>
+               <property name="spacing">
+                <number>15</number>
+               </property>
+               <item>
+                <widget class="QLabel" name="modeKey">
+                 <property name="text">
+                  <string>Monitor mode</string>
+                 </property>
+                 <property name="wordWrap">
+                  <bool>true</bool>
+                 </property>
+                 <property name="tone" stdset="0">
+                  <string>muted</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QLabel" name="mode">
+                 <property name="text">
+                  <string>Read-only</string>
+                 </property>
+                 <property name="wordWrap">
+                  <bool>true</bool>
+                 </property>
+                 <property name="alignment">
+                  <set>Qt::AlignRight|Qt::AlignVCenter</set>
+                 </property>
+                 <property name="styleSheet">
+                  <string>font-weight:600;font-size:11px;</string>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>32</height>
+               </size>
+              </property>
+              <property name="toolTip">
+               <string>Monitor mode</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QWidget" name="wiringRow">
+              <layout class="QHBoxLayout" name="wiringRowLayout" stretch="1,1">
+               <property name="leftMargin">
+                <number>0</number>
+               </property>
+               <property name="topMargin">
+                <number>0</number>
+               </property>
+               <property name="rightMargin">
+                <number>0</number>
+               </property>
+               <property name="bottomMargin">
+                <number>0</number>
+               </property>
+               <property name="spacing">
+                <number>15</number>
+               </property>
+               <item>
+                <widget class="QLabel" name="wiringKey">
+                 <property name="text">
+                  <string>Bus wiring</string>
+                 </property>
+                 <property name="wordWrap">
+                  <bool>true</bool>
+                 </property>
+                 <property name="tone" stdset="0">
+                  <string>muted</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QLabel" name="wiring">
+                 <property name="text">
+                  <string>Validate externally</string>
+                 </property>
+                 <property name="wordWrap">
+                  <bool>true</bool>
+                 </property>
+                 <property name="alignment">
+                  <set>Qt::AlignRight|Qt::AlignVCenter</set>
+                 </property>
+                 <property name="styleSheet">
+                  <string>font-weight:600;font-size:11px;</string>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>32</height>
+               </size>
+              </property>
+              <property name="toolTip">
+               <string>Bus wiring</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <widget class="QWidget" name="detailsB">
+           <layout class="QVBoxLayout" name="detailsBLayout">
+            <property name="leftMargin">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
+            <property name="spacing">
+             <number>15</number>
+            </property>
+            <item>
+             <widget class="QWidget" name="firmwareRow">
+              <layout class="QHBoxLayout" name="firmwareRowLayout" stretch="1,1">
+               <property name="leftMargin">
+                <number>0</number>
+               </property>
+               <property name="topMargin">
+                <number>0</number>
+               </property>
+               <property name="rightMargin">
+                <number>0</number>
+               </property>
+               <property name="bottomMargin">
+                <number>0</number>
+               </property>
+               <property name="spacing">
+                <number>15</number>
+               </property>
+               <item>
+                <widget class="QLabel" name="firmwareKey">
+                 <property name="text">
+                  <string>Firmware</string>
+                 </property>
+                 <property name="wordWrap">
+                  <bool>true</bool>
+                 </property>
+                 <property name="tone" stdset="0">
+                  <string>muted</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QLabel" name="firmware">
+                 <property name="text">
+                  <string>Not queried</string>
+                 </property>
+                 <property name="wordWrap">
+                  <bool>true</bool>
+                 </property>
+                 <property name="alignment">
+                  <set>Qt::AlignRight|Qt::AlignVCenter</set>
+                 </property>
+                 <property name="styleSheet">
+                  <string>font-weight:600;font-size:11px;</string>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>32</height>
+               </size>
+              </property>
+              <property name="toolTip">
+               <string>Firmware</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QWidget" name="driverRow">
+              <layout class="QHBoxLayout" name="driverRowLayout" stretch="1,1">
+               <property name="leftMargin">
+                <number>0</number>
+               </property>
+               <property name="topMargin">
+                <number>0</number>
+               </property>
+               <property name="rightMargin">
+                <number>0</number>
+               </property>
+               <property name="bottomMargin">
+                <number>0</number>
+               </property>
+               <property name="spacing">
+                <number>15</number>
+               </property>
+               <item>
+                <widget class="QLabel" name="driverKey">
+                 <property name="text">
+                  <string>Driver</string>
+                 </property>
+                 <property name="wordWrap">
+                  <bool>true</bool>
+                 </property>
+                 <property name="tone" stdset="0">
+                  <string>muted</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QLabel" name="driver">
+                 <property name="text">
+                  <string>Not connected</string>
+                 </property>
+                 <property name="wordWrap">
+                  <bool>true</bool>
+                 </property>
+                 <property name="alignment">
+                  <set>Qt::AlignRight|Qt::AlignVCenter</set>
+                 </property>
+                 <property name="styleSheet">
+                  <string>font-weight:600;font-size:11px;</string>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>32</height>
+               </size>
+              </property>
+              <property name="toolTip">
+               <string>Driver</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QWidget" name="sdkRow">
+              <layout class="QHBoxLayout" name="sdkRowLayout" stretch="1,1">
+               <property name="leftMargin">
+                <number>0</number>
+               </property>
+               <property name="topMargin">
+                <number>0</number>
+               </property>
+               <property name="rightMargin">
+                <number>0</number>
+               </property>
+               <property name="bottomMargin">
+                <number>0</number>
+               </property>
+               <property name="spacing">
+                <number>15</number>
+               </property>
+               <item>
+                <widget class="QLabel" name="sdkKey">
+                 <property name="text">
+                  <string>SDK</string>
+                 </property>
+                 <property name="wordWrap">
+                  <bool>true</bool>
+                 </property>
+                 <property name="tone" stdset="0">
+                  <string>muted</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QLabel" name="sdk">
+                 <property name="text">
+                  <string>Not supplied</string>
+                 </property>
+                 <property name="wordWrap">
+                  <bool>true</bool>
+                 </property>
+                 <property name="alignment">
+                  <set>Qt::AlignRight|Qt::AlignVCenter</set>
+                 </property>
+                 <property name="styleSheet">
+                  <string>font-weight:600;font-size:11px;</string>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>32</height>
+               </size>
+              </property>
+              <property name="toolTip">
+               <string>SDK</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QWidget" name="timeRow">
+              <layout class="QHBoxLayout" name="timeRowLayout" stretch="1,1">
+               <property name="leftMargin">
+                <number>0</number>
+               </property>
+               <property name="topMargin">
+                <number>0</number>
+               </property>
+               <property name="rightMargin">
+                <number>0</number>
+               </property>
+               <property name="bottomMargin">
+                <number>0</number>
+               </property>
+               <property name="spacing">
+                <number>15</number>
+               </property>
+               <item>
+                <widget class="QLabel" name="timeKey">
+                 <property name="text">
+                  <string>Time source</string>
+                 </property>
+                 <property name="wordWrap">
+                  <bool>true</bool>
+                 </property>
+                 <property name="tone" stdset="0">
+                  <string>muted</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QLabel" name="time">
+                 <property name="text">
+                  <string>Source timebase</string>
+                 </property>
+                 <property name="wordWrap">
+                  <bool>true</bool>
+                 </property>
+                 <property name="alignment">
+                  <set>Qt::AlignRight|Qt::AlignVCenter</set>
+                 </property>
+                 <property name="styleSheet">
+                  <string>font-weight:600;font-size:11px;</string>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>32</height>
+               </size>
+              </property>
+              <property name="toolTip">
+               <string>Time source</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QWidget" name="channelRow">
+     <layout class="QHBoxLayout" name="channelRowLayout">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <property name="spacing">
+       <number>15</number>
+      </property>
+      <item>
+       <widget class="QFrame" name="channel1">
+        <property name="card" stdset="0">
+         <bool>true</bool>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>290</height>
+         </size>
+        </property>
+        <layout class="QVBoxLayout" name="channel1Layout">
+         <property name="leftMargin">
+          <number>19</number>
+         </property>
+         <property name="topMargin">
+          <number>19</number>
+         </property>
+         <property name="rightMargin">
+          <number>19</number>
+         </property>
+         <property name="bottomMargin">
+          <number>19</number>
+         </property>
+         <property name="spacing">
+          <number>15</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="channel1Title">
+           <property name="text">
+            <string>Channel 1</string>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>cardtitle</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="channelTitle1">
+           <property name="text">
+            <string>Dual-redundant buses</string>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>cardtitle</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="channel1BusA">
+           <property name="text">
+            <string>Bus A</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="channel1BusB">
+           <property name="text">
+            <string>Bus B</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QWidget" name="mode1Row">
+           <layout class="QHBoxLayout" name="mode1RowLayout" stretch="1,1">
+            <property name="leftMargin">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
+            <property name="spacing">
+             <number>15</number>
+            </property>
+            <item>
+             <widget class="QLabel" name="mode1Key">
+              <property name="text">
+               <string>Mode</string>
+              </property>
+              <property name="wordWrap">
+               <bool>true</bool>
+              </property>
+              <property name="tone" stdset="0">
+               <string>muted</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="mode1">
+              <property name="text">
+               <string>Monitor only</string>
+              </property>
+              <property name="wordWrap">
+               <bool>true</bool>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignRight|Qt::AlignVCenter</set>
+              </property>
+              <property name="styleSheet">
+               <string>font-weight:600;font-size:11px;</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>32</height>
+            </size>
+           </property>
+           <property name="toolTip">
+            <string>Mode</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="channelNotice1">
+           <property name="text">
+            <string>Transmit inhibit: verification required on actual device.</string>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>success</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QFrame" name="channel2">
+        <property name="card" stdset="0">
+         <bool>true</bool>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>290</height>
+         </size>
+        </property>
+        <layout class="QVBoxLayout" name="channel2Layout">
+         <property name="leftMargin">
+          <number>19</number>
+         </property>
+         <property name="topMargin">
+          <number>19</number>
+         </property>
+         <property name="rightMargin">
+          <number>19</number>
+         </property>
+         <property name="bottomMargin">
+          <number>19</number>
+         </property>
+         <property name="spacing">
+          <number>15</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="channel2Title">
+           <property name="text">
+            <string>Channel 2</string>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>cardtitle</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="channelTitle2">
+           <property name="text">
+            <string>Simulated second channel</string>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>cardtitle</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="channel2BusA">
+           <property name="text">
+            <string>Bus A</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="channel2BusB">
+           <property name="text">
+            <string>Bus B</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QWidget" name="mode2Row">
+           <layout class="QHBoxLayout" name="mode2RowLayout" stretch="1,1">
+            <property name="leftMargin">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
+            <property name="spacing">
+             <number>15</number>
+            </property>
+            <item>
+             <widget class="QLabel" name="mode2Key">
+              <property name="text">
+               <string>Mode</string>
+              </property>
+              <property name="wordWrap">
+               <bool>true</bool>
+              </property>
+              <property name="tone" stdset="0">
+               <string>muted</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="mode2">
+              <property name="text">
+               <string>Monitor only</string>
+              </property>
+              <property name="wordWrap">
+               <bool>true</bool>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignRight|Qt::AlignVCenter</set>
+              </property>
+              <property name="styleSheet">
+               <string>font-weight:600;font-size:11px;</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>32</height>
+            </size>
+           </property>
+           <property name="toolTip">
+            <string>Mode</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="channelNotice2">
+           <property name="text">
+            <string>Channel count depends on exact hardware. Simulation provides two channels.</string>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>warning</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources />
+ <connections />
+</ui>

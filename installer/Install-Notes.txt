@@ -1,0 +1,9 @@
+AeroTrace 1553 0.5.0
+
+All application libraries and the offline PDF/OCR/retrieval runtime are installed together. No separate Qt, Python, Node.js or internet connection is required.
+
+Real DDC acquisition additionally requires the matching vendor x64 driver and correct logical-device assignments. This installer does not install, replace or downgrade device drivers.
+
+Read the Operator guide from the Start menu before the first bench test. Use Help & Diagnostics (F1) to open logs and collect a support bundle after a test. New user settings, profiles, logs and recordings are kept outside program files.
+
+This is a receive-only hardware-test delivery. Software validation does not qualify physical hardware behavior, electrical transmit inhibition, sustained rates or card-clock accuracy. No physical key is required.

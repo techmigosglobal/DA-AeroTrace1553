@@ -1,0 +1,8 @@
+add_library(aerotrace_core STATIC core.cpp protocol.cpp)
+target_include_directories(aerotrace_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+add_executable(aerotrace_core_tests tests.cpp)
+target_link_libraries(aerotrace_core_tests PRIVATE aerotrace_core)
+add_test(NAME core_contract_record_replay COMMAND aerotrace_core_tests)
+add_executable(aerotrace_protocol_tests protocol_tests.cpp)
+target_link_libraries(aerotrace_protocol_tests PRIVATE aerotrace_core)
+add_test(NAME protocol_interpretation_and_payload_safety COMMAND aerotrace_protocol_tests)

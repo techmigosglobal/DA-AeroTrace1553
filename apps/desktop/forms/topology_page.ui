@@ -1,0 +1,713 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>TopologyPage</class>
+ <widget class="QWidget" name="TopologyPage">
+  <layout class="QVBoxLayout" name="bodyLayout">
+   <property name="leftMargin">
+    <number>0</number>
+   </property>
+   <property name="topMargin">
+    <number>0</number>
+   </property>
+   <property name="rightMargin">
+    <number>0</number>
+   </property>
+   <property name="bottomMargin">
+    <number>0</number>
+   </property>
+   <property name="spacing">
+    <number>15</number>
+   </property>
+   <item>
+    <widget class="QWidget" name="actionBar">
+     <layout class="QHBoxLayout" name="actionBarLayout">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <property name="spacing">
+       <number>15</number>
+      </property>
+      <item>
+       <widget class="QPushButton" name="selectBusButton">
+        <property name="text">
+         <string>Select bus</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="liveMonitorButton">
+        <property name="text">
+         <string>Go to live monitor</string>
+        </property>
+        <property name="primary" stdset="0">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QWidget" name="buses">
+     <layout class="QHBoxLayout" name="busesLayout">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <property name="spacing">
+       <number>15</number>
+      </property>
+      <item>
+       <widget class="QFrame" name="bus0">
+        <property name="card" stdset="0">
+         <bool>true</bool>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>360</height>
+         </size>
+        </property>
+        <layout class="QVBoxLayout" name="bus0Layout">
+         <property name="leftMargin">
+          <number>19</number>
+         </property>
+         <property name="topMargin">
+          <number>19</number>
+         </property>
+         <property name="rightMargin">
+          <number>19</number>
+         </property>
+         <property name="bottomMargin">
+          <number>19</number>
+         </property>
+         <property name="spacing">
+          <number>15</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="bus0Title">
+           <property name="text">
+            <string>Bus A · Enabled channels</string>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>cardtitle</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QWidget" name="nodeRow00">
+           <layout class="QHBoxLayout" name="nodeRow00Layout">
+            <property name="leftMargin">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
+            <property name="spacing">
+             <number>15</number>
+            </property>
+            <item>
+             <widget class="QPushButton" name="node0_0">
+              <property name="text">
+               <string>BC</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="node0_1">
+              <property name="text">
+               <string>RT 01</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="node0_2">
+              <property name="text">
+               <string>RT 02</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="node0_3">
+              <property name="text">
+               <string>RT 03</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <widget class="QWidget" name="nodeRow01">
+           <layout class="QHBoxLayout" name="nodeRow01Layout">
+            <property name="leftMargin">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
+            <property name="spacing">
+             <number>15</number>
+            </property>
+            <item>
+             <widget class="QPushButton" name="node0_4">
+              <property name="text">
+               <string>RT 04</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="node0_5">
+              <property name="text">
+               <string>RT 05</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="node0_6">
+              <property name="text">
+               <string>RT 06</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="node0_7">
+              <property name="text">
+               <string>RT 07</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="busNotice0">
+           <property name="text">
+            <string>Logical observed activity only. This is not a physical wiring diagram.</string>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>notice</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QFrame" name="bus1">
+        <property name="card" stdset="0">
+         <bool>true</bool>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>360</height>
+         </size>
+        </property>
+        <layout class="QVBoxLayout" name="bus1Layout">
+         <property name="leftMargin">
+          <number>19</number>
+         </property>
+         <property name="topMargin">
+          <number>19</number>
+         </property>
+         <property name="rightMargin">
+          <number>19</number>
+         </property>
+         <property name="bottomMargin">
+          <number>19</number>
+         </property>
+         <property name="spacing">
+          <number>15</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="bus1Title">
+           <property name="text">
+            <string>Bus B · Enabled channels</string>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>cardtitle</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QWidget" name="nodeRow10">
+           <layout class="QHBoxLayout" name="nodeRow10Layout">
+            <property name="leftMargin">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
+            <property name="spacing">
+             <number>15</number>
+            </property>
+            <item>
+             <widget class="QPushButton" name="node1_0">
+              <property name="text">
+               <string>BC</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="node1_1">
+              <property name="text">
+               <string>RT 01</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="node1_2">
+              <property name="text">
+               <string>RT 02</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="node1_3">
+              <property name="text">
+               <string>RT 03</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <widget class="QWidget" name="nodeRow11">
+           <layout class="QHBoxLayout" name="nodeRow11Layout">
+            <property name="leftMargin">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
+            <property name="spacing">
+             <number>15</number>
+            </property>
+            <item>
+             <widget class="QPushButton" name="node1_4">
+              <property name="text">
+               <string>RT 04</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="node1_5">
+              <property name="text">
+               <string>RT 05</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="node1_6">
+              <property name="text">
+               <string>RT 06</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="node1_7">
+              <property name="text">
+               <string>RT 07</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="busNotice1">
+           <property name="text">
+            <string>Logical observed activity only. This is not a physical wiring diagram.</string>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>notice</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QWidget" name="topologyMetrics">
+     <layout class="QHBoxLayout" name="topologyMetricsLayout">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <property name="spacing">
+       <number>15</number>
+      </property>
+      <item>
+       <widget class="QFrame" name="addressesCard">
+        <property name="card" stdset="0">
+         <bool>true</bool>
+        </property>
+        <layout class="QVBoxLayout" name="addressesCardLayout">
+         <property name="leftMargin">
+          <number>19</number>
+         </property>
+         <property name="topMargin">
+          <number>16</number>
+         </property>
+         <property name="rightMargin">
+          <number>19</number>
+         </property>
+         <property name="bottomMargin">
+          <number>16</number>
+         </property>
+         <property name="spacing">
+          <number>7</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="addressesCaption">
+           <property name="text">
+            <string>RT addresses observed</string>
+           </property>
+           <property name="wordWrap">
+            <bool>false</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>muted</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="addresses">
+           <property name="text">
+            <string>08</string>
+           </property>
+           <property name="wordWrap">
+            <bool>false</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>metric</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="addressesHint">
+           <property name="text">
+            <string>Observed records</string>
+           </property>
+           <property name="wordWrap">
+            <bool>false</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>muted</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>116</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>16777215</width>
+          <height>116</height>
+         </size>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QFrame" name="messagesCard">
+        <property name="card" stdset="0">
+         <bool>true</bool>
+        </property>
+        <layout class="QVBoxLayout" name="messagesCardLayout">
+         <property name="leftMargin">
+          <number>19</number>
+         </property>
+         <property name="topMargin">
+          <number>16</number>
+         </property>
+         <property name="rightMargin">
+          <number>19</number>
+         </property>
+         <property name="bottomMargin">
+          <number>16</number>
+         </property>
+         <property name="spacing">
+          <number>7</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="messagesCaption">
+           <property name="text">
+            <string>Messages</string>
+           </property>
+           <property name="wordWrap">
+            <bool>false</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>muted</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="messages">
+           <property name="text">
+            <string>0</string>
+           </property>
+           <property name="wordWrap">
+            <bool>false</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>metric</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="messagesHint">
+           <property name="text">
+            <string />
+           </property>
+           <property name="wordWrap">
+            <bool>false</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>muted</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>116</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>16777215</width>
+          <height>116</height>
+         </size>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QFrame" name="channelsCard">
+        <property name="card" stdset="0">
+         <bool>true</bool>
+        </property>
+        <layout class="QVBoxLayout" name="channelsCardLayout">
+         <property name="leftMargin">
+          <number>19</number>
+         </property>
+         <property name="topMargin">
+          <number>16</number>
+         </property>
+         <property name="rightMargin">
+          <number>19</number>
+         </property>
+         <property name="bottomMargin">
+          <number>16</number>
+         </property>
+         <property name="spacing">
+          <number>7</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="channelsCaption">
+           <property name="text">
+            <string>Channel sources</string>
+           </property>
+           <property name="wordWrap">
+            <bool>false</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>muted</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="channels">
+           <property name="text">
+            <string>02</string>
+           </property>
+           <property name="wordWrap">
+            <bool>false</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>metric</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="channelsHint">
+           <property name="text">
+            <string>Source adapter</string>
+           </property>
+           <property name="wordWrap">
+            <bool>false</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>muted</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>116</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>16777215</width>
+          <height>116</height>
+         </size>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QFrame" name="busesMetricCard">
+        <property name="card" stdset="0">
+         <bool>true</bool>
+        </property>
+        <layout class="QVBoxLayout" name="busesMetricCardLayout">
+         <property name="leftMargin">
+          <number>19</number>
+         </property>
+         <property name="topMargin">
+          <number>16</number>
+         </property>
+         <property name="rightMargin">
+          <number>19</number>
+         </property>
+         <property name="bottomMargin">
+          <number>16</number>
+         </property>
+         <property name="spacing">
+          <number>7</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="busesMetricCaption">
+           <property name="text">
+            <string>Physical buses</string>
+           </property>
+           <property name="wordWrap">
+            <bool>false</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>muted</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="busesMetric">
+           <property name="text">
+            <string>A + B</string>
+           </property>
+           <property name="wordWrap">
+            <bool>false</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>metric</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="busesMetricHint">
+           <property name="text">
+            <string>Per enabled channel</string>
+           </property>
+           <property name="wordWrap">
+            <bool>false</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>muted</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>116</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>16777215</width>
+          <height>116</height>
+         </size>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources />
+ <connections />
+</ui>

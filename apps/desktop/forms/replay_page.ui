@@ -1,0 +1,879 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>ReplayPage</class>
+ <widget class="QWidget" name="ReplayPage">
+  <layout class="QVBoxLayout" name="bodyLayout">
+   <property name="leftMargin">
+    <number>0</number>
+   </property>
+   <property name="topMargin">
+    <number>0</number>
+   </property>
+   <property name="rightMargin">
+    <number>0</number>
+   </property>
+   <property name="bottomMargin">
+    <number>0</number>
+   </property>
+   <property name="spacing">
+    <number>15</number>
+   </property>
+   <item>
+    <widget class="QWidget" name="actionBar">
+     <layout class="QHBoxLayout" name="actionBarLayout">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <property name="spacing">
+       <number>15</number>
+      </property>
+      <item>
+       <widget class="QPushButton" name="openReplayButton">
+        <property name="text">
+         <string>Open session</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="inspectReplayButton">
+        <property name="text">
+         <string>Inspect frame</string>
+        </property>
+        <property name="primary" stdset="0">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QFrame" name="playback">
+     <property name="card" stdset="0">
+      <bool>true</bool>
+     </property>
+     <layout class="QVBoxLayout" name="playbackLayout">
+      <property name="leftMargin">
+       <number>19</number>
+      </property>
+      <property name="topMargin">
+       <number>19</number>
+      </property>
+      <property name="rightMargin">
+       <number>19</number>
+      </property>
+      <property name="bottomMargin">
+       <number>19</number>
+      </property>
+      <property name="spacing">
+       <number>15</number>
+      </property>
+      <item>
+       <widget class="QLabel" name="playbackTitle">
+        <property name="text">
+         <string>Playback controls</string>
+        </property>
+        <property name="wordWrap">
+         <bool>true</bool>
+        </property>
+        <property name="tone" stdset="0">
+         <string>cardtitle</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QWidget" name="transport">
+        <layout class="QHBoxLayout" name="transportLayout" stretch="0,0,0,0,0,1">
+         <property name="leftMargin">
+          <number>0</number>
+         </property>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="rightMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <property name="spacing">
+          <number>15</number>
+         </property>
+         <item>
+          <widget class="QPushButton" name="rewindButton">
+           <property name="text">
+            <string>◀◀</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="playButton">
+           <property name="text">
+            <string>▶ Play</string>
+           </property>
+           <property name="primary" stdset="0">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pauseButton">
+           <property name="text">
+            <string>❚❚</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="stepButton">
+           <property name="text">
+            <string>▶| Step</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QComboBox" name="speed">
+           <item>
+            <property name="text">
+             <string>0.25×</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>1×</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>2×</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>5×</string>
+            </property>
+           </item>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="replayTime">
+           <property name="text">
+            <string>No session loaded</string>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>muted</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QSlider" name="scrubber">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="replayPath">
+        <property name="text">
+         <string />
+        </property>
+        <property name="wordWrap">
+         <bool>true</bool>
+        </property>
+        <property name="tone" stdset="0">
+         <string>muted</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QWidget" name="replayDetails">
+    <layout class="QHBoxLayout" name="replayDetailsLayout" stretch="2,3">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <property name="spacing">
+       <number>15</number>
+      </property>
+      <item>
+       <widget class="QFrame" name="trace">
+        <property name="card" stdset="0">
+         <bool>true</bool>
+        </property>
+        <layout class="QVBoxLayout" name="traceLayout">
+         <property name="leftMargin">
+          <number>19</number>
+         </property>
+         <property name="topMargin">
+          <number>19</number>
+         </property>
+         <property name="rightMargin">
+          <number>19</number>
+         </property>
+         <property name="bottomMargin">
+          <number>19</number>
+         </property>
+         <property name="spacing">
+          <number>15</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="traceTitle">
+           <property name="text">
+            <string>Replay trace</string>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>cardtitle</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="RatePlot" name="replayPlot">
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>250</height>
+            </size>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QFrame" name="selectedTimestamp">
+        <property name="card" stdset="0">
+         <bool>true</bool>
+        </property>
+        <layout class="QVBoxLayout" name="selectedTimestampLayout">
+         <property name="leftMargin">
+          <number>19</number>
+         </property>
+         <property name="topMargin">
+          <number>19</number>
+         </property>
+         <property name="rightMargin">
+          <number>19</number>
+         </property>
+         <property name="bottomMargin">
+          <number>19</number>
+         </property>
+         <property name="spacing">
+          <number>15</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="selectedTimestampTitle">
+           <property name="text">
+            <string>At selected timestamp</string>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>cardtitle</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QTableWidget" name="replayTable">
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>290</height>
+            </size>
+           </property>
+           <property name="alternatingRowColors">
+            <bool>true</bool>
+           </property>
+           <property name="showGrid">
+            <bool>false</bool>
+           </property>
+           <property name="selectionBehavior">
+            <enum>QAbstractItemView::SelectRows</enum>
+           </property>
+           <property name="selectionMode">
+            <enum>QAbstractItemView::SingleSelection</enum>
+           </property>
+           <property name="editTriggers">
+            <set>QAbstractItemView::NoEditTriggers</set>
+           </property>
+           <column>
+            <property name="text">
+             <string>TIME</string>
+            </property>
+           </column>
+           <column>
+            <property name="text">
+             <string>BUS</string>
+            </property>
+           </column>
+           <column>
+            <property name="text">
+             <string>RT</string>
+            </property>
+           </column>
+           <column>
+            <property name="text">
+             <string>SA</string>
+            </property>
+           </column>
+           <column>
+            <property name="text">
+             <string>DIRECTION</string>
+            </property>
+           </column>
+           <column>
+            <property name="text">
+             <string>HEX</string>
+            </property>
+           </column>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QWidget" name="replaySummary">
+     <layout class="QHBoxLayout" name="replaySummaryLayout">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <property name="spacing">
+       <number>15</number>
+      </property>
+      <item>
+       <widget class="QFrame" name="replayIntegrity">
+        <property name="card" stdset="0">
+         <bool>true</bool>
+        </property>
+        <layout class="QVBoxLayout" name="replayIntegrityLayout">
+         <property name="leftMargin">
+          <number>19</number>
+         </property>
+         <property name="topMargin">
+          <number>19</number>
+         </property>
+         <property name="rightMargin">
+          <number>19</number>
+         </property>
+         <property name="bottomMargin">
+          <number>19</number>
+         </property>
+         <property name="spacing">
+          <number>15</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="replayIntegrityTitle">
+           <property name="text">
+            <string>Session integrity</string>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>cardtitle</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QWidget" name="formatRow">
+           <layout class="QHBoxLayout" name="formatRowLayout" stretch="1,1">
+            <property name="leftMargin">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
+            <property name="spacing">
+             <number>15</number>
+            </property>
+            <item>
+             <widget class="QLabel" name="formatKey">
+              <property name="text">
+               <string>Format</string>
+              </property>
+              <property name="wordWrap">
+               <bool>true</bool>
+              </property>
+              <property name="tone" stdset="0">
+               <string>muted</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="format">
+              <property name="text">
+               <string>ATD2 / legacy ATD1</string>
+              </property>
+              <property name="wordWrap">
+               <bool>true</bool>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignRight|Qt::AlignVCenter</set>
+              </property>
+              <property name="styleSheet">
+               <string>font-weight:600;font-size:11px;</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>32</height>
+            </size>
+           </property>
+           <property name="toolTip">
+            <string>Format</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QWidget" name="loadedRow">
+           <layout class="QHBoxLayout" name="loadedRowLayout" stretch="1,1">
+            <property name="leftMargin">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
+            <property name="spacing">
+             <number>15</number>
+            </property>
+            <item>
+             <widget class="QLabel" name="loadedKey">
+              <property name="text">
+               <string>Loaded records</string>
+              </property>
+              <property name="wordWrap">
+               <bool>true</bool>
+              </property>
+              <property name="tone" stdset="0">
+               <string>muted</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="loaded">
+              <property name="text">
+               <string>0</string>
+              </property>
+              <property name="wordWrap">
+               <bool>true</bool>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignRight|Qt::AlignVCenter</set>
+              </property>
+              <property name="styleSheet">
+               <string>font-weight:600;font-size:11px;</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>32</height>
+            </size>
+           </property>
+           <property name="toolTip">
+            <string>Loaded records</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QWidget" name="statusRow">
+           <layout class="QHBoxLayout" name="statusRowLayout" stretch="1,1">
+            <property name="leftMargin">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
+            <property name="spacing">
+             <number>15</number>
+            </property>
+            <item>
+             <widget class="QLabel" name="statusKey">
+              <property name="text">
+               <string>Status</string>
+              </property>
+              <property name="wordWrap">
+               <bool>true</bool>
+              </property>
+              <property name="tone" stdset="0">
+               <string>muted</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="status">
+              <property name="text">
+               <string />
+              </property>
+              <property name="wordWrap">
+               <bool>true</bool>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignRight|Qt::AlignVCenter</set>
+              </property>
+              <property name="styleSheet">
+               <string>font-weight:600;font-size:11px;</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>32</height>
+            </size>
+           </property>
+           <property name="toolTip">
+            <string>Status</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QFrame" name="options">
+        <property name="card" stdset="0">
+         <bool>true</bool>
+        </property>
+        <layout class="QVBoxLayout" name="optionsLayout">
+         <property name="leftMargin">
+          <number>19</number>
+         </property>
+         <property name="topMargin">
+          <number>19</number>
+         </property>
+         <property name="rightMargin">
+          <number>19</number>
+         </property>
+         <property name="bottomMargin">
+          <number>19</number>
+         </property>
+         <property name="spacing">
+          <number>15</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="optionsTitle">
+           <property name="text">
+            <string>Replay options</string>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>cardtitle</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QWidget" name="sourceRow">
+           <layout class="QHBoxLayout" name="sourceRowLayout" stretch="1,1">
+            <property name="leftMargin">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
+            <property name="spacing">
+             <number>15</number>
+            </property>
+            <item>
+             <widget class="QLabel" name="sourceKey">
+              <property name="text">
+               <string>Source</string>
+              </property>
+              <property name="wordWrap">
+               <bool>true</bool>
+              </property>
+              <property name="tone" stdset="0">
+               <string>muted</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="source">
+              <property name="text">
+               <string>Local disk only</string>
+              </property>
+              <property name="wordWrap">
+               <bool>true</bool>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignRight|Qt::AlignVCenter</set>
+              </property>
+              <property name="styleSheet">
+               <string>font-weight:600;font-size:11px;</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>32</height>
+            </size>
+           </property>
+           <property name="toolTip">
+            <string>Source</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QWidget" name="clockRow">
+           <layout class="QHBoxLayout" name="clockRowLayout" stretch="1,1">
+            <property name="leftMargin">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
+            <property name="spacing">
+             <number>15</number>
+            </property>
+            <item>
+             <widget class="QLabel" name="clockKey">
+              <property name="text">
+               <string>Clock</string>
+              </property>
+              <property name="wordWrap">
+               <bool>true</bool>
+              </property>
+              <property name="tone" stdset="0">
+               <string>muted</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="clock">
+              <property name="text">
+               <string>Original recorded timestamp</string>
+              </property>
+              <property name="wordWrap">
+               <bool>true</bool>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignRight|Qt::AlignVCenter</set>
+              </property>
+              <property name="styleSheet">
+               <string>font-weight:600;font-size:11px;</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>32</height>
+            </size>
+           </property>
+           <property name="toolTip">
+            <string>Clock</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QWidget" name="profileRow">
+           <layout class="QHBoxLayout" name="profileRowLayout" stretch="1,1">
+            <property name="leftMargin">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
+            <property name="spacing">
+             <number>15</number>
+            </property>
+            <item>
+             <widget class="QLabel" name="profileKey">
+              <property name="text">
+               <string>Profile</string>
+              </property>
+              <property name="wordWrap">
+               <bool>true</bool>
+              </property>
+              <property name="tone" stdset="0">
+               <string>muted</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="profile">
+              <property name="text">
+               <string />
+              </property>
+              <property name="wordWrap">
+               <bool>true</bool>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignRight|Qt::AlignVCenter</set>
+              </property>
+              <property name="styleSheet">
+               <string>font-weight:600;font-size:11px;</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>32</height>
+            </size>
+           </property>
+           <property name="toolTip">
+            <string>Profile</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QFrame" name="bookmarks">
+        <property name="card" stdset="0">
+         <bool>true</bool>
+        </property>
+        <layout class="QVBoxLayout" name="bookmarksLayout">
+         <property name="leftMargin">
+          <number>19</number>
+         </property>
+         <property name="topMargin">
+          <number>19</number>
+         </property>
+         <property name="rightMargin">
+          <number>19</number>
+         </property>
+         <property name="bottomMargin">
+          <number>19</number>
+         </property>
+         <property name="spacing">
+          <number>15</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="bookmarksTitle">
+           <property name="text">
+            <string>Bookmarks</string>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>cardtitle</string>
+           </property>
+          </widget>
+         </item>
+         <item alignment="Qt::AlignLeft">
+          <widget class="QPushButton" name="addBookmarkButton">
+           <property name="text">
+            <string>Add bookmark at current frame</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QListWidget" name="bookmarkList">
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>100</height>
+            </size>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>RatePlot</class>
+   <extends>QWidget</extends>
+   <header>widgets/plot.hpp</header>
+  </customwidget>
+ </customwidgets>
+ <resources />
+ <connections />
+</ui>

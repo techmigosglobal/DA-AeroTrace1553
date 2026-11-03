@@ -1,0 +1,1113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>IcdEditorPage</class>
+ <widget class="QWidget" name="IcdEditorPage">
+  <layout class="QVBoxLayout" name="bodyLayout">
+   <property name="leftMargin">
+    <number>0</number>
+   </property>
+   <property name="topMargin">
+    <number>0</number>
+   </property>
+   <property name="rightMargin">
+    <number>0</number>
+   </property>
+   <property name="bottomMargin">
+    <number>0</number>
+   </property>
+   <property name="spacing">
+    <number>15</number>
+   </property>
+   <item>
+    <widget class="QWidget" name="actionBar">
+     <layout class="QHBoxLayout" name="actionBarLayout">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <property name="spacing">
+       <number>15</number>
+      </property>
+      <item>
+       <widget class="QPushButton" name="validateButton">
+        <property name="text">
+         <string>Validate mapping</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="saveDraftButton">
+        <property name="text">
+         <string>Save draft</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="publishButton">
+        <property name="text">
+         <string>Publish revision</string>
+        </property>
+        <property name="primary" stdset="0">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QWidget" name="editorColumns">
+     <layout class="QHBoxLayout" name="editorColumnsLayout" stretch="2,3">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <property name="spacing">
+       <number>15</number>
+      </property>
+      <item>
+       <widget class="QFrame" name="mapping">
+        <property name="card" stdset="0">
+         <bool>true</bool>
+        </property>
+        <layout class="QVBoxLayout" name="mappingLayout">
+         <property name="leftMargin">
+          <number>19</number>
+         </property>
+         <property name="topMargin">
+          <number>19</number>
+         </property>
+         <property name="rightMargin">
+          <number>19</number>
+         </property>
+         <property name="bottomMargin">
+          <number>19</number>
+         </property>
+         <property name="spacing">
+          <number>15</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="mappingTitle">
+           <property name="text">
+            <string>Mapping properties</string>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>cardtitle</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QWidget" name="mappingFields">
+           <layout class="QGridLayout" name="mappingFieldsLayout" columnstretch="1,1">
+            <property name="leftMargin">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
+            <property name="spacing">
+             <number>15</number>
+            </property>
+            <item row="0" column="0">
+             <widget class="QWidget" name="signalIdField">
+              <layout class="QVBoxLayout" name="signalIdFieldLayout">
+               <property name="leftMargin">
+                <number>0</number>
+               </property>
+               <property name="topMargin">
+                <number>0</number>
+               </property>
+               <property name="rightMargin">
+                <number>0</number>
+               </property>
+               <property name="bottomMargin">
+                <number>0</number>
+               </property>
+               <property name="spacing">
+                <number>15</number>
+               </property>
+               <item>
+                <widget class="QLabel" name="signalIdLabel">
+                 <property name="text">
+                  <string>SIGNAL ID</string>
+                 </property>
+                 <property name="wordWrap">
+                  <bool>true</bool>
+                 </property>
+                 <property name="tone" stdset="0">
+                  <string>muted</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QLineEdit" name="signalId">
+                 <property name="text">
+                  <string />
+                 </property>
+                 <property name="placeholderText">
+                  <string />
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="QWidget" name="signalUnitField">
+              <layout class="QVBoxLayout" name="signalUnitFieldLayout">
+               <property name="leftMargin">
+                <number>0</number>
+               </property>
+               <property name="topMargin">
+                <number>0</number>
+               </property>
+               <property name="rightMargin">
+                <number>0</number>
+               </property>
+               <property name="bottomMargin">
+                <number>0</number>
+               </property>
+               <property name="spacing">
+                <number>15</number>
+               </property>
+               <item>
+                <widget class="QLabel" name="signalUnitLabel">
+                 <property name="text">
+                  <string>ENGINEERING UNIT</string>
+                 </property>
+                 <property name="wordWrap">
+                  <bool>true</bool>
+                 </property>
+                 <property name="tone" stdset="0">
+                  <string>muted</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QLineEdit" name="signalUnit">
+                 <property name="text">
+                  <string />
+                 </property>
+                 <property name="placeholderText">
+                  <string />
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item row="1" column="0">
+             <widget class="QWidget" name="rtEditField">
+              <layout class="QVBoxLayout" name="rtEditFieldLayout">
+               <property name="leftMargin">
+                <number>0</number>
+               </property>
+               <property name="topMargin">
+                <number>0</number>
+               </property>
+               <property name="rightMargin">
+                <number>0</number>
+               </property>
+               <property name="bottomMargin">
+                <number>0</number>
+               </property>
+               <property name="spacing">
+                <number>15</number>
+               </property>
+               <item>
+                <widget class="QLabel" name="rtEditLabel">
+                 <property name="text">
+                  <string>RT ADDRESS</string>
+                 </property>
+                 <property name="wordWrap">
+                  <bool>true</bool>
+                 </property>
+                 <property name="tone" stdset="0">
+                  <string>muted</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QSpinBox" name="rtEdit">
+                 <property name="minimum">
+                  <number>0</number>
+                 </property>
+                 <property name="maximum">
+                  <number>31</number>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item row="1" column="1">
+             <widget class="QWidget" name="saEditField">
+              <layout class="QVBoxLayout" name="saEditFieldLayout">
+               <property name="leftMargin">
+                <number>0</number>
+               </property>
+               <property name="topMargin">
+                <number>0</number>
+               </property>
+               <property name="rightMargin">
+                <number>0</number>
+               </property>
+               <property name="bottomMargin">
+                <number>0</number>
+               </property>
+               <property name="spacing">
+                <number>15</number>
+               </property>
+               <item>
+                <widget class="QLabel" name="saEditLabel">
+                 <property name="text">
+                  <string>SUBADDRESS</string>
+                 </property>
+                 <property name="wordWrap">
+                  <bool>true</bool>
+                 </property>
+                 <property name="tone" stdset="0">
+                  <string>muted</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QSpinBox" name="saEdit">
+                 <property name="minimum">
+                  <number>0</number>
+                 </property>
+                 <property name="maximum">
+                  <number>31</number>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item row="2" column="0">
+             <widget class="QWidget" name="wordEditField">
+              <layout class="QVBoxLayout" name="wordEditFieldLayout">
+               <property name="leftMargin">
+                <number>0</number>
+               </property>
+               <property name="topMargin">
+                <number>0</number>
+               </property>
+               <property name="rightMargin">
+                <number>0</number>
+               </property>
+               <property name="bottomMargin">
+                <number>0</number>
+               </property>
+               <property name="spacing">
+                <number>15</number>
+               </property>
+               <item>
+                <widget class="QLabel" name="wordEditLabel">
+                 <property name="text">
+                  <string>WORD INDEX</string>
+                 </property>
+                 <property name="wordWrap">
+                  <bool>true</bool>
+                 </property>
+                 <property name="tone" stdset="0">
+                  <string>muted</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QSpinBox" name="wordEdit">
+                 <property name="minimum">
+                  <number>0</number>
+                 </property>
+                 <property name="maximum">
+                  <number>31</number>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item row="2" column="1">
+             <widget class="QWidget" name="widthEditField">
+              <layout class="QVBoxLayout" name="widthEditFieldLayout">
+               <property name="leftMargin">
+                <number>0</number>
+               </property>
+               <property name="topMargin">
+                <number>0</number>
+               </property>
+               <property name="rightMargin">
+                <number>0</number>
+               </property>
+               <property name="bottomMargin">
+                <number>0</number>
+               </property>
+               <property name="spacing">
+                <number>15</number>
+               </property>
+               <item>
+                <widget class="QLabel" name="widthEditLabel">
+                 <property name="text">
+                  <string>BIT WIDTH</string>
+                 </property>
+                 <property name="wordWrap">
+                  <bool>true</bool>
+                 </property>
+                 <property name="tone" stdset="0">
+                  <string>muted</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QSpinBox" name="widthEdit">
+                 <property name="minimum">
+                  <number>1</number>
+                 </property>
+                 <property name="maximum">
+                  <number>64</number>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item row="3" column="0">
+             <widget class="QWidget" name="lsbEditField">
+              <layout class="QVBoxLayout" name="lsbEditFieldLayout">
+               <property name="leftMargin">
+                <number>0</number>
+               </property>
+               <property name="topMargin">
+                <number>0</number>
+               </property>
+               <property name="rightMargin">
+                <number>0</number>
+               </property>
+               <property name="bottomMargin">
+                <number>0</number>
+               </property>
+               <property name="spacing">
+                <number>15</number>
+               </property>
+               <item>
+                <widget class="QLabel" name="lsbEditLabel">
+                 <property name="text">
+                  <string>LEAST SIGNIFICANT BIT</string>
+                 </property>
+                 <property name="wordWrap">
+                  <bool>true</bool>
+                 </property>
+                 <property name="tone" stdset="0">
+                  <string>muted</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QSpinBox" name="lsbEdit">
+                 <property name="minimum">
+                  <number>0</number>
+                 </property>
+                 <property name="maximum">
+                  <number>15</number>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item row="3" column="1">
+             <widget class="QWidget" name="directionEditField">
+              <layout class="QVBoxLayout" name="directionEditFieldLayout">
+               <property name="leftMargin">
+                <number>0</number>
+               </property>
+               <property name="topMargin">
+                <number>0</number>
+               </property>
+               <property name="rightMargin">
+                <number>0</number>
+               </property>
+               <property name="bottomMargin">
+                <number>0</number>
+               </property>
+               <property name="spacing">
+                <number>15</number>
+               </property>
+               <item>
+                <widget class="QLabel" name="directionEditLabel">
+                 <property name="text">
+                  <string>DIRECTION</string>
+                 </property>
+                 <property name="wordWrap">
+                  <bool>true</bool>
+                 </property>
+                 <property name="tone" stdset="0">
+                  <string>muted</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QComboBox" name="directionEdit">
+                 <item>
+                  <property name="text">
+                   <string>BC → RT</string>
+                  </property>
+                 </item>
+                 <item>
+                  <property name="text">
+                   <string>RT → BC</string>
+                  </property>
+                 </item>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item row="4" column="0">
+             <widget class="QWidget" name="signedEditField">
+              <layout class="QVBoxLayout" name="signedEditFieldLayout">
+               <property name="leftMargin">
+                <number>0</number>
+               </property>
+               <property name="topMargin">
+                <number>0</number>
+               </property>
+               <property name="rightMargin">
+                <number>0</number>
+               </property>
+               <property name="bottomMargin">
+                <number>0</number>
+               </property>
+               <property name="spacing">
+                <number>15</number>
+               </property>
+               <item>
+                <widget class="QLabel" name="signedEditLabel">
+                 <property name="text">
+                  <string>SIGNEDNESS</string>
+                 </property>
+                 <property name="wordWrap">
+                  <bool>true</bool>
+                 </property>
+                 <property name="tone" stdset="0">
+                  <string>muted</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QComboBox" name="signedEdit">
+                 <item>
+                  <property name="text">
+                   <string>Unsigned</string>
+                  </property>
+                 </item>
+                 <item>
+                  <property name="text">
+                   <string>Signed two's complement</string>
+                  </property>
+                 </item>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item row="4" column="1">
+             <widget class="QWidget" name="scaleEditField">
+              <layout class="QVBoxLayout" name="scaleEditFieldLayout">
+               <property name="leftMargin">
+                <number>0</number>
+               </property>
+               <property name="topMargin">
+                <number>0</number>
+               </property>
+               <property name="rightMargin">
+                <number>0</number>
+               </property>
+               <property name="bottomMargin">
+                <number>0</number>
+               </property>
+               <property name="spacing">
+                <number>15</number>
+               </property>
+               <item>
+                <widget class="QLabel" name="scaleEditLabel">
+                 <property name="text">
+                  <string>SCALE</string>
+                 </property>
+                 <property name="wordWrap">
+                  <bool>true</bool>
+                 </property>
+                 <property name="tone" stdset="0">
+                  <string>muted</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QLineEdit" name="scaleEdit">
+                 <property name="text">
+                  <string />
+                 </property>
+                 <property name="placeholderText">
+                  <string />
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item row="5" column="0">
+             <widget class="QWidget" name="offsetEditField">
+              <layout class="QVBoxLayout" name="offsetEditFieldLayout">
+               <property name="leftMargin">
+                <number>0</number>
+               </property>
+               <property name="topMargin">
+                <number>0</number>
+               </property>
+               <property name="rightMargin">
+                <number>0</number>
+               </property>
+               <property name="bottomMargin">
+                <number>0</number>
+               </property>
+               <property name="spacing">
+                <number>15</number>
+               </property>
+               <item>
+                <widget class="QLabel" name="offsetEditLabel">
+                 <property name="text">
+                  <string>OFFSET</string>
+                 </property>
+                 <property name="wordWrap">
+                  <bool>true</bool>
+                 </property>
+                 <property name="tone" stdset="0">
+                  <string>muted</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QLineEdit" name="offsetEdit">
+                 <property name="text">
+                  <string />
+                 </property>
+                 <property name="placeholderText">
+                  <string />
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item row="5" column="1">
+             <widget class="QWidget" name="rawEditField">
+              <layout class="QVBoxLayout" name="rawEditFieldLayout">
+               <property name="leftMargin">
+                <number>0</number>
+               </property>
+               <property name="topMargin">
+                <number>0</number>
+               </property>
+               <property name="rightMargin">
+                <number>0</number>
+               </property>
+               <property name="bottomMargin">
+                <number>0</number>
+               </property>
+               <property name="spacing">
+                <number>15</number>
+               </property>
+               <item>
+                <widget class="QLabel" name="rawEditLabel">
+                 <property name="text">
+                  <string>PREVIEW RAW HEX</string>
+                 </property>
+                 <property name="wordWrap">
+                  <bool>true</bool>
+                 </property>
+                 <property name="tone" stdset="0">
+                  <string>muted</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QLineEdit" name="rawEdit">
+                 <property name="text">
+                  <string>03E8</string>
+                 </property>
+                 <property name="placeholderText">
+                  <string />
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="mappingNotice">
+           <property name="text">
+            <string>Integer, float and BCD fields are supported. Multiword mappings require explicit word order.</string>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>success</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QFrame" name="previewCard">
+        <property name="card" stdset="0">
+         <bool>true</bool>
+        </property>
+        <layout class="QVBoxLayout" name="previewCardLayout">
+         <property name="leftMargin">
+          <number>19</number>
+         </property>
+         <property name="topMargin">
+          <number>16</number>
+         </property>
+         <property name="rightMargin">
+          <number>19</number>
+         </property>
+         <property name="bottomMargin">
+          <number>16</number>
+         </property>
+         <property name="spacing">
+          <number>7</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="previewCardTitle">
+           <property name="text">
+            <string>Live preview and golden example</string>
+           </property>
+           <property name="wordWrap">
+            <bool>false</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>cardtitle</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="selectedRaw">
+           <property name="text">
+            <string>SELECTED RAW WORD</string>
+           </property>
+           <property name="wordWrap">
+            <bool>false</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>muted</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="preview">
+           <property name="text">
+            <string />
+           </property>
+           <property name="wordWrap">
+            <bool>false</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>metric</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QWidget" name="previewMetrics">
+           <layout class="QHBoxLayout" name="previewMetricsLayout">
+            <property name="leftMargin">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
+            <property name="spacing">
+             <number>15</number>
+            </property>
+            <item>
+             <widget class="QFrame" name="decodedPreviewCard">
+              <property name="card" stdset="0">
+               <bool>true</bool>
+              </property>
+              <layout class="QVBoxLayout" name="decodedPreviewCardLayout">
+               <property name="leftMargin">
+                <number>19</number>
+               </property>
+               <property name="topMargin">
+                <number>16</number>
+               </property>
+               <property name="rightMargin">
+                <number>19</number>
+               </property>
+               <property name="bottomMargin">
+                <number>16</number>
+               </property>
+               <property name="spacing">
+                <number>7</number>
+               </property>
+               <item>
+                <widget class="QLabel" name="decodedPreviewCaption">
+                 <property name="text">
+                  <string>Decoded integer</string>
+                 </property>
+                 <property name="wordWrap">
+                  <bool>false</bool>
+                 </property>
+                 <property name="tone" stdset="0">
+                  <string>muted</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QLabel" name="decodedPreview">
+                 <property name="text">
+                  <string>0</string>
+                 </property>
+                 <property name="wordWrap">
+                  <bool>false</bool>
+                 </property>
+                 <property name="tone" stdset="0">
+                  <string>metric</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QLabel" name="decodedPreviewHint">
+                 <property name="text">
+                  <string />
+                 </property>
+                 <property name="wordWrap">
+                  <bool>false</bool>
+                 </property>
+                 <property name="tone" stdset="0">
+                  <string>muted</string>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>116</height>
+               </size>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>16777215</width>
+                <height>116</height>
+               </size>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QFrame" name="scalePreviewCard">
+              <property name="card" stdset="0">
+               <bool>true</bool>
+              </property>
+              <layout class="QVBoxLayout" name="scalePreviewCardLayout">
+               <property name="leftMargin">
+                <number>19</number>
+               </property>
+               <property name="topMargin">
+                <number>16</number>
+               </property>
+               <property name="rightMargin">
+                <number>19</number>
+               </property>
+               <property name="bottomMargin">
+                <number>16</number>
+               </property>
+               <property name="spacing">
+                <number>7</number>
+               </property>
+               <item>
+                <widget class="QLabel" name="scalePreviewCaption">
+                 <property name="text">
+                  <string>Scale</string>
+                 </property>
+                 <property name="wordWrap">
+                  <bool>false</bool>
+                 </property>
+                 <property name="tone" stdset="0">
+                  <string>muted</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QLabel" name="scalePreview">
+                 <property name="text">
+                  <string>0</string>
+                 </property>
+                 <property name="wordWrap">
+                  <bool>false</bool>
+                 </property>
+                 <property name="tone" stdset="0">
+                  <string>metric</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QLabel" name="scalePreviewHint">
+                 <property name="text">
+                  <string />
+                 </property>
+                 <property name="wordWrap">
+                  <bool>false</bool>
+                 </property>
+                 <property name="tone" stdset="0">
+                  <string>muted</string>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>116</height>
+               </size>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>16777215</width>
+                <height>116</height>
+               </size>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QFrame" name="engineeringPreviewCard">
+              <property name="card" stdset="0">
+               <bool>true</bool>
+              </property>
+              <layout class="QVBoxLayout" name="engineeringPreviewCardLayout">
+               <property name="leftMargin">
+                <number>19</number>
+               </property>
+               <property name="topMargin">
+                <number>16</number>
+               </property>
+               <property name="rightMargin">
+                <number>19</number>
+               </property>
+               <property name="bottomMargin">
+                <number>16</number>
+               </property>
+               <property name="spacing">
+                <number>7</number>
+               </property>
+               <item>
+                <widget class="QLabel" name="engineeringPreviewCaption">
+                 <property name="text">
+                  <string>Engineering</string>
+                 </property>
+                 <property name="wordWrap">
+                  <bool>false</bool>
+                 </property>
+                 <property name="tone" stdset="0">
+                  <string>muted</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QLabel" name="engineeringPreview">
+                 <property name="text">
+                  <string>0</string>
+                 </property>
+                 <property name="wordWrap">
+                  <bool>false</bool>
+                 </property>
+                 <property name="tone" stdset="0">
+                  <string>metric</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QLabel" name="engineeringPreviewHint">
+                 <property name="text">
+                  <string />
+                 </property>
+                 <property name="wordWrap">
+                  <bool>false</bool>
+                 </property>
+                 <property name="tone" stdset="0">
+                  <string>muted</string>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>116</height>
+               </size>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>16777215</width>
+                <height>116</height>
+               </size>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <widget class="QTableWidget" name="checksTable">
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>180</height>
+            </size>
+           </property>
+           <property name="alternatingRowColors">
+            <bool>true</bool>
+           </property>
+           <property name="showGrid">
+            <bool>false</bool>
+           </property>
+           <property name="selectionBehavior">
+            <enum>QAbstractItemView::SelectRows</enum>
+           </property>
+           <property name="selectionMode">
+            <enum>QAbstractItemView::SingleSelection</enum>
+           </property>
+           <property name="editTriggers">
+            <set>QAbstractItemView::NoEditTriggers</set>
+           </property>
+           <column>
+            <property name="text">
+             <string>QUALITY CHECK</string>
+            </property>
+           </column>
+           <column>
+            <property name="text">
+             <string>RESULT</string>
+            </property>
+           </column>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="previewNotice">
+           <property name="text">
+            <string>Preview evaluates bit mask, signed conversion, scale and offset. Invalid input does not produce values.</string>
+           </property>
+           <property name="wordWrap">
+            <bool>false</bool>
+           </property>
+           <property name="tone" stdset="0">
+            <string>notice</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QWidget" name="numericOptions">
+     <layout class="QHBoxLayout" name="numericOptionsLayout">
+      <item>
+       <widget class="QLabel" name="numericTypeCaption">
+        <property name="text">
+         <string>Representation</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QComboBox" name="numericType">
+        <item>
+         <property name="text">
+          <string>integer</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>float32</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>float64</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>bcd</string>
+         </property>
+        </item>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="wordOrderCaption">
+        <property name="text">
+         <string>Word order</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QComboBox" name="wordOrder">
+        <item>
+         <property name="text">
+          <string>MSW first</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>LSW first</string>
+         </property>
+        </item>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources />
+ <connections />
+</ui>

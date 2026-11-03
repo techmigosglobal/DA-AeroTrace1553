@@ -1,0 +1,472 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MonitorPage</class>
+ <widget class="QWidget" name="MonitorPage">
+  <layout class="QVBoxLayout" name="bodyLayout" stretch="0,0,0,1,0,0">
+   <property name="leftMargin">
+    <number>0</number>
+   </property>
+   <property name="topMargin">
+    <number>0</number>
+   </property>
+   <property name="rightMargin">
+    <number>0</number>
+   </property>
+   <property name="bottomMargin">
+    <number>0</number>
+   </property>
+   <property name="spacing">
+    <number>10</number>
+   </property>
+   <item>
+    <widget class="QWidget" name="deviceReadiness">
+     <layout class="QHBoxLayout" name="deviceReadinessLayout" stretch="1,1">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <property name="spacing">
+       <number>10</number>
+      </property>
+      <item>
+       <widget class="QFrame" name="deviceState0">
+        <property name="card" stdset="0">
+         <bool>true</bool>
+        </property>
+        <layout class="QVBoxLayout" name="deviceStateLayout0">
+         <property name="leftMargin">
+          <number>12</number>
+         </property>
+         <property name="topMargin">
+          <number>12</number>
+         </property>
+         <property name="rightMargin">
+          <number>12</number>
+         </property>
+         <property name="bottomMargin">
+          <number>12</number>
+         </property>
+         <property name="spacing">
+          <number>3</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="deviceTitle0">
+           <property name="text">
+            <string>Device 0  /  External</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="deviceStatus0">
+           <property name="text">
+            <string>Channel 1 · A + B · Not connected</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QFrame" name="deviceState1">
+        <property name="card" stdset="0">
+         <bool>true</bool>
+        </property>
+        <layout class="QVBoxLayout" name="deviceStateLayout1">
+         <property name="leftMargin">
+          <number>12</number>
+         </property>
+         <property name="topMargin">
+          <number>12</number>
+         </property>
+         <property name="rightMargin">
+          <number>12</number>
+         </property>
+         <property name="bottomMargin">
+          <number>12</number>
+         </property>
+         <property name="spacing">
+          <number>3</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="deviceTitle1">
+           <property name="text">
+            <string>Device 1  /  Internal</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="deviceStatus1">
+           <property name="text">
+            <string>Channel 2 · A + B · Not connected</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QTabBar" name="deviceTabs" />
+   </item>
+   <item>
+    <widget class="QWidget" name="actionBar">
+     <layout class="QHBoxLayout" name="actionBarLayout">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <property name="spacing">
+       <number>6</number>
+      </property>
+      <item>
+       <widget class="QPushButton" name="allBusButton">
+        <property name="text">
+         <string>All buses</string>
+        </property>
+        <property name="checkable">
+         <bool>true</bool>
+        </property>
+        <property name="autoExclusive">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="busAButton">
+        <property name="text">
+         <string>Bus A</string>
+        </property>
+        <property name="checkable">
+         <bool>true</bool>
+        </property>
+        <property name="autoExclusive">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="busBButton">
+        <property name="text">
+         <string>Bus B</string>
+        </property>
+        <property name="checkable">
+         <bool>true</bool>
+        </property>
+        <property name="autoExclusive">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QComboBox" name="rtFilter">
+        <item>
+         <property name="text">
+          <string>All RTs</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>RT 00</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>RT 01</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>RT 02</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>RT 03</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>RT 04</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>RT 05</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>RT 06</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>RT 07</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>RT 08</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>RT 09</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>RT 10</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>RT 11</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>RT 12</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>RT 13</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>RT 14</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>RT 15</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>RT 16</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>RT 17</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>RT 18</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>RT 19</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>RT 20</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>RT 21</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>RT 22</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>RT 23</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>RT 24</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>RT 25</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>RT 26</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>RT 27</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>RT 28</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>RT 29</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>RT 30</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>RT 31</string>
+         </property>
+        </item>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLineEdit" name="hexSearch">
+        <property name="placeholderText">
+         <string>Search hex words</string>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>100</width>
+          <height>0</height>
+         </size>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="pauseButton">
+        <property name="text">
+         <string>Pause display</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="columnsButton">
+        <property name="text">
+         <string>Columns</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="csvButton">
+        <property name="text">
+         <string>Export CSV</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QTableView" name="monitor">
+     <property name="alternatingRowColors">
+      <bool>true</bool>
+     </property>
+     <property name="selectionBehavior">
+      <enum>QAbstractItemView::SelectRows</enum>
+     </property>
+     <property name="selectionMode">
+      <enum>QAbstractItemView::SingleSelection</enum>
+     </property>
+     <property name="editTriggers">
+      <set>QAbstractItemView::NoEditTriggers</set>
+     </property>
+     <property name="minimumSize">
+      <size>
+       <width>0</width>
+       <height>240</height>
+      </size>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QFrame" name="selectionPanel">
+     <property name="card" stdset="0">
+      <bool>true</bool>
+     </property>
+     <layout class="QHBoxLayout" name="selectionLayout" stretch="1,0,0,0">
+      <property name="leftMargin">
+       <number>12</number>
+      </property>
+      <property name="topMargin">
+       <number>12</number>
+      </property>
+      <property name="rightMargin">
+       <number>12</number>
+      </property>
+      <property name="bottomMargin">
+       <number>12</number>
+      </property>
+      <property name="spacing">
+       <number>8</number>
+      </property>
+      <item>
+       <widget class="QLabel" name="selectedSummary">
+        <property name="text">
+         <string>Select a record to inspect words or plot its mapped signals.</string>
+        </property>
+        <property name="wordWrap">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="inspectButton">
+        <property name="text">
+         <string>Inspect</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="engineeringButton">
+        <property name="text">
+         <string>Engineering</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="plotButton">
+        <property name="text">
+         <string>Plot</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLabel" name="monitorStatus">
+     <property name="text">
+      <string>Waiting for configured devices</string>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources />
+ <connections />
+</ui>

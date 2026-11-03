@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+ <title>AeroTrace — flight path and bus signal</title>
+ <rect x="4" y="4" width="248" height="248" rx="54" fill="#244f3d"/>
+ <path d="M128 38 215 210 148 177 128 132 108 177 41 210Z" fill="#f4f6f0"/>
+ <path d="M35 143H77L94 164 111 143 131 164H221" fill="none" stroke="#8dd3ae" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

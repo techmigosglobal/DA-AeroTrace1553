@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>PreferencesPage</class>
+ <widget class="QWidget" name="PreferencesPage">
+  <layout class="QGridLayout" name="preferencesGrid" columnstretch="1,1">
+   <property name="spacing">
+    <number>15</number>
+   </property>
+   <property name="leftMargin">
+    <number>0</number>
+   </property>
+   <property name="topMargin">
+    <number>0</number>
+   </property>
+   <property name="rightMargin">
+    <number>0</number>
+   </property>
+   <property name="bottomMargin">
+    <number>0</number>
+   </property>
+   <item row="1" column="0">
+    <widget class="QGroupBox" name="interfaceGroup">
+     <property name="minimumSize">
+      <size>
+       <width>0</width>
+       <height>334</height>
+      </size>
+     </property>
+     <property name="title">
+      <string>Interface preferences</string>
+     </property>
+     <layout class="QVBoxLayout" name="interfaceLayout">
+      <item>
+       <widget class="QLabel" name="themeLabel">
+        <property name="text">
+         <string>Theme: Professional Light</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="timeZoneLabel">
+        <property name="text">
+         <string>Time zone: Local + recorded relative time</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="autoScrollCheck">
+        <property name="text">
+         <string>Auto-scroll new messages</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="denseCheck">
+        <property name="text">
+         <string>Compact table density</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="reduceMotionCheck">
+        <property name="text">
+         <string>Reduce animation</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="1" column="1">
+    <widget class="QGroupBox" name="captureGroup">
+     <property name="title">
+      <string>Capture &amp;&amp; plotting</string>
+     </property>
+     <layout class="QFormLayout" name="captureLayout">
+      <item row="0" column="0">
+       <widget class="QLabel" name="fpsLabel">
+        <property name="text">
+         <string>Chart refresh (FPS)</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QSpinBox" name="fpsEdit">
+        <property name="minimum">
+         <number>10</number>
+        </property>
+        <property name="maximum">
+         <number>30</number>
+        </property>
+        <property name="value">
+         <number>20</number>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="tracesLabel">
+        <property name="text">
+         <string>Visible traces</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="QLabel" name="tracesValue">
+        <property name="text">
+         <string>8 maximum</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="0">
+       <widget class="QLabel" name="formatLabel">
+        <property name="text">
+         <string>Raw format</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="1">
+       <widget class="QLabel" name="formatValue">
+        <property name="text">
+         <string>CRC-protected ATD2</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="0">
+       <widget class="QLabel" name="compressionLabel">
+        <property name="text">
+         <string>Compression</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="1">
+       <widget class="QLabel" name="compressionValue">
+        <property name="text">
+         <string>Not implemented</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="2" column="0">
+    <widget class="QGroupBox" name="safetyGroup">
+     <property name="minimumSize">
+      <size>
+       <width>0</width>
+       <height>262</height>
+      </size>
+     </property>
+     <property name="title">
+      <string>Advanced safety</string>
+     </property>
+     <layout class="QVBoxLayout" name="safetyLayout">
+      <item>
+       <widget class="QLabel" name="safetyNotice">
+        <property name="text">
+         <string>Read-only monitor mode. No hardware transmit API is implemented.</string>
+        </property>
+        <property name="wordWrap">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="diskLabel">
+        <property name="text">
+         <string>Minimum free disk space: 100 MB</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="recoveryLabel">
+        <property name="text">
+         <string>Recovery retains CRC-valid records.</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="2" column="1">
+    <widget class="QGroupBox" name="pathsGroup">
+     <property name="title">
+      <string>Session paths</string>
+     </property>
+     <layout class="QVBoxLayout" name="pathsLayout">
+      <item>
+       <widget class="QLabel" name="recordLabel">
+        <property name="text">
+         <string>Recording folder</string>
+        </property>
+        <property name="buddy">
+         <cstring>recordFolder</cstring>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLineEdit" name="recordFolder" />
+      </item>
+      <item>
+       <widget class="QLabel" name="exportLabel">
+        <property name="text">
+         <string>Export folder</string>
+        </property>
+        <property name="buddy">
+         <cstring>exportFolder</cstring>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLineEdit" name="exportFolder" />
+      </item>
+      <item>
+       <widget class="QLabel" name="localNotice">
+        <property name="text">
+         <string>Preferences are stored locally beside the executable.</string>
+        </property>
+        <property name="wordWrap">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="0" column="0" colspan="2">
+    <widget class="QWidget" name="actionBar">
+     <layout class="QHBoxLayout" name="preferencesActionsLayout">
+      <item>
+       <widget class="QPushButton" name="restoreButton">
+        <property name="text">
+         <string>Restore defaults</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="saveButton">
+        <property name="text">
+         <string>Save preferences</string>
+        </property>
+        <property name="primary" stdset="0">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources />
+ <connections />
+</ui>

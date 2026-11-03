@@ -1,0 +1,6 @@
+add_library(aerotrace_application STATIC workbench.cpp)
+target_include_directories(aerotrace_application PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(aerotrace_application PUBLIC aerotrace_acquisition)
+add_executable(aerotrace_application_tests tests.cpp)
+target_link_libraries(aerotrace_application_tests PRIVATE aerotrace_application)
+add_test(NAME application_services COMMAND aerotrace_application_tests)

@@ -1,0 +1,237 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>LicensePage</class>
+ <widget class="QFrame" name="card">
+  <property name="minimumSize">
+   <size>
+    <width>760</width>
+    <height>565</height>
+   </size>
+  </property>
+  <property name="maximumSize">
+   <size>
+    <width>760</width>
+    <height>16777215</height>
+   </size>
+  </property>
+  <layout class="QVBoxLayout" name="licenseLayout">
+   <property name="spacing">
+    <number>22</number>
+   </property>
+   <property name="leftMargin">
+    <number>42</number>
+   </property>
+   <property name="topMargin">
+    <number>42</number>
+   </property>
+   <property name="rightMargin">
+    <number>42</number>
+   </property>
+   <property name="bottomMargin">
+    <number>42</number>
+   </property>
+   <item alignment="Qt::AlignHCenter">
+    <widget class="QLabel" name="keyIcon">
+     <property name="minimumSize">
+      <size>
+       <width>136</width>
+       <height>136</height>
+      </size>
+     </property>
+     <property name="maximumSize">
+      <size>
+       <width>136</width>
+       <height>136</height>
+      </size>
+     </property>
+     <property name="text">
+      <string>♜</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignCenter</set>
+     </property>
+     <property name="styleSheet">
+      <string>background:#f0f3ec;border-radius:34px;color:#326344;font-size:64px;</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLabel" name="eyebrow">
+     <property name="text">
+      <string>LOCAL WORKSPACE</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignCenter</set>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLabel" name="title">
+     <property name="text">
+      <string>AeroTrace 1553</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignCenter</set>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLabel" name="muted">
+     <property name="text">
+      <string>Offline bus monitoring, ICD engineering conversion and live analysis.</string>
+     </property>
+     <property name="wordWrap">
+      <bool>true</bool>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignCenter</set>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLabel" name="error">
+     <property name="text">
+      <string>Open the workspace to select DDC hardware or explicit simulator traffic. Physical license-key verification is not configured.</string>
+     </property>
+     <property name="wordWrap">
+      <bool>true</bool>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignCenter</set>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="featuresLayout">
+     <property name="spacing">
+      <number>15</number>
+     </property>
+     <item>
+      <widget class="QFrame" name="hardwareFeature">
+       <property name="styleSheet">
+        <string>QFrame#hardwareFeature {background:#f6f8fc;border:1px solid #f0f3ec;border-radius:10px;}</string>
+       </property>
+       <layout class="QVBoxLayout" name="hardwareLayout">
+        <item>
+         <widget class="QLabel" name="hardwareTitle">
+          <property name="text">
+           <string>♜ Hardware-bound</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="hardwareDescription">
+          <property name="text">
+           <string>DDC monitor-only integration</string>
+          </property>
+          <property name="styleSheet">
+           <string>color:#626e60;font-size:11px;</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item>
+      <widget class="QFrame" name="offlineFeature">
+       <property name="styleSheet">
+        <string>QFrame#offlineFeature {background:#f6f8fc;border:1px solid #f0f3ec;border-radius:10px;}</string>
+       </property>
+       <layout class="QVBoxLayout" name="offlineLayout">
+        <item>
+         <widget class="QLabel" name="offlineTitle">
+          <property name="text">
+           <string>◎ Offline-first</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="offlineDescription">
+          <property name="text">
+           <string>No Internet needed</string>
+          </property>
+          <property name="styleSheet">
+           <string>color:#626e60;font-size:11px;</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item>
+      <widget class="QFrame" name="analysisFeature">
+       <property name="styleSheet">
+        <string>QFrame#analysisFeature {background:#f6f8fc;border:1px solid #f0f3ec;border-radius:10px;}</string>
+       </property>
+       <layout class="QVBoxLayout" name="analysisLayout">
+        <item>
+         <widget class="QLabel" name="analysisTitle">
+          <property name="text">
+           <string>◉ Protected analysis</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="analysisDescription">
+          <property name="text">
+           <string>Raw recording and live conversion</string>
+          </property>
+          <property name="styleSheet">
+           <string>color:#626e60;font-size:11px;</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="buttonsLayout">
+     <item>
+      <spacer name="leftSpacer">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="QPushButton" name="primary">
+       <property name="text">
+        <string>Open local workspace</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="exitButton">
+       <property name="text">
+        <string>Exit application</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="rightSpacer">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+    </layout>
+   </item>
+  </layout>
+ </widget>
+ <resources />
+ <connections />
+</ui>

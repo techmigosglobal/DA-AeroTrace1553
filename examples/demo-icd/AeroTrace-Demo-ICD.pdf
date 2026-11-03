@@ -1,0 +1,186 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 960 690] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+5 0 obj
+<< /Length 9039 >>
+stream
+0.15 0.2 0.16 rg BT /F1 17 Tf 30 653 Td (AeroTrace | Demonstration ICD | AT-DEMO-ICD-001 revision 1) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 30 625 Td (SYNTHETIC INPUT ONLY - not an aircraft or hardware acceptance ICD.) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 30 607 Td (MIL-STD-1553: RT 3, SA 2, BC-to-RT \(Rx\), 8 data words. Word indices are zero-based.) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 30 589 Td (Unsigned binary fields; LSB 0 is the least-significant bit. Engineering = extracted integer * scale + offset.) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 30 571 Td (MSW first. Rules match either channel and bus; select a single channel/bus when plotting.) Tj ET
+0.45 0.5 0.45 RG 0.5 w 30 540 m 30 230 l S
+0.45 0.5 0.45 RG 0.5 w 130 540 m 130 230 l S
+0.45 0.5 0.45 RG 0.5 w 158 540 m 158 230 l S
+0.45 0.5 0.45 RG 0.5 w 186 540 m 186 230 l S
+0.45 0.5 0.45 RG 0.5 w 249 540 m 249 230 l S
+0.45 0.5 0.45 RG 0.5 w 384 540 m 384 230 l S
+0.45 0.5 0.45 RG 0.5 w 414 540 m 414 230 l S
+0.45 0.5 0.45 RG 0.5 w 459 540 m 459 230 l S
+0.45 0.5 0.45 RG 0.5 w 514 540 m 514 230 l S
+0.45 0.5 0.45 RG 0.5 w 564 540 m 564 230 l S
+0.45 0.5 0.45 RG 0.5 w 612 540 m 612 230 l S
+0.45 0.5 0.45 RG 0.5 w 677 540 m 677 230 l S
+0.45 0.5 0.45 RG 0.5 w 752 540 m 752 230 l S
+0.45 0.5 0.45 RG 0.5 w 30 540 m 752 540 l S
+0.45 0.5 0.45 RG 0.5 w 30 509 m 752 509 l S
+0.45 0.5 0.45 RG 0.5 w 30 478 m 752 478 l S
+0.45 0.5 0.45 RG 0.5 w 30 447 m 752 447 l S
+0.45 0.5 0.45 RG 0.5 w 30 416 m 752 416 l S
+0.45 0.5 0.45 RG 0.5 w 30 385 m 752 385 l S
+0.45 0.5 0.45 RG 0.5 w 30 354 m 752 354 l S
+0.45 0.5 0.45 RG 0.5 w 30 323 m 752 323 l S
+0.45 0.5 0.45 RG 0.5 w 30 292 m 752 292 l S
+0.45 0.5 0.45 RG 0.5 w 30 261 m 752 261 l S
+0.45 0.5 0.45 RG 0.5 w 30 230 m 752 230 l S
+0.15 0.2 0.16 rg BT /F1 11 Tf 34 520 Td (Name) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 134 520 Td (RT) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 162 520 Td (SA) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 190 520 Td (Direction) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 253 520 Td (Word index \(0-based\)) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 388 520 Td (LSB) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 418 520 Td (Width) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 463 520 Td (Scale) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 518 520 Td (Offset) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 568 520 Td (Unit) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 616 520 Td (Type) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 681 520 Td (Word order) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 34 489 Td (TEMP) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 134 489 Td (3) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 162 489 Td (2) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 190 489 Td (Rx) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 253 489 Td (0) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 388 489 Td (0) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 418 489 Td (16) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 463 489 Td (0.01) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 518 489 Td (0) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 568 489 Td (degC) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 616 489 Td (uint16) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 681 489 Td (MSW first) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 34 458 Td (PRESSURE) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 134 458 Td (3) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 162 458 Td (2) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 190 458 Td (Rx) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 253 458 Td (1) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 388 458 Td (0) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 418 458 Td (16) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 463 458 Td (0.01) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 518 458 Td (0) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 568 458 Td (kPa) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 616 458 Td (uint16) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 681 458 Td (MSW first) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 34 427 Td (VOLTAGE) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 134 427 Td (3) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 162 427 Td (2) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 190 427 Td (Rx) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 253 427 Td (2) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 388 427 Td (0) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 418 427 Td (16) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 463 427 Td (0.01) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 518 427 Td (0) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 568 427 Td (V) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 616 427 Td (uint16) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 681 427 Td (MSW first) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 34 396 Td (VIBRATION) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 134 396 Td (3) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 162 396 Td (2) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 190 396 Td (Rx) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 253 396 Td (3) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 388 396 Td (0) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 418 396 Td (16) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 463 396 Td (0.01) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 518 396 Td (0) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 568 396 Td (g) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 616 396 Td (uint16) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 681 396 Td (MSW first) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 34 365 Td (RPM) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 134 365 Td (3) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 162 365 Td (2) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 190 365 Td (Rx) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 253 365 Td (4) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 388 365 Td (0) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 418 365 Td (16) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 463 365 Td (0.1) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 518 365 Td (0) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 568 365 Td (RPM) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 616 365 Td (uint16) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 681 365 Td (MSW first) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 34 334 Td (CURRENT) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 134 334 Td (3) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 162 334 Td (2) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 190 334 Td (Rx) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 253 334 Td (5) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 388 334 Td (0) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 418 334 Td (16) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 463 334 Td (0.01) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 518 334 Td (0) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 568 334 Td (A) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 616 334 Td (uint16) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 681 334 Td (MSW first) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 34 303 Td (PITCH) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 134 303 Td (3) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 162 303 Td (2) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 190 303 Td (Rx) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 253 303 Td (6) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 388 303 Td (0) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 418 303 Td (16) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 463 303 Td (0.01) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 518 303 Td (0) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 568 303 Td (deg) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 616 303 Td (uint16) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 681 303 Td (MSW first) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 34 272 Td (STATUS) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 134 272 Td (3) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 162 272 Td (2) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 190 272 Td (Rx) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 253 272 Td (7) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 388 272 Td (0) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 418 272 Td (16) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 463 272 Td (1) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 518 272 Td (0) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 568 272 Td (bits) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 616 272 Td (uint16) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 681 272 Td (MSW first) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 34 241 Td (READY) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 134 241 Td (3) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 162 241 Td (2) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 190 241 Td (Rx) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 253 241 Td (7) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 388 241 Td (3) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 418 241 Td (1) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 463 241 Td (1) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 518 241 Td (0) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 568 241 Td (state) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 616 241 Td (uint16) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 681 241 Td (MSW first) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 30 196 Td (Worked payload \(hex\): 03E8 1A2B 0B22 00F2 8313 01A2 04DD 0008) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 30 176 Td (Expected: TEMP 10 degC; PRESSURE 66.99 kPa; VOLTAGE 28.5 V; VIBRATION 2.42 g;) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 30 156 Td (RPM 3355.5; CURRENT 4.18 A; PITCH 12.45 deg; STATUS 8; READY 1 \(word 7 bit 3\).) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 30 136 Td (TEMP is temperature measured in degC. PRESSURE is hydraulic pressure measured in kPa.) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 30 116 Td (Time display: HH:MM:SS.mmm.uuu. It is relative device time, not automatically UTC.) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 30 96 Td (Repeated timestamps can be valid at the configured card resolution; gaps must not be filled or hidden.) Tj ET
+0.15 0.2 0.16 rg BT /F1 11 Tf 30 76 Td (PDF ingestion builds a local evidence index and conversion profile. It does not retrain model weights.) Tj ET
+endstream
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000000311 00000 n 
+trailer << /Size 6 /Root 1 0 R >>
+startxref
+9402
+%%EOF

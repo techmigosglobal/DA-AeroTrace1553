@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>PageFooter</class>
+ <widget class="QLabel" name="pageFooter">
+  <property name="text">
+   <string>AeroTrace 1553 · Raw data stays local · Capture source and ICD provenance are preserved.</string>
+  </property>
+  <property name="wordWrap">
+   <bool>true</bool>
+  </property>
+  <property name="tone" stdset="0">
+   <string>muted</string>
+  </property>
+ </widget>
+ <resources />
+ <connections />
+</ui>

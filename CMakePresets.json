@@ -1,0 +1,41 @@
+{
+  "version": 5,
+  "cmakeMinimumRequired": { "major": 3, "minor": 24, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "desktop-release",
+      "displayName": "Desktop Release (select a Qt kit or set CMAKE_PREFIX_PATH)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/out/build/desktop-release",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "AEROTRACE_BUILD_GUI": "ON" }
+    },
+    {
+      "name": "desktop-local",
+      "displayName": "Desktop Release (locally built Qt 6 Qwt)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/out/build/desktop-local",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "AEROTRACE_BUILD_GUI": "ON",
+        "QWT_LIBRARY": "${sourceDir}/out/build/qwt-local/lib/libqwt.a"
+      }
+    },
+    {
+      "name": "core-release",
+      "displayName": "Qt-free backend Release",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/out/build/core-release",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "AEROTRACE_BUILD_GUI": "OFF" }
+    }
+  ],
+  "buildPresets": [
+    { "name": "desktop-release", "configurePreset": "desktop-release" },
+    { "name": "desktop-local", "configurePreset": "desktop-local" },
+    { "name": "core-release", "configurePreset": "core-release" }
+  ],
+  "testPresets": [
+    { "name": "desktop-release", "configurePreset": "desktop-release", "output": { "outputOnFailure": true } },
+    { "name": "desktop-local", "configurePreset": "desktop-local", "output": { "outputOnFailure": true } },
+    { "name": "core-release", "configurePreset": "core-release", "output": { "outputOnFailure": true } }
+  ]
+}

@@ -1,0 +1,228 @@
+#pragma once
+#include "ui_helpers.hpp"
+#include "widgets/plot.hpp"
+#include "models/record_model.hpp"
+#include "models/rt_record_model.hpp"
+#include "workbench.hpp"
+#include "pages/page_catalog.hpp"
+class Window : public QMainWindow {
+  QWidget *root{}, *content{};
+  QVBoxLayout *pageLayout{};
+  QLabel *headerTitle{}, *licenseBadge{}, *stateBadge{}, *footerBadge{},
+      *monitorStatus{};
+  QList<QPushButton *> nav;
+  QList<Plot *> plots;
+  QScrollArea *scroll{};
+  QTableView *monitor{};
+  RecordModel model;
+  std::array<RecordModel,2> paneModels;
+  std::array<QTableView *,2> paneViews{};
+  std::array<QPointer<QTreeView>,2> rtViews;
+  std::array<RtRecordModel,2> rtModels;
+  bool rtGrouped{true},rtDisplayPaused{};
+  void refreshRtMonitor();
+  std::array<QLabel *,2> paneCounts{};
+  std::array<quint64,2> paneSelection{};
+  std::array<int,2> paneColumns{};
+  QSplitter *monitorSplitter{}; // retained for older test helpers
+  QMdiArea *monitorWorkspace{};
+  QTableView *tabMonitor{};
+  std::array<QMdiSubWindow *,2> channelWindows{};
+  QPointer<QLineEdit> runNameEdit,csvFolderEdit;
+  QPointer<QLabel> outputPreview;
+  std::array<std::array<QLabel *,31>,2> rtLights{};
+  QPointer<QLabel> rtDetail,rtLegend;
+  int selectedRt{3};
+  quint64 replaySeekGeneration{};
+  bool replaySeekPending{};
+  bool replayLoadPending{};
+  quint64 replayLoadRequest{};
+  std::shared_ptr<std::atomic<quint64>> replayGeneration=std::make_shared<std::atomic<quint64>>(0);
+  std::shared_ptr<std::vector<aero::RtActivity>> replayCheckpoints;
+  aero::RtActivity replayActivity;
+  QWidget *saveControls(bool compact=false);
+  bool chooseSaveDestination();
+  void exportFinalizedSession(const QString &);
+  void persistMonitorWorkspace();
+  void refreshRtDashboard();
+  void applyMonitorLayout();
+  QComboBox *monitorLayoutEdit{};
+  QJsonObject hardwareDiscovery;
+  bool discoveryRunning{},savingSession{},closingCapture{};
+  QString sessionSaveState;
+
+
+  aero::Workbench backend;
+  QTimer tick;
+  QSettings settings;
+  int page = 0;
+  bool unlocked = false, displayPaused = false, plotPaused = false;
+  QElapsedTimer replayClock;
+  QSlider *scrub{};
+  QLabel *replayTime{};
+  QString currentFile, sessionDir;
+  QLineEdit *signalId{}, *signalUnit{}, *scaleEdit{}, *offsetEdit{}, *rawEdit{};
+  QSpinBox *rtEdit{}, *saEdit{}, *wordEdit{}, *widthEdit{}, *lsbEdit{};
+  QComboBox *signedEdit{}, *directionEdit{};
+  QComboBox *numericTypeEdit{}, *wordOrderEdit{};
+  QLabel *preview{};
+  QLabel *decodedPreview{}, *scalePreview{}, *engineeringPreview{};
+  QLineEdit *recordFolder{}, *exportFolder{};
+  QList<QCheckBox *> preferenceChecks;
+  QSpinBox *fpsEdit{};
+  QTableWidget *sessionTable{};
+  QStringList sessionPaths;
+  QLineEdit *sessionSearch{};
+  QComboBox *exportFormat{};
+  QLineEdit *exportStart{}, *exportEnd{};
+  QLabel *totalMetric{};
+  QList<QLabel *> engineeringLabels;
+  QTableWidget *qualityTable{};
+  QTableWidget *replayTable{};
+  QLabel *busAMetric{}, *busBMetric{}, *diskMetric{};
+  QLabel *cursorALabel{}, *cursorBLabel{}, *cursorDeltaLabel{};
+  std::optional<QPointF> cursorAValue;
+  QElapsedTimer captureClock;
+  QString eventText;
+  std::string editingSignalId;
+  QPointer<QDialog> documentDialog;
+  QPointer<QDialog> taskDialog;
+  QFrame *sidebar{};
+  QPushButton *sidebarToggle{},*captureButton{};
+  bool sidebarCollapsed{},moreToolsVisible{},connecting{},automaticHeld{},connectionIsRecording{},disconnectAfterSave{};
+  std::future<bool> connectionFuture;
+  QTabBar *deviceTabs{};
+  std::array<QLabel *,2> deviceTitles{},deviceStatuses{};
+  QLabel *selectedSummary{};
+  QPushButton *monitorCsv{};
+  QPointer<QPushButton> recordButton;
+  std::uint64_t selectedMonitorId{};
+  int selectedMonitorColumn{},plotRawColumn{-1};
+  unsigned preferredSignalIndex{},analysisChannel{1};int analysisBus{};
+  QStringList extraPlotIds;
+  void plotMonitorSelection();
+  void refreshEngineeringTable();
+  QTimer configurationRetry;
+  bool applicationKeyVerified{},applicationKeyChecking{};
+  QString applicationKeyMessage;
+  QElapsedTimer applicationKeyClock;
+
+public:
+  template<class Form> Form showForm() {
+    auto panel = new QWidget;
+    Form form;
+    form.setupUi(panel);
+    panel->setProperty("designerSource", desktop::pages.at(page).form);
+    pageLayout->addWidget(panel,page==4 ? 1 : 0);
+    if (auto bar = panel->findChild<QWidget *>("actionBar");bar && page!=4)
+      titleActions->addWidget(bar);
+    return form;
+  }
+  static void populate(QTableWidget *table, const QList<QStringList> &rows);
+  static QList<QStringList> messageRows(const std::vector<aero::Record> &records, int limit = 7);
+  void registerPlot(Plot *plot, const QString &role = {}, int signalIndex = 0);
+  void configureCursor(Plot *plot);
+  Window();
+  ~Window();
+  void shortcut(QKeySequence k, std::function<void()> f);
+  void toast(QString text);
+  QHBoxLayout *titleActions{};
+  int pendingPage = 1;
+  void navigate(int n);
+  void finishPage();
+  QString subtitle(int n);
+  void licensePage();
+  void welcome();
+  void device();
+  void dashboard();
+  qsizetype countBus(int bus);
+  QString fileSize(QString p);
+  void liveMonitor();
+  void inspectSelection();
+  void inspector();
+  void selectRelative(int delta);
+  void engineering();
+  void plotPage();
+  void exportPlot();
+  void topology();
+  void events();
+  void exportEvents();
+  QStringList recordingFiles();
+  void sessions();
+  void renameSession();
+  void openSession();
+  void loadSession(QString p);
+  QString currentReplay;
+  void replay();
+  void seekReplay(std::size_t index);
+  void refreshReplayTable();
+  const std::vector<aero::Record> &analysisData() const;
+  std::size_t analysisEnd() const;
+  QStringList engineeringValues();
+  void refreshDataViews();
+  void icdLibrary();
+  void editor();
+  aero::Signal editorSignal();
+  void updatePreview();
+  bool readEditor();
+  void validateEditor();
+  QJsonObject signalJson();
+  void saveIcd(bool draft);
+  void importIcd();
+  void importIcdPath(const QString &);
+  void exports();
+  void createExport();
+  void security();
+  void removeKey();
+  void preferences();
+  void savePreferences();
+  void diagnostics();
+  void runSelfTest();
+  void exportDiagnostics();
+  void collectDiagnostics();
+  void startCapture();
+  void setupOperatorShell();
+  void setSidebarCollapsed(bool);
+  void refreshOperatorState();
+  void finishConnection();
+  void connectDevices();
+  void disconnectDevices();
+  void automaticCapture();
+  void configurationChanged();
+  void exportMonitorCsv();
+  void stopAndSave(QString recording={});
+  void rescanDdc(QLabel *target=nullptr);
+  void openCardManager();
+  void buildMonitorPanes(QTableView *);
+  void refreshMonitorPanes(bool incremental=false);
+  const aero::Record *selectedMonitorRecord() const;
+  bool hardwareConnectionTest(const QString &,const QString &);
+  bool rtMonitorWorkflowTest(const QString &);
+  bool sessionWorkflowTest(const QString &);
+
+  bool operatorWorkflowTest(const QString &);
+  void toggleCapture();
+  void updateLive();
+  bool smoke(const QString &dir);
+  bool workflowTest(const QString &reportDir);
+  bool performanceTest(const QString &reportDir);
+  bool documentWorkflowTest(const QString &reportDir,const QString &pdf,unsigned expectedSignals=3);
+  void documentCenter(QString pdf={});
+  void activateProfile(const QJsonObject &);
+  void persistProfile();
+  void taskCenter();
+  QJsonObject taskSnapshot(const QString &) const;
+  QString restoreTask(const QJsonObject &);
+  QString applyReviewedAction(const QJsonObject &,const QJsonObject &base,const QString &documentHash);
+  bool automationWorkflowTest(const QString &);
+  void setupKeyGate();
+  void verifyApplicationKey(bool interactive);
+  void lockForApplicationKey(const QString &);
+
+protected:
+  void closeEvent(QCloseEvent *e) override;
+  bool nativeEvent(const QByteArray &,void *,qintptr *) override;
+  void dragEnterEvent(QDragEnterEvent *) override;
+  void dropEvent(QDropEvent *) override;
+};
+

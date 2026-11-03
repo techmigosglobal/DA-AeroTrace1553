@@ -1,0 +1,288 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>DocumentDialog</class>
+ <widget class="QDialog" name="DocumentDialog">
+  <property name="windowTitle">
+   <string>ICD Assistant</string>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>900</width>
+    <height>650</height>
+   </size>
+  </property>
+  <layout class="QVBoxLayout" name="dialogLayout">
+   <item>
+    <widget class="QLabel" name="heading">
+     <property name="text">
+      <string>ICD Assistant</string>
+     </property>
+     <property name="tone" stdset="0">
+      <string>title</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLabel" name="explanation">
+     <property name="text">
+      <string>Ask for cited ICD facts. Use Preview action for an explicit clarification, then review it before changing live conversion or plots.</string>
+     </property>
+     <property name="wordWrap">
+      <bool>true</bool>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="libraryLayout">
+     <item>
+      <widget class="QLabel" name="libraryCaption">
+       <property name="text">
+        <string>ICD</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QComboBox" name="documentSelector">
+       <property name="accessibleName">
+        <string>ICD selected for this conversation</string>
+       </property>
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+         <horstretch>1</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="chatOpenSourceButton">
+       <property name="text">
+        <string>Open PDF</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="fileLayout">
+     <item>
+      <widget class="QLineEdit" name="pdfPath">
+       <property name="placeholderText">
+        <string>Select an ICD PDF</string>
+       </property>
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="browseButton">
+       <property name="text">
+        <string>Browse PDF</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="importButton">
+       <property name="text">
+        <string>Index PDF</string>
+       </property>
+       <property name="primary" stdset="0">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="cancelButton">
+       <property name="text">
+        <string>Cancel job</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <widget class="QProgressBar" name="progress">
+     <property name="value">
+      <number>0</number>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLabel" name="status">
+     <property name="text">
+      <string>Choose an indexed ICD or import a PDF. Scanned pages use local OCR.</string>
+     </property>
+     <property name="wordWrap">
+      <bool>true</bool>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLabel" name="scopeLabel">
+     <property name="text">
+      <string>No ICD selected · conversion profile remains unchanged</string>
+     </property>
+     <property name="wordWrap">
+      <bool>true</bool>
+     </property>
+     <property name="tone" stdset="0">
+      <string>muted</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QTabWidget" name="workspaceTabs">
+     <widget class="QWidget" name="chatTab">
+      <attribute name="title">
+       <string>Chat</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="chatTabLayout">
+       <item>
+        <widget class="QPlainTextEdit" name="answer">
+         <property name="readOnly">
+          <bool>true</bool>
+         </property>
+         <property name="placeholderText">
+          <string>Your conversation is saved separately for each ICD. Answers cite source pages; uncertain rules stay in review.</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="questionLayout">
+         <item>
+          <widget class="QLineEdit" name="question">
+           <property name="placeholderText">
+            <string>Ask about this ICD: units, word addresses, scale, encoding or conversion</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="askButton">
+           <property name="text">
+            <string>Ask</string>
+           </property>
+          </widget>
+         </item>
+         <item><widget class="QPushButton" name="previewAction"><property name="text"><string>Preview action</string></property><property name="toolTip"><string>Examples: Plot TEMP; Set TEMP scale to 0.01; TEMP offset is -40. Word indices are zero-based.</string></property></widget></item>
+        </layout>
+       </item>
+       <item><widget class="QPlainTextEdit" name="actionPreview"><property name="readOnly"><bool>true</bool></property><property name="maximumHeight"><number>110</number></property><property name="placeholderText"><string>Reviewed action preview. No conversion or plot changes until you apply.</string></property><property name="accessibleName"><string>Action preview</string></property></widget></item>
+       <item><widget class="QPushButton" name="applyAction"><property name="text"><string>Apply reviewed action</string></property><property name="enabled"><bool>false</bool></property></widget></item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="mappingTab">
+      <attribute name="title">
+       <string>Mappings and evidence</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="mappingTabLayout">
+       <item>
+        <widget class="QTableWidget" name="mappingTable">
+         <property name="editTriggers">
+          <set>QAbstractItemView::NoEditTriggers</set>
+         </property>
+         <property name="selectionBehavior">
+          <enum>QAbstractItemView::SelectRows</enum>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>150</height>
+          </size>
+         </property>
+         <column>
+          <property name="text">
+           <string>SIGNAL</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>PAGE</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>STATE</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>EVIDENCE / REVIEW REASON</string>
+          </property>
+         </column>
+        </widget>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="mappingActions">
+         <item>
+          <widget class="QPushButton" name="activateButton">
+           <property name="text">
+            <string>Activate checked mappings</string>
+           </property>
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="openPageButton">
+           <property name="text">
+            <string>Open selected evidence page</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="modelTab">
+      <attribute name="title">
+       <string>Local model (optional)</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="modelTabLayout">
+       <item>
+        <widget class="QGroupBox" name="localModel">
+         <property name="title">
+          <string>Optional local language model</string>
+         </property>
+         <layout class="QFormLayout" name="modelLayout">
+          <item row="0" column="0">
+           <widget class="QLabel" name="endpointCaption">
+            <property name="text">
+             <string>Local server URL</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QLineEdit" name="modelUrl">
+            <property name="placeholderText">
+             <string>http://127.0.0.1:8080 (blank = extractive answers)</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="modelCaption">
+            <property name="text">
+             <string>Model name</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QLineEdit" name="modelName">
+            <property name="text">
+             <string>local</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources />
+ <connections />
+</ui>
