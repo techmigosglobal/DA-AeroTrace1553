@@ -1,0 +1,136 @@
+{
+  "schema": "aerotrace.release-packaging.v1",
+  "release": "0.6.0",
+  "reportedDate": "2026-11-04",
+  "status": "PASS",
+  "scope": "Local offline installer compilation and staged-payload acceptance on the development PC. Not clean-PC installation, physical hardware or universal SDK qualification.",
+  "installer": {
+    "numericFileVersion": "0.6.0.0",
+    "cleanPcTest": "NOT RUN",
+    "status": "PASS",
+    "productVersion": "0.6.0",
+    "installerSourceCommit": "82545a03b1c275173cf4711e65a1eb9da9d41de4",
+    "file": "AeroTrace1553-0.6.0-Setup-x64.exe",
+    "compiledUtc": "2026-11-04T01:57:21.1030534Z",
+    "payloadSourceCommit": "33a9b229496817447b54a327b665a39fc0e38791",
+    "physicalQualification": "NOT RUN",
+    "sha256": "147E90C437B640CA3900E1781A628D135543C02500210F11319298D0A735C55C",
+    "bytes": 163002761,
+    "signatureStatus": "NotSigned",
+    "schema": "aerotrace.installer-identity.v1",
+    "fileVersion": "0.6.0",
+    "compiler": "Inno Setup 7.1.1",
+    "installUninstallRoundTrip": "NOT RUN"
+  },
+  "payloadIntegrity": {
+    "schema": "aerotrace.package-integrity.v1",
+    "status": "PASS",
+    "checkedFiles": 4051,
+    "mismatches": [],
+    "executableSha256": "92e52ceb1e468dda6489b076249d53244a20a5cf71387675f90b294562e5cb27"
+  },
+  "dependencyAudit": {
+    "scanned": 134,
+    "missing_redistributable_imports": {},
+    "unresolved_non_system_imports": {},
+    "caveat": "Static direct imports only. Presence elsewhere in package does not prove loader search paths. Installed workflow tests and actual vendor-driver testing remain necessary."
+  },
+  "stagedAcceptance": {
+    "developmentFallbacksDisabled": true,
+    "bundledPdfOcrRetrievalAndConversion": true,
+    "supportBundle": true,
+    "executableSha256": "92E52CEB1E468DDA6489B076249D53244A20A5CF71387675F90B294562E5CB27",
+    "cleanPath": true,
+    "workspaceBatchChecks": true,
+    "deploymentKind": "Staged",
+    "note": "Staged payload workflows on this host with developer tool paths removed; not a separate clean-PC or physical-hardware qualification.",
+    "nativeIcon": true,
+    "passed": true,
+    "allPageWorkflow": true,
+    "physicalHardwareTested": false,
+    "runCorrelation": true
+  },
+  "providerInspection": {
+    "status": "PASS",
+    "opensPhysicalDevice": false,
+    "providers": [
+      {
+        "schema": "aerotrace.provider.v1",
+        "abi": 1,
+        "architecture": "x64",
+        "provider": "aceXtremeSDKv4.10.2",
+        "dll": "libaerotrace_ddc_aceXtremeSDKv4.10.2.dll",
+        "sdk": "aceXtremeSDKv4.10.2",
+        "header_sha256": "811526c97c23b3cd949ad35ed527d78918622b5cba9407d2fcb2b3f7fbeac767",
+        "runtime_sha256": "5ec4e6a5af2a4e53766645840f68e4092e53f5a02287526e58feb961dcf045a5",
+        "physical_qualification": "NOT RUN",
+        "dll_sha256": "7b4da6400aaa2a666c5580b6583db7d8e00bfe16461be9269ba3b0ce9573b3ce"
+      },
+      {
+        "schema": "aerotrace.provider.v1",
+        "abi": 1,
+        "architecture": "x64",
+        "provider": "ddc-4.4.2",
+        "dll": "libaerotrace_ddc_ddc-4.4.2.dll",
+        "sdk": "aceXtremeSDK-4.4.2.4",
+        "header_sha256": "2dc4d6dd0e78137b0ba3a7712fa2fb74c0aa88caab4a2fc042d69dfce393f2bf",
+        "runtime_sha256": "94ab275aa5d90ad662e6cbb02bc158864ae0153bc2af029ed0fd4df2150fa7e8",
+        "physical_qualification": "NOT RUN",
+        "dll_sha256": "cdb4dd4f2b46a4cfff14c7d9e297ccf27c918b11d4ffd6edd3b637d184e691b2"
+      }
+    ]
+  },
+  "firstAttempt": {
+    "status": "FAIL",
+    "reason": "Initial installer numeric file version was 0.0.0.0; accepted artifact was rebuilt with explicit version directives and a mandatory compiled-resource assertion.",
+    "supersededInstallerSha256": "E51FAD2F47307836B0254808BF9FE6B65AFD0435BD9BAAA7E741C7D3A2F040AE"
+  },
+  "evidenceHashes": [
+    {
+      "path": "out/package-0.6.0.log",
+      "sha256": "26db844549b96657f916b3785f5c27ddcad5f4351a8f23bf405840286f962888"
+    },
+    {
+      "path": "out/release-0.6.0-manifest-check.json",
+      "sha256": "a34208b905255cadc79525cf7562cf1c0809d5b391b5996e31319e53f2aa9c0d"
+    },
+    {
+      "path": "out/release-0.6.0-provider-check.log",
+      "sha256": "9f12147f29b7b531355981ed1c34a2a0bcfedcb580c878d58dc7845b9ac5c4ea"
+    },
+    {
+      "path": "out/release-0.6.0-staged-acceptance.log",
+      "sha256": "99ddea87a21a28d0a2d2cc6b4143797b840460bde7d6b657959ba20f812d8fae"
+    },
+    {
+      "path": "out/release-0.6.0-staged-acceptance/acceptance.json",
+      "sha256": "5a3a478303912bb825fe97e3577c43d479a7ead56e41448241198004cec7cf5f"
+    },
+    {
+      "path": "out/release-0.6.0-staged-acceptance/pdf/document-workflow.txt",
+      "sha256": "3ab853d31bb110ca084cb4f18fcd862bb42825442dc2d984810cbe03a57ffa1b"
+    },
+    {
+      "path": "out/release-0.6.0-staged-acceptance/pages/workflow-test.txt",
+      "sha256": "0ad680188f07c4120bfa210f0b1860c0ac7d6fe89b6fbc0e40d6531209f9eb99"
+    },
+    {
+      "path": "out/release-0.6.0-staged-acceptance/sessions/session-workflow.txt",
+      "sha256": "186068d37458c6bc6b21d7f521e58807e0702b4cbeb72edcc8e4e7cb67187ba8"
+    },
+    {
+      "path": "out/installer-0.6.0-final-build.log",
+      "sha256": "5b127e9c0b23064d2ae2e1fa9363c2bcae97ed5d48597c50f04a94cf1543536e"
+    },
+    {
+      "path": "out/release-0.6.0-installer-identity.json",
+      "sha256": "ae824d029b39ceb7a88e84112a5650902696dac14cb88c4588276199a4130fb8"
+    }
+  ],
+  "publication": {
+    "sourceAndSanitizedReceipts": true,
+    "installerContainsLicensedVendorRuntime": true,
+    "installerPubliclyUploaded": false,
+    "ciCd": "NOT CONFIGURED / NOT RUN"
+  }
+}

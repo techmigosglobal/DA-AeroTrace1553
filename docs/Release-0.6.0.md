@@ -2,6 +2,8 @@
 
 Reported 4 November 2026. Software qualification: **PASS** for the available inputs and stated gates. Full preflight: **BLOCKED** by unavailable licensed SDK 3.6.15 inputs. Physical qualification: **NOT RUN**. CI/CD: **NOT CONFIGURED / NOT RUN**, as requested.
 
+[Final installer and staged-payload validation](Packaging-0.6.0.md) records the delivered V0.6.0 artifact, checksum, source identities and acceptance scope.
+
 ## Delivered scope
 
 - Approved External/CH1 and Internal/CH2 RT panes, stable RT rows, independent A/B values and counts, expandable routes and chronological display. Raw capture remains independent of display thinning.
