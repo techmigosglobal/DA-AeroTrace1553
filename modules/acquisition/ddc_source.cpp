@@ -20,9 +20,11 @@ std::unique_ptr<Module> loadProvider(const std::filesystem::path &runtime){
   if(explicitProvider){std::error_code ec;const std::filesystem::path chosen(env);if(std::filesystem::is_directory(chosen,ec)){for(std::filesystem::directory_iterator i(chosen,ec),end;i!=end&&!ec;i.increment(ec))if(i->path().extension()==".dll")paths.push_back(i->path());}else paths.push_back(chosen);}
   else {
     wchar_t exe[32768]{};GetModuleFileNameW(nullptr,exe,32768);
-    std::vector<std::filesystem::path> roots{std::filesystem::path(exe).parent_path()/"providers"};
+    const auto application=std::filesystem::path(exe).parent_path();
+    std::vector<std::filesystem::path> roots{application/"providers"};
 #ifdef AEROTRACE_PROVIDER_DIRECTORY
-    roots.emplace_back(AEROTRACE_PROVIDER_DIRECTORY);
+    std::error_code deploymentError;
+    if(!std::filesystem::is_regular_file(application/"deployment.json",deploymentError))roots.emplace_back(AEROTRACE_PROVIDER_DIRECTORY);
 #endif
     for(const auto &root:roots){std::error_code ec;for(std::filesystem::directory_iterator i(root,ec),end;i!=end&&!ec;i.increment(ec))if(i->path().extension()==".dll")paths.push_back(i->path());}
   }

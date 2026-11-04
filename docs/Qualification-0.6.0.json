@@ -1,0 +1,681 @@
+{
+  "schema": "aerotrace.release-qualification.v1",
+  "release": "0.6.0",
+  "reportedDate": "2026-11-04",
+  "softwareStatus": "PASS",
+  "fullPreflightStatus": "BLOCKED",
+  "fullPreflightBlocker": "Licensed SDK 3.6.15 inputs unavailable",
+  "physicalQualification": "NOT RUN",
+  "ciCd": "NOT CONFIGURED / NOT RUN",
+  "functionalQualificationBuild": {
+    "sourceCommit": "b58863506cc1768f66f6be765d134cbc2235b424",
+    "workingTreeDirty": false,
+    "executableSha256": "A475088A7B4EC1755F9D07A9A2EED4A099E4A0E375D88F50BF68407B64CB7C3D",
+    "applicationVersionThen": "0.5.5",
+    "qtVersion": "6.12.0",
+    "plotBackend": "Qwt",
+    "note": "Release version and deployment-isolation changes were built and checked separately; the full soak was not rerun against the relabelled installer binary."
+  },
+  "desktop": {
+    "status": "PASS",
+    "tests": 29,
+    "evidence": "out/preflight-final3-20261103/desktop-regressions.log"
+  },
+  "sanitizers": {
+    "status": "PASS",
+    "tests": 14,
+    "toolchain": "LLVM 22.1.0 x64 clang-cl/MSVC, ASan/UBSan",
+    "canaries": "PASS",
+    "csvFormatterAffectedRegression": "PASS"
+  },
+  "releaseTargetedChecks": {
+    "status": "PASS",
+    "tests": 4,
+    "names": [
+      "provider_runtime_inspection",
+      "provider_deployment_isolation",
+      "ddc_adapter_contract",
+      "gui_hardware_connection_recording"
+    ],
+    "evidence": "out/release-0.6.0-final-build.log"
+  },
+  "soak": {
+    "status": "PASS",
+    "source": "deterministic software fixture; no physical hardware",
+    "seconds": 599.999,
+    "requested_events_per_second": 50000,
+    "effective_records_per_second": 50043.53840589734,
+    "generated": 30026073,
+    "recorded": 30026073,
+    "stream_counts": [
+      {
+        "acquisition": 7506519,
+        "bus": "A",
+        "channel": 1,
+        "expected": 7506519,
+        "recorded": 7506519
+      },
+      {
+        "acquisition": 7506518,
+        "bus": "B",
+        "channel": 1,
+        "expected": 7506518,
+        "recorded": 7506518
+      },
+      {
+        "acquisition": 7506518,
+        "bus": "A",
+        "channel": 2,
+        "expected": 7506518,
+        "recorded": 7506518
+      },
+      {
+        "acquisition": 7506518,
+        "bus": "B",
+        "channel": 2,
+        "expected": 7506518,
+        "recorded": 7506518
+      }
+    ],
+    "exact_stream_counts": true,
+    "exact_record_contents": true,
+    "raw_crc_valid": true,
+    "csv_rows_compared": 30026073,
+    "exact_csv_contents": true,
+    "indexed_scan_records": 30026073,
+    "indexed_replay_contents": true,
+    "random_seek_checks": 4096,
+    "p95_gui_heartbeat_ms": 90,
+    "p99_gui_heartbeat_ms": 195,
+    "max_gui_heartbeat_gap_ms": 984,
+    "capture_to_paint_scope": "Host ingress to Paint event for an applied External RT/raw row; excludes plot-only interval and physical wire latency",
+    "stage_timings": {
+      "capture_ingress_to_viewport_paint": {
+        "max_ns": 852505300,
+        "mean_ns": 79923547.99375837,
+        "p50_upper_ns": 134217727,
+        "p95_upper_ns": 268435455,
+        "p99_upper_ns": 268435455,
+        "quantiles": "fixed-memory log2 bucket upper bounds",
+        "samples": 8972
+      },
+      "conversion": {
+        "max_ns": 206896200,
+        "mean_ns": 717066.5651926362,
+        "p50_upper_ns": 32767,
+        "p95_upper_ns": 4194303,
+        "p99_upper_ns": 16777215,
+        "quantiles": "fixed-memory log2 bucket upper bounds",
+        "samples": 131725
+      },
+      "flush": {
+        "max_ns": 32653400,
+        "mean_ns": 3316.5630483631485,
+        "p50_upper_ns": 127,
+        "p95_upper_ns": 511,
+        "p99_upper_ns": 65535,
+        "quantiles": "fixed-memory log2 bucket upper bounds",
+        "samples": 125943
+      },
+      "gui_analysis_cache": {
+        "max_ns": 198374900,
+        "mean_ns": 3993994.4090305446,
+        "p50_upper_ns": 1048575,
+        "p95_upper_ns": 16777215,
+        "p99_upper_ns": 33554431,
+        "quantiles": "fixed-memory log2 bucket upper bounds",
+        "samples": 7530
+      },
+      "gui_chronological": {
+        "max_ns": 176360100,
+        "mean_ns": 15794673.112438891,
+        "p50_upper_ns": 16777215,
+        "p95_upper_ns": 67108863,
+        "p99_upper_ns": 134217727,
+        "quantiles": "fixed-memory log2 bucket upper bounds",
+        "samples": 1841
+      },
+      "gui_data_views": {
+        "max_ns": 166798700,
+        "mean_ns": 1170505.737051793,
+        "p50_upper_ns": 1023,
+        "p95_upper_ns": 8388607,
+        "p99_upper_ns": 16777215,
+        "quantiles": "fixed-memory log2 bucket upper bounds",
+        "samples": 7530
+      },
+      "gui_operator_controls": {
+        "max_ns": 94376300,
+        "mean_ns": 866535.6157182284,
+        "p50_upper_ns": 524287,
+        "p95_upper_ns": 4194303,
+        "p99_upper_ns": 16777215,
+        "quantiles": "fixed-memory log2 bucket upper bounds",
+        "samples": 7609
+      },
+      "gui_other_pages": {
+        "max_ns": 0,
+        "mean_ns": 0,
+        "p50_upper_ns": 0,
+        "p95_upper_ns": 0,
+        "p99_upper_ns": 0,
+        "quantiles": "fixed-memory log2 bucket upper bounds",
+        "samples": 0
+      },
+      "gui_plots": {
+        "max_ns": 236035100,
+        "mean_ns": 8294246.540679052,
+        "p50_upper_ns": 8388607,
+        "p95_upper_ns": 33554431,
+        "p99_upper_ns": 67108863,
+        "quantiles": "fixed-memory log2 bucket upper bounds",
+        "samples": 3122
+      },
+      "gui_record_models": {
+        "max_ns": 320870600,
+        "mean_ns": 8206789.2031872505,
+        "p50_upper_ns": 8388607,
+        "p95_upper_ns": 33554431,
+        "p99_upper_ns": 67108863,
+        "quantiles": "fixed-memory log2 bucket upper bounds",
+        "samples": 7530
+      },
+      "gui_rt_grouped": {
+        "max_ns": 343809000,
+        "mean_ns": 22864986.507936507,
+        "p50_upper_ns": 16777215,
+        "p95_upper_ns": 67108863,
+        "p99_upper_ns": 134217727,
+        "quantiles": "fixed-memory log2 bucket upper bounds",
+        "samples": 2646
+      },
+      "gui_update": {
+        "max_ns": 343809000,
+        "mean_ns": 15175895.01905638,
+        "p50_upper_ns": 16777215,
+        "p95_upper_ns": 67108863,
+        "p99_upper_ns": 134217727,
+        "quantiles": "fixed-memory log2 bucket upper bounds",
+        "samples": 7609
+      },
+      "packet_processing": {
+        "max_ns": 0,
+        "mean_ns": 0,
+        "p50_upper_ns": 0,
+        "p95_upper_ns": 0,
+        "p99_upper_ns": 0,
+        "quantiles": "fixed-memory log2 bucket upper bounds",
+        "samples": 0
+      },
+      "publication": {
+        "max_ns": 166455300,
+        "mean_ns": 876993.1933953312,
+        "p50_upper_ns": 16383,
+        "p95_upper_ns": 8388607,
+        "p99_upper_ns": 33554431,
+        "quantiles": "fixed-memory log2 bucket upper bounds",
+        "samples": 131725
+      },
+      "raw_packet_write": {
+        "max_ns": 3284500,
+        "mean_ns": 368.58113061933244,
+        "p50_upper_ns": 255,
+        "p95_upper_ns": 511,
+        "p99_upper_ns": 1023,
+        "quantiles": "fixed-memory log2 bucket upper bounds",
+        "samples": 129575
+      },
+      "recording_write": {
+        "max_ns": 207994000,
+        "mean_ns": 433621.34067185427,
+        "p50_upper_ns": 32767,
+        "p95_upper_ns": 2097151,
+        "p99_upper_ns": 8388607,
+        "quantiles": "fixed-memory log2 bucket upper bounds",
+        "samples": 131725
+      },
+      "rt_aggregation": {
+        "max_ns": 249740800,
+        "mean_ns": 146266.5401206625,
+        "p50_upper_ns": 8191,
+        "p95_upper_ns": 524287,
+        "p99_upper_ns": 4194303,
+        "quantiles": "fixed-memory log2 bucket upper bounds",
+        "samples": 131441
+      },
+      "sdk_poll": {
+        "max_ns": 0,
+        "mean_ns": 0,
+        "p50_upper_ns": 0,
+        "p95_upper_ns": 0,
+        "p99_upper_ns": 0,
+        "quantiles": "fixed-memory log2 bucket upper bounds",
+        "samples": 0
+      },
+      "signal_checks": {
+        "max_ns": 100796900,
+        "mean_ns": 105465.83260580755,
+        "p50_upper_ns": 8191,
+        "p95_upper_ns": 262143,
+        "p99_upper_ns": 2097151,
+        "quantiles": "fixed-memory log2 bucket upper bounds",
+        "samples": 131725
+      },
+      "worker_batch": {
+        "max_ns": 362579700,
+        "mean_ns": 4544702.695767698,
+        "p50_upper_ns": 524287,
+        "p95_upper_ns": 33554431,
+        "p99_upper_ns": 67108863,
+        "quantiles": "fixed-memory log2 bucket upper bounds",
+        "samples": 131725
+      }
+    },
+    "queue_high_water": 8192,
+    "max_points_per_trace": 1024,
+    "plots": 4,
+    "plot_samples": 2563,
+    "plots_exercised": true,
+    "memory_gate_measured": true,
+    "post_warmup_growth_bytes": 1290240,
+    "bounded_private_memory": true,
+    "display_skips": 1254360,
+    "hardware_lost": 0,
+    "hardware_overflows": 0,
+    "document_contention": false,
+    "document_worker_observed_during_capture": false,
+    "document_completed_during_capture": false,
+    "document_import_complete": true,
+    "physical_qualification": "NOT RUN"
+  },
+  "documentContention": {
+    "status": "PASS",
+    "source": "deterministic software fixture; no physical hardware",
+    "seconds": 30.052,
+    "requested_events_per_second": 50000,
+    "effective_records_per_second": 50313.09064288566,
+    "generated": 1512009,
+    "recorded": 1512009,
+    "stream_counts": [
+      {
+        "acquisition": 378003,
+        "bus": "A",
+        "channel": 1,
+        "expected": 378003,
+        "recorded": 378003
+      },
+      {
+        "acquisition": 378002,
+        "bus": "B",
+        "channel": 1,
+        "expected": 378002,
+        "recorded": 378002
+      },
+      {
+        "acquisition": 378002,
+        "bus": "A",
+        "channel": 2,
+        "expected": 378002,
+        "recorded": 378002
+      },
+      {
+        "acquisition": 378002,
+        "bus": "B",
+        "channel": 2,
+        "expected": 378002,
+        "recorded": 378002
+      }
+    ],
+    "exact_stream_counts": true,
+    "exact_record_contents": true,
+    "raw_crc_valid": true,
+    "csv_rows_compared": 1512009,
+    "exact_csv_contents": true,
+    "indexed_scan_records": 1512009,
+    "indexed_replay_contents": true,
+    "random_seek_checks": 4096,
+    "p95_gui_heartbeat_ms": 17,
+    "p99_gui_heartbeat_ms": 24,
+    "max_gui_heartbeat_gap_ms": 258,
+    "capture_to_paint_scope": "Host ingress to Paint event for an applied External RT/raw row; excludes plot-only interval and physical wire latency",
+    "stage_timings": {
+      "capture_ingress_to_viewport_paint": {
+        "max_ns": 341884800,
+        "mean_ns": 72865633.05084746,
+        "p50_upper_ns": 134217727,
+        "p95_upper_ns": 134217727,
+        "p99_upper_ns": 268435455,
+        "quantiles": "fixed-memory log2 bucket upper bounds",
+        "samples": 236
+      },
+      "conversion": {
+        "max_ns": 29595200,
+        "mean_ns": 178096.76655339307,
+        "p50_upper_ns": 8191,
+        "p95_upper_ns": 1048575,
+        "p99_upper_ns": 2097151,
+        "quantiles": "fixed-memory log2 bucket upper bounds",
+        "samples": 9711
+      },
+      "flush": {
+        "max_ns": 702300,
+        "mean_ns": 1927.7973943747718,
+        "p50_upper_ns": 127,
+        "p95_upper_ns": 255,
+        "p99_upper_ns": 65535,
+        "quantiles": "fixed-memory log2 bucket upper bounds",
+        "samples": 8213
+      },
+      "gui_analysis_cache": {
+        "max_ns": 16455200,
+        "mean_ns": 1364635.8050847459,
+        "p50_upper_ns": 524287,
+        "p95_upper_ns": 8388607,
+        "p99_upper_ns": 8388607,
+        "quantiles": "fixed-memory log2 bucket upper bounds",
+        "samples": 472
+      },
+      "gui_chronological": {
+        "max_ns": 0,
+        "mean_ns": 0,
+        "p50_upper_ns": 0,
+        "p95_upper_ns": 0,
+        "p99_upper_ns": 0,
+        "quantiles": "fixed-memory log2 bucket upper bounds",
+        "samples": 0
+      },
+      "gui_data_views": {
+        "max_ns": 7182200,
+        "mean_ns": 386244.27966101695,
+        "p50_upper_ns": 1023,
+        "p95_upper_ns": 2097151,
+        "p99_upper_ns": 4194303,
+        "quantiles": "fixed-memory log2 bucket upper bounds",
+        "samples": 472
+      },
+      "gui_operator_controls": {
+        "max_ns": 1925700,
+        "mean_ns": 151695.7627118644,
+        "p50_upper_ns": 32767,
+        "p95_upper_ns": 1048575,
+        "p99_upper_ns": 1048575,
+        "quantiles": "fixed-memory log2 bucket upper bounds",
+        "samples": 472
+      },
+      "gui_other_pages": {
+        "max_ns": 11181300,
+        "mean_ns": 2650442.4242424243,
+        "p50_upper_ns": 2097151,
+        "p95_upper_ns": 8388607,
+        "p99_upper_ns": 16777215,
+        "quantiles": "fixed-memory log2 bucket upper bounds",
+        "samples": 198
+      },
+      "gui_plots": {
+        "max_ns": 18689900,
+        "mean_ns": 3883947.4683544305,
+        "p50_upper_ns": 4194303,
+        "p95_upper_ns": 16777215,
+        "p99_upper_ns": 16777215,
+        "quantiles": "fixed-memory log2 bucket upper bounds",
+        "samples": 158
+      },
+      "gui_record_models": {
+        "max_ns": 19640200,
+        "mean_ns": 2630970.7627118644,
+        "p50_upper_ns": 1048575,
+        "p95_upper_ns": 16777215,
+        "p99_upper_ns": 16777215,
+        "quantiles": "fixed-memory log2 bucket upper bounds",
+        "samples": 472
+      },
+      "gui_rt_grouped": {
+        "max_ns": 25499900,
+        "mean_ns": 10215793.103448275,
+        "p50_upper_ns": 16777215,
+        "p95_upper_ns": 16777215,
+        "p99_upper_ns": 33554431,
+        "quantiles": "fixed-memory log2 bucket upper bounds",
+        "samples": 116
+      },
+      "gui_update": {
+        "max_ns": 25499900,
+        "mean_ns": 4922634.110169492,
+        "p50_upper_ns": 4194303,
+        "p95_upper_ns": 16777215,
+        "p99_upper_ns": 16777215,
+        "quantiles": "fixed-memory log2 bucket upper bounds",
+        "samples": 472
+      },
+      "packet_processing": {
+        "max_ns": 0,
+        "mean_ns": 0,
+        "p50_upper_ns": 0,
+        "p95_upper_ns": 0,
+        "p99_upper_ns": 0,
+        "quantiles": "fixed-memory log2 bucket upper bounds",
+        "samples": 0
+      },
+      "publication": {
+        "max_ns": 25663700,
+        "mean_ns": 207937.12285037586,
+        "p50_upper_ns": 4095,
+        "p95_upper_ns": 2097151,
+        "p99_upper_ns": 8388607,
+        "quantiles": "fixed-memory log2 bucket upper bounds",
+        "samples": 9711
+      },
+      "raw_packet_write": {
+        "max_ns": 63200,
+        "mean_ns": 206.69069610272584,
+        "p50_upper_ns": 255,
+        "p95_upper_ns": 511,
+        "p99_upper_ns": 1023,
+        "quantiles": "fixed-memory log2 bucket upper bounds",
+        "samples": 8878
+      },
+      "recording_write": {
+        "max_ns": 29492400,
+        "mean_ns": 132859.2215013902,
+        "p50_upper_ns": 8191,
+        "p95_upper_ns": 1048575,
+        "p99_upper_ns": 1048575,
+        "quantiles": "fixed-memory log2 bucket upper bounds",
+        "samples": 9711
+      },
+      "rt_aggregation": {
+        "max_ns": 22475500,
+        "mean_ns": 36522.50907205806,
+        "p50_upper_ns": 2047,
+        "p95_upper_ns": 262143,
+        "p99_upper_ns": 524287,
+        "quantiles": "fixed-memory log2 bucket upper bounds",
+        "samples": 9645
+      },
+      "sdk_poll": {
+        "max_ns": 0,
+        "mean_ns": 0,
+        "p50_upper_ns": 0,
+        "p95_upper_ns": 0,
+        "p99_upper_ns": 0,
+        "quantiles": "fixed-memory log2 bucket upper bounds",
+        "samples": 0
+      },
+      "signal_checks": {
+        "max_ns": 5577700,
+        "mean_ns": 24387.436927195962,
+        "p50_upper_ns": 2047,
+        "p95_upper_ns": 131071,
+        "p99_upper_ns": 262143,
+        "quantiles": "fixed-memory log2 bucket upper bounds",
+        "samples": 9711
+      },
+      "worker_batch": {
+        "max_ns": 67677600,
+        "mean_ns": 3108901.173926475,
+        "p50_upper_ns": 262143,
+        "p95_upper_ns": 16777215,
+        "p99_upper_ns": 33554431,
+        "quantiles": "fixed-memory log2 bucket upper bounds",
+        "samples": 9711
+      }
+    },
+    "queue_high_water": 8192,
+    "max_points_per_trace": 1024,
+    "plots": 4,
+    "plot_samples": 2563,
+    "plots_exercised": true,
+    "memory_gate_measured": false,
+    "post_warmup_growth_bytes": 0,
+    "bounded_private_memory": true,
+    "display_skips": 16195,
+    "hardware_lost": 0,
+    "hardware_overflows": 0,
+    "document_contention": true,
+    "document_worker_observed_during_capture": true,
+    "document_completed_during_capture": true,
+    "document_import_complete": true,
+    "physical_qualification": "NOT RUN"
+  },
+  "fuzz": [
+    {
+      "target": "recording",
+      "status": "PASS",
+      "executableSha256": "E91D2AB496C0A2405275B388CEC339915556D7EEDE7E255B47D8AA15F92F3F64",
+      "requestedSeconds": 300,
+      "executions": 404408,
+      "elapsedSeconds": 301,
+      "receipt": "out/preflight-final2-20261103/fuzz-scanner-final/receipt.json"
+    },
+    {
+      "target": "index",
+      "status": "PASS",
+      "executableSha256": "6987FF5536474A6B2D65454D0A5A6A7CE461F7E510FB8E8689330939B77D8FEE",
+      "requestedSeconds": 300,
+      "executions": 7380,
+      "elapsedSeconds": 301,
+      "receipt": "out/preflight-final2-20261103/fuzz-scanner-final/receipt.json"
+    },
+    {
+      "target": "protocol",
+      "status": "PASS",
+      "executableSha256": "1B2942D23C4829A689DB400E396186CE466FC6BB2BF18A6B11993A48381F8BA5",
+      "requestedSeconds": 300,
+      "executions": 706792,
+      "elapsedSeconds": 301,
+      "receipt": "out/preflight-final2-20261103/fuzz-protocol-packet-final/receipt.json"
+    },
+    {
+      "target": "packet",
+      "status": "PASS",
+      "executableSha256": "F7B632BD24E1CAEE258186C438C32DEAF66E9E88C20204412D4F5CE6C2DF9AE8",
+      "requestedSeconds": 300,
+      "executions": 5803699,
+      "elapsedSeconds": 301,
+      "receipt": "out/preflight-final2-20261103/fuzz-protocol-packet-final/receipt.json"
+    }
+  ],
+  "providers": [
+    {
+      "id": "aceXtremeSDKv4.10.2",
+      "sdk": "4.10.2",
+      "runtimeVersion": "4.10.1.1",
+      "runtimeSha256": "5ec4e6a5af2a4e53766645840f68e4092e53f5a02287526e58feb961dcf045a5",
+      "vendorBuild": "PASS",
+      "contractFixtures": "PASS",
+      "runtimeInspection": "PASS",
+      "physical": "NOT RUN"
+    },
+    {
+      "id": "ddc-4.4.2",
+      "sdk": "4.4.2.4",
+      "runtimeVersion": "4.4.2.4",
+      "runtimeSha256": "94ab275aa5d90ad662e6cbb02bc158864ae0153bc2af029ed0fd4df2150fa7e8",
+      "vendorBuild": "PASS",
+      "contractFixtures": "PASS",
+      "runtimeInspection": "PASS",
+      "physical": "NOT RUN"
+    },
+    {
+      "sdk": "3.6.15",
+      "vendorVerification": "BLOCKED",
+      "reason": "Licensed package not supplied"
+    },
+    {
+      "sdk": "BU-69065 Menu 4.5.0",
+      "vendorVerification": "BLOCKED",
+      "reason": "Separate x86 TestSim32 family; matching x64 SDK not supplied"
+    }
+  ],
+  "priorAttempts": [
+    {
+      "status": "FAIL",
+      "evidence": "out/preflight-final2-20261103",
+      "reason": "Initial p95 GUI heartbeat 131 ms exceeded 100 ms; short stress under host load also failed throughput.",
+      "resolution": "Conditional style updates avoid redundant repolish; parser/index and CSV formatting costs reduced; final clean-source run passed."
+    },
+    {
+      "status": "FAIL",
+      "reason": "Earlier contention test compared full-session capture count to engineering-revision count after a new ICD import.",
+      "resolution": "Reconciles full-session RT capture revision and all raw/CSV/index records; engineering revision count retained separately."
+    }
+  ],
+  "limitations": [
+    "Simulation does not qualify SDK polling performance, physical traffic, electrical behavior, drivers, timing accuracy or reconnect.",
+    "Stage quantiles are fixed-memory log2 bucket upper bounds; GUI heartbeat percentiles are separate exact interval measurements.",
+    "Memory growth gate covers live capture after 60 seconds only. Offline replay index remains O(record count).",
+    "Display skips represent bounded GUI thinning, not raw-record loss. Fixture loss counters are not hardware loss evidence.",
+    "Session SQLite, DuckDB/Parquet and isolated NumPy/SciPy analysis are deferred by explicit release scope; document SQLite/OCR/ONNX are already present.",
+    "No clean-PC install/uninstall or physical one-hour/24-hour qualification has been performed for this release."
+  ],
+  "evidenceHashes": [
+    {
+      "path": "out/qualification-final-20261103/receipt.json",
+      "sha256": "370ae21f2bb83a34893c876c38488bdbfdd6803c71beef6a9a14eeb869fcd166"
+    },
+    {
+      "path": "out/qualification-final-20261103/soak/launch.json",
+      "sha256": "beca0aeb4755a8038ad566becbc8220ef2d5dc98d9ab0eda376f3dede0ea17dc"
+    },
+    {
+      "path": "out/qualification-final-20261103/soak/performance.json",
+      "sha256": "4835c27f134b4a272d7c0e802514e7581d5f786878816cdbe22b70cc21ab8cec"
+    },
+    {
+      "path": "out/qualification-final-20261103/contention/launch.json",
+      "sha256": "70137b26787d367c87b05a28078a2e2308d4ed8507da7ba2cc5a3c802d7d79fc"
+    },
+    {
+      "path": "out/qualification-final-20261103/contention/performance.json",
+      "sha256": "d48568d3f300c2035f159f6e5b5170b2e27f33707cb3562ab7c5c4289ce32404"
+    },
+    {
+      "path": "out/preflight-final3-20261103/receipt.json",
+      "sha256": "7f1cd7966175ff2f77dbcf877616196baaf805138e3cb6785f0dc6ebe9c7b49f"
+    },
+    {
+      "path": "out/preflight-final3-20261103/desktop-regressions.log",
+      "sha256": "abb61da08962ee3cc35f409ae8d3b787f6b06b503bb07387467b1f906c7f9a8b"
+    },
+    {
+      "path": "out/scanner-native-regressions.log",
+      "sha256": "69c10acad2845f9567392d7f90db03db1b9f517bc4707d707f5364edcfacdd05"
+    },
+    {
+      "path": "out/csv-sanitizer-regression.log",
+      "sha256": "86b709f3c1eed9dd52fdedfe11a524586aa76b27865222c83d0c202784da5dea"
+    },
+    {
+      "path": "out/preflight-final2-20261103/fuzz-scanner-final/receipt.json",
+      "sha256": "4ac3c1a461b8ca10ee8dc97f268d52046d279139164232a7ef1ad92037265fa9"
+    },
+    {
+      "path": "out/preflight-final2-20261103/fuzz-protocol-packet-final/receipt.json",
+      "sha256": "02465bad5243235b28ab86dba56800fe547deef47ffa21410d465543d9163340"
+    },
+    {
+      "path": "out/release-0.6.0-final-build.log",
+      "sha256": "dff12dffce9f27c9f6058a7281d201da4911fdf0c9cb1c31b5de64fb0be95621"
+    }
+  ]
+}

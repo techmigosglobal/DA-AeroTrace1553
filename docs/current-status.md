@@ -1,6 +1,8 @@
-# Current behavior and evidence — 0.5.5
+# Current behavior and evidence — V0.6.0
 
-Updated 3 November 2026. This page and the current Operator Guide describe operation. Dated validation notes describe the machine and build tested then; they are not live device inventory.
+Updated 4 November 2026. This page and the current Operator Guide describe operation. Dated validation notes describe the machine and build tested then; they are not live device inventory.
+
+The [V0.6.0 release report](Release-0.6.0.md) records the completed software gates and their exact scope. The 600-second four-stream fixture passed at 50,043 messages/s with exact raw/CSV/replay reconciliation and p95 GUI heartbeat 90 ms. Its 984 ms worst heartbeat does not support a zero-lag guarantee. Physical qualification remains NOT RUN.
 
 ## Operation
 

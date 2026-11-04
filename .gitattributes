@@ -1,0 +1,2 @@
+# Generated guides must retain their exact PDF bytes on Windows checkouts.
+*.pdf binary

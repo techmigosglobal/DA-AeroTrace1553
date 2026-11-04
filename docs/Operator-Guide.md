@@ -1,20 +1,20 @@
 # AeroTrace 1553 — Operator guide
 
-Version 0.5.5 · Windows x64 · Updated 2 November 2026
+Version 0.6.0 · Windows x64 · Updated 4 November 2026
 
 This guide covers installation, offline rehearsal, receive-only DDC acquisition, ICD conversion, plots, saved tasks, reporting and diagnosis. Software tests do not qualify a physical card, bus connection or electrical transmit inhibit. Limited A-path loopback is recorded in the November 2 SES evidence. Responding RTs, Bus B, simultaneous channels, endurance and reconnect remain the highest-priority qualification work. See current-status.md and SES-Bench-Checklist.md.
 
-## 1. Run this development build
+## 1. Install and run V0.6.0
 
-Use the installed 0.5.5 application or build the CMake aerotrace_desktop target with the installed Qt kit. The source ZIP omits build outputs and SDK installations. The supplied SES release verified machine install/uninstall; modified builds require fresh acceptance.
+Use the V0.6.0 offline installer for operation, or build the CMake aerotrace_desktop target for development. See Release-0.6.0.md for simulation and deployment evidence. Historical SES installation and capture evidence describes the older tested build. V0.6.0 physical hardware qualification remains pending.
 
 ### Installation
 
-1. Use Windows 10 version 1809 or later, or Windows 11, on an x64 computer with writable local storage. This build is not for 32-bit Windows or native ARM64. A local administrator may be needed for the separate DDC driver installation; The 0.5.5 installer requires administrator rights and installs under C:\Program Files\AeroTrace1553. The preview installer is unsigned; a SHA-256 sidecar identifies the exact delivered file.
-2. Copy `AeroTrace1553-0.5.5-Setup-x64.exe` to that computer and run it. The installer contains the application, Qt/Qwt libraries, isolated Python PDF/OCR runtime, local retrieval models, documentation and examples. It does not need an internet connection or separately installed Qt, Python or Node.js.
-3. Keep the machine installation folder or choose an approved application folder. Start AeroTrace from the Start menu. The optional desktop shortcut uses the application icon.
+1. Use Windows 10 version 1809 or later, or Windows 11, on an x64 computer with writable local storage. This build is not for 32-bit Windows or native ARM64. A local administrator may be needed for the separate DDC driver installation; The V0.6.0 installer requires administrator rights and installs under C:\Program Files\AeroTrace1553. The preview installer is unsigned; a SHA-256 sidecar identifies the exact delivered file.
+2. Copy `AeroTrace1553-0.6.0-Setup-x64.exe` to that computer and run it. The installer contains the application, Qt/Qwt libraries, isolated Python PDF/OCR runtime, local retrieval models, documentation and examples. It does not need an internet connection or separately installed Qt, Python or Node.js.
+3. Accept the single application installation. Runtimes are included internally. Start AeroTrace from the Start menu or desktop shortcut.
 4. For DDC capture, install the vendor-supported x64 driver and configure the actual logical devices with the vendor's utility. The application package includes the locally selected runtime; it does not silently install or replace card drivers. Use the runtime/driver combination supported by the fitted card. Supplied physical evidence covers SDK 3.6.15 / acexusb 3.6.15.1; other combinations require qualification.
-5. For a PC with its own SDK installation, open **Device setup → Technical details** and enter that SDK folder or its x64 `emacepl.dll`. With the field blank, `DDC_SDK_ROOT` takes precedence over automatic installed-SDK discovery and packaged fallback. An invalid configured SDK produces an error instead of silently choosing another version. See [SDK selection and compatibility](sdk-compatibility.md).
+5. For a PC with its own SDK installation, open **Device setup → Technical details** and enter that SDK folder or its x64 `emacepl.dll`. The package includes separately verified providers for aceXtreme 4.10.2 and 4.4.2.4 runtime fingerprints. Other runtime/header combinations require a separately built and verified provider; version discovery alone does not prove compatibility. With the field blank, `DDC_SDK_ROOT` takes precedence over automatic installed-SDK discovery and packaged fallback. An invalid configured SDK produces an error instead of silently choosing another version. See [SDK selection and compatibility](sdk-compatibility.md).
 6. Open **More tools → Help & Diagnostics** or **F1** and check version, OS architecture, plot backend and runtime status. A loadable runtime does not prove a connected card can initialize.
 
 The single download is an installer, not a statically linked, DLL-free application. It installs the dependencies together. Copying only `AeroTrace1553.exe` out of the installed folder will not work. A portable folder can also be copied as a whole; keep its subfolders intact.

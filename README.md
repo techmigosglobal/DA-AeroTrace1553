@@ -1,11 +1,8 @@
-# AeroTrace 1553 — 0.5.5 Windows hardware build
+# AeroTrace 1553 — V0.6.0 Windows x64
 
-The supplied SES evidence records Qt 6.11.1, aceXtreme SDK 3.6.15 and BU-67113U A-path loopback. A ten-minute receive-stability run and repeated corrected-clock captures succeeded; responding RTs, Bus B, four-stream simultaneous traffic, endurance and reconnect remain qualification gates. See [current status](docs/current-status.md) and [the bench matrix](docs/SES-Bench-Checklist.md).
+V0.6.0 delivers the approved External/Internal RT monitor, SDK provider DLLs for verified aceXtreme 4.10.2 and 4.4.2.4 inputs, bounded application logging, and native qualification tooling. The deterministic four-stream run reconciled 30,026,073 messages across CH1 A/B and CH2 A/B at 50,043 messages/s. See [release and qualification results](docs/Release-0.6.0.md) and [current status](docs/current-status.md). Physical simultaneous monitoring and one-hour/24-hour endurance remain NOT RUN.
 
-- Installer for this PC: `dist/installers/AeroTrace1553-SES-Qt611-DDC315-Setup-x64.exe` after packaging.
-- Operation: [Operator guide](docs/Operator-Guide.md), including section 16.
-- Bench procedure: [SES checklist](docs/SES-Bench-Checklist.md).
-- Raw monitoring, recording, replay and paired CSV exports require no ICD.
+The local offline installer is `dist/installers/AeroTrace1553-0.6.0-Setup-x64.exe` after packaging. It bundles Qt/Qwt and the isolated document Python/OCR/ONNX runtime. Real capture additionally requires a supported DDC driver and matching provider/runtime evidence. Raw monitoring, recording, replay and paired CSV exports require no ICD.
 
 # AeroTrace 1553
 

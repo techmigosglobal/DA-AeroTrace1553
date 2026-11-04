@@ -14,7 +14,7 @@ The desktop and portable acquisition client do not include vendor headers. Vendo
 
 ## Runtime selection and compatibility evidence
 
-The existing runtime selection order remains: application folder/DLL override, DDC_SDK_ROOT, unambiguous installed SDK discovery, packaged/build fallback. Provider selection searches the application `providers` directory and development build directory, or an explicit AEROTRACE_DDC_PROVIDER file/directory.
+The existing runtime selection order remains: application folder/DLL override, DDC_SDK_ROOT, unambiguous installed SDK discovery, packaged/build fallback. Provider selection searches the application `providers` directory or an explicit AEROTRACE_DDC_PROVIDER file/directory. Source builds may also use their compiled development directory; a deployment.json marker disables that development fallback. The provider_deployment_isolation regression verifies the boundary.
 
 A production provider accepts the exact runtime SHA-256 recorded when it was built. Its descriptor records ABI, architecture, SDK identity, configured-header-tree fingerprint, runtime fingerprint and physical qualification status. Runtime names and version numbers alone do not establish ABI compatibility. A different runtime requires a provider built and verified against its SDK; do not edit the fingerprint merely to bypass this requirement.
 

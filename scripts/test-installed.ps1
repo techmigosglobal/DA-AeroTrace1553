@@ -1,4 +1,4 @@
-param([string]$InstallDirectory=(Join-Path $env:ProgramFiles 'AeroTrace1553'),[string]$ReportDirectory=(Join-Path $PSScriptRoot '..\out\installed-acceptance'))
+param([string]$InstallDirectory=(Join-Path $env:ProgramFiles 'AeroTrace1553'),[string]$ReportDirectory=(Join-Path $PSScriptRoot '..\out\installed-acceptance'),[ValidateSet('Installed','Staged')][string]$DeploymentKind='Installed')
 $ErrorActionPreference='Stop'
 $installedRoot=[IO.Path]::GetFullPath($InstallDirectory)
 $reportRoot=[IO.Path]::GetFullPath($ReportDirectory)
@@ -6,7 +6,7 @@ New-Item -ItemType Directory -Force -Path $reportRoot | Out-Null
 $exe=Join-Path $installedRoot 'AeroTrace1553.exe'
 if(!(Test-Path -LiteralPath (Join-Path $installedRoot 'deployment.json'))){throw 'Strict deployment marker missing'}
 $previousEnv=@{}
-foreach($name in @('PATH','PYTHONHOME','PYTHONPATH','QT_PLUGIN_PATH','QT_QPA_PLATFORM_PLUGIN_PATH','QT_QPA_PLATFORM')){$previousEnv[$name]=[Environment]::GetEnvironmentVariable($name,'Process')}
+foreach($name in @('PATH','PYTHONHOME','PYTHONPATH','QT_PLUGIN_PATH','QT_QPA_PLATFORM_PLUGIN_PATH','QT_QPA_PLATFORM','AEROTRACE_DDC_PROVIDER','DDC_SDK_ROOT')){$previousEnv[$name]=[Environment]::GetEnvironmentVariable($name,'Process')}
 function Run-Installed([string[]]$Arguments) {
   $escaped=@($Arguments | ForEach-Object {'"'+$_+'"'})
   $process=Start-Process -FilePath $exe -ArgumentList $escaped -WorkingDirectory ([IO.Path]::GetTempPath()) -WindowStyle Hidden -PassThru
@@ -16,6 +16,7 @@ function Run-Installed([string[]]$Arguments) {
 try {
   $env:PATH="$env:WINDIR\System32;$env:WINDIR"
   $env:PYTHONHOME=$null;$env:PYTHONPATH=$null
+  $env:AEROTRACE_DDC_PROVIDER=Join-Path $installedRoot 'providers';$env:DDC_SDK_ROOT=$installedRoot
   $env:QT_PLUGIN_PATH=$installedRoot;$env:QT_QPA_PLATFORM_PLUGIN_PATH=Join-Path $installedRoot 'platforms';$env:QT_QPA_PLATFORM='offscreen'
   Run-Installed -Arguments @('--automation-test',(Join-Path $reportRoot 'automation'))
   Run-Installed -Arguments @('--session-workflow-test',(Join-Path $reportRoot 'sessions'))
@@ -34,7 +35,7 @@ try {
   $icon=[Drawing.Icon]::ExtractAssociatedIcon($exe)
   if(!$icon){throw 'Native EXE icon missing'}
   $bitmap=$icon.ToBitmap();$bitmap.Save((Join-Path $reportRoot 'executable-icon.png'));$bitmap.Dispose();$icon.Dispose()
-  $receipt=@{passed=$true;installedDirectory=$installedRoot;executableSha256=(Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash;cleanPath=$true;developmentFallbacksDisabled=$true;workspaceBatchChecks=$true;allPageWorkflow=$true;bundledPdfOcrRetrievalAndConversion=$true;runCorrelation=$true;supportBundle=$true;nativeIcon=$true;physicalHardwareTested=$false;note='Installed workflows on this host, with developer tool paths removed; not a separate clean-PC or physical-hardware qualification.'}
+  $receipt=@{passed=$true;deploymentKind=$DeploymentKind;installedDirectory=$installedRoot;executableSha256=(Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash;cleanPath=$true;developmentFallbacksDisabled=$true;workspaceBatchChecks=$true;allPageWorkflow=$true;bundledPdfOcrRetrievalAndConversion=$true;runCorrelation=$true;supportBundle=$true;nativeIcon=$true;physicalHardwareTested=$false;note="$DeploymentKind payload workflows on this host with developer tool paths removed; not a separate clean-PC or physical-hardware qualification."}
   $receipt | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $reportRoot 'acceptance.json') -Encoding UTF8
   Write-Output 'PASS: installed workflows, bundled PDF runtime, native icon, journal correlation and support ZIP with clean PATH'
 } finally {foreach($name in $previousEnv.Keys){[Environment]::SetEnvironmentVariable($name,$previousEnv[$name],'Process')}}

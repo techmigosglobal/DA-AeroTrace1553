@@ -1,6 +1,11 @@
 param([string]$QtRoot='',[string]$PackageName='AeroTrace1553',[string]$BuildDirectory='out\build\desktop-local')
 $ErrorActionPreference='Stop'
 $projectRoot=Split-Path $PSScriptRoot -Parent
+if(![IO.Path]::IsPathRooted($BuildDirectory)){$BuildDirectory=Join-Path $projectRoot $BuildDirectory}
+if($PackageName -notmatch '^[A-Za-z0-9._-]+$' -or $PackageName -in @('.','..')){throw 'Choose a simple deployment folder name'}
+$versionMatch=[regex]::Match((Get-Content -LiteralPath (Join-Path $projectRoot 'CMakeLists.txt') -Raw),'project\(AeroTrace1553\s+VERSION\s+([0-9.]+)')
+if(!$versionMatch.Success){throw 'Project version is unavailable'}
+$projectVersion=$versionMatch.Groups[1].Value
 if(!$QtRoot){
   $kit=Get-ChildItem 'C:\Qt' -Directory | Where-Object {$_.Name -match '^6\.\d+\.\d+$' -and (Test-Path (Join-Path $_.FullName 'mingw_64\bin\windeployqt.exe'))} | Sort-Object {[version]$_.Name} -Descending | Select-Object -First 1
   if(!$kit){throw 'No Qt 6 MinGW x64 kit found under C:\Qt'}
@@ -9,16 +14,18 @@ if(!$QtRoot){
 $packageRoot=Join-Path $projectRoot ('dist\'+$PackageName)
 if((Test-Path $packageRoot) -and @(Get-ChildItem -LiteralPath $packageRoot -Force).Count){throw "Choose a fresh PackageName; deployment folder is not empty: $packageRoot"}
 New-Item -ItemType Directory -Force $packageRoot | Out-Null
-$cache=Join-Path $projectRoot "$BuildDirectory\CMakeCache.txt"
+$cache=Join-Path $BuildDirectory 'CMakeCache.txt'
 if(!(Test-Path $cache)){throw "Build cache missing: $cache"}
 $sdkLine=Get-Content $cache | Where-Object {$_ -match '^DDC_SDK_ROOT:PATH='} | Select-Object -First 1
 $sdkRoot=if($sdkLine){$sdkLine.Substring('DDC_SDK_ROOT:PATH='.Length)}else{''}
 $ddcCandidates=@("$sdkRoot\libraries\emacepl\bin\x64\Release\emacepl.dll","$sdkRoot\Lib\x64\Release\emacepl.dll")
 $ddcRuntime=$ddcCandidates | Where-Object {Test-Path -LiteralPath $_ -PathType Leaf} | Select-Object -First 1
 if(!$ddcRuntime){throw "Matching x64 DDC runtime missing for configured SDK: $sdkRoot"}
-@{schema='aerotrace.deployment.v1';version='0.5.5';architecture='x64';minimumWindows='Windows 10 1809';builtUtc=(Get-Date).ToUniversalTime().ToString('o');developmentFallbacks=$false;hardwareQualified=$false;qtVersion=(& "$QtRoot\bin\qmake.exe" -query QT_VERSION).Trim();ddcSdkRoot=$sdkRoot;ddcRuntimeSha256=(Get-FileHash -LiteralPath $ddcRuntime -Algorithm SHA256).Hash} | ConvertTo-Json | Set-Content -LiteralPath "$packageRoot\deployment.json" -Encoding UTF8
+$sourceExe=Join-Path $BuildDirectory 'apps/desktop/aerotrace_desktop.exe'
+if((Get-Item -LiteralPath $sourceExe).VersionInfo.ProductVersion -ne $projectVersion){throw 'Executable version does not match the project; rebuild before packaging'}
+@{schema='aerotrace.deployment.v1';version=$projectVersion;sourceCommit=(& git -C $projectRoot rev-parse HEAD).Trim();architecture='x64';minimumWindows='Windows 10 1809';builtUtc=(Get-Date).ToUniversalTime().ToString('o');developmentFallbacks=$false;hardwareQualified=$false;qtVersion=(& "$QtRoot\bin\qmake.exe" -query QT_VERSION).Trim();ddcSdkRoot=$sdkRoot;ddcRuntimeSha256=(Get-FileHash -LiteralPath $ddcRuntime -Algorithm SHA256).Hash} | ConvertTo-Json | Set-Content -LiteralPath "$packageRoot\deployment.json" -Encoding UTF8
 '[Paths]','Prefix=.' | Set-Content -LiteralPath "$packageRoot\qt.conf" -Encoding ASCII
-Copy-Item -LiteralPath "$projectRoot\$BuildDirectory\apps\desktop\aerotrace_desktop.exe" -Destination "$packageRoot\AeroTrace1553.exe" -Force
+Copy-Item -LiteralPath $sourceExe -Destination "$packageRoot\AeroTrace1553.exe" -Force
 $qwtRuntime=Join-Path $projectRoot 'out\build\qwt-local\lib\qwt.dll'
 if(!(Test-Path -LiteralPath $qwtRuntime)){throw "Qt-matched Qwt runtime missing: $qwtRuntime"}
 Copy-Item -LiteralPath $qwtRuntime -Destination $packageRoot
@@ -60,7 +67,7 @@ else {
   Copy-Item -LiteralPath (Join-Path $installed 'licenses\Microsoft-CRT-NOTICE.txt') -Destination "$packageRoot\licenses" -Force
   Copy-Item -LiteralPath (Join-Path $installed 'licenses\Microsoft-CRT-provenance.json') -Destination "$packageRoot\licenses" -Force
 }
-$providerRoot=Join-Path $projectRoot "$BuildDirectory/providers"
+$providerRoot=Join-Path $BuildDirectory 'providers'
 if(!(Test-Path -LiteralPath $providerRoot)){throw 'Build the SDK provider before packaging'}
 Copy-Item -LiteralPath $providerRoot -Destination $packageRoot -Recurse -Force
 Copy-Item -LiteralPath $ddcRuntime -Destination $packageRoot -Force

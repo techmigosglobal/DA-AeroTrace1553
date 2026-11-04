@@ -5,12 +5,15 @@
   #define OutputRoot "..\dist\installers"
 #endif
 #ifndef OutputBaseFilename
-  #define OutputBaseFilename "AeroTrace1553-0.5.5-Setup-x64"
+  #define OutputBaseFilename "AeroTrace1553-0.6.0-Setup-x64"
+#endif
+#ifndef AppVersion
+  #define AppVersion "0.6.0"
 #endif
 [Setup]
 AppId=AeroTrace1553_Desktop
 AppName=AeroTrace 1553
-AppVersion=0.5.5
+AppVersion={#AppVersion}
 AppPublisher=AeroTrace
 DefaultDirName={autopf64}\AeroTrace1553
 UsePreviousAppDir=no
@@ -28,15 +31,14 @@ SetupIconFile={#PackageRoot}\aerotrace.ico
 UninstallDisplayIcon={app}\AeroTrace1553.exe
 WizardStyle=modern
 DisableProgramGroupPage=yes
+DisableWelcomePage=yes
+DisableDirPage=yes
 CloseApplications=yes
 RestartApplications=no
 SetupLogging=yes
 VersionInfoDescription=AeroTrace 1553 offline installer
 VersionInfoProductName=AeroTrace 1553
 InfoAfterFile=Install-Notes.txt
-
-[Tasks]
-Name: desktopicon; Description: "Create a desktop shortcut"; Flags: unchecked
 
 [Files]
 Source: "{#PackageRoot}\*"; DestDir: "{app}"; Excludes: "preferences.ini,Sessions\*,Diagnostics\*,test-results\*,__pycache__\*"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -45,7 +47,7 @@ Source: "{#PackageRoot}\*"; DestDir: "{app}"; Excludes: "preferences.ini,Session
 Name: "{group}\AeroTrace 1553"; Filename: "{app}\AeroTrace1553.exe"; WorkingDir: "{app}"; IconFilename: "{app}\aerotrace.ico"
 Name: "{group}\Operator guide"; Filename: "{app}\docs\Operator-Guide.html"
 Name: "{group}\Collect Diagnostics"; Filename: "{app}\Collect Diagnostics.cmd"; WorkingDir: "{app}"
-Name: "{autodesktop}\AeroTrace 1553"; Filename: "{app}\AeroTrace1553.exe"; IconFilename: "{app}\aerotrace.ico"; Tasks: desktopicon
+Name: "{autodesktop}\AeroTrace 1553"; Filename: "{app}\AeroTrace1553.exe"; IconFilename: "{app}\aerotrace.ico"
 
 [Registry]
 Root: HKLM; Subkey: "Software\Microsoft\Windows\CurrentVersion\App Paths\AeroTrace1553.exe"; ValueType: string; ValueName: ""; ValueData: "{app}\AeroTrace1553.exe"; Flags: uninsdeletekey
@@ -60,3 +62,9 @@ Filename: "{app}\AeroTrace1553.exe"; Description: "Start AeroTrace 1553"; Flags:
 Type: filesandordirs; Name: "{app}\document-runtime"
 Type: filesandordirs; Name: "{app}\document-worker"
 Type: dirifempty; Name: "{app}"
+
+[Code]
+procedure InitializeWizard();
+begin
+  WizardForm.FilenameLabel.Visible := False;
+end;

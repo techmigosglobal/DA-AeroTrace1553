@@ -1,4 +1,4 @@
-AeroTrace 1553 0.5.0
+AeroTrace 1553 V0.6.0
 
 All application libraries and the offline PDF/OCR/retrieval runtime are installed together. No separate Qt, Python, Node.js or internet connection is required.
 
@@ -7,3 +7,7 @@ Real DDC acquisition additionally requires the matching vendor x64 driver and co
 Read the Operator guide from the Start menu before the first bench test. Use Help & Diagnostics (F1) to open logs and collect a support bundle after a test. New user settings, profiles, logs and recordings are kept outside program files.
 
 This is a receive-only hardware-test delivery. Software validation does not qualify physical hardware behavior, electrical transmit inhibition, sustained rates or card-clock accuracy. No physical key is required.
+
+This update includes the grouped External/Internal RT monitor, structured logging, SDK provider support, and software four-stream qualification improvements. Providers for aceXtreme 4.4.2.4 and 4.10.2 are included. Other SDK/header/runtime combinations require their own verified provider.
+
+The software soak reconciled over 30 million records across all four simulated streams. Physical responding-RT, bus-B, simultaneous-channel and endurance acceptance remain pending. Session SQLite, DuckDB/Parquet and scientific-analysis modules are a later development stage.

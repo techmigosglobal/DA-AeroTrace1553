@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(AeroTrace1553 VERSION 0.5.5 LANGUAGES CXX)
+project(AeroTrace1553 VERSION 0.6.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 option(AEROTRACE_BUILD_GUI "Build the native desktop application" ON)
@@ -55,6 +55,14 @@ if(WIN32)
   add_test(NAME qualification_reference_comparison COMMAND aerotrace_compare --self-test)
 endif()
 add_test(NAME qualification_cli_help COMMAND aerotrace_qualification --help)
+if(TARGET aerotrace_ddc_provider)
+  add_test(NAME provider_deployment_isolation COMMAND ${CMAKE_COMMAND}
+    "-DINSPECTOR=$<TARGET_FILE:aerotrace_provider_info>"
+    "-DPROVIDER=$<TARGET_FILE:aerotrace_ddc_provider>"
+    "-DRUNTIME=$<TARGET_PROPERTY:aerotrace_ddc_provider,AEROTRACE_VENDOR_RUNTIME>"
+    "-DOUTPUT_ROOT=${CMAKE_BINARY_DIR}" -P "${PROJECT_SOURCE_DIR}/tools/core_cli/provider_deployment_test.cmake")
+  set_tests_properties(provider_deployment_isolation PROPERTIES TIMEOUT 30)
+endif()
 if(TARGET aerotrace_ddc_test_runtime)
   add_test(NAME qualification_four_stream_fixture COMMAND ${CMAKE_COMMAND}
     "-DQUALIFIER=$<TARGET_FILE:aerotrace_qualification>" "-DRUNTIME=$<TARGET_FILE:aerotrace_ddc_test_runtime>"
