@@ -38,6 +38,10 @@ RestartApplications=no
 SetupLogging=yes
 VersionInfoDescription=AeroTrace 1553 offline installer
 VersionInfoProductName=AeroTrace 1553
+VersionInfoVersion={#AppVersion}.0
+VersionInfoTextVersion={#AppVersion}
+VersionInfoProductVersion={#AppVersion}.0
+VersionInfoProductTextVersion={#AppVersion}
 InfoAfterFile=Install-Notes.txt
 
 [Files]

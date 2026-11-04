@@ -12,5 +12,8 @@ New-Item -ItemType Directory -Force -Path $outputRoot | Out-Null
 & $Compiler /Qp ('/DPackageRoot='+$packageRoot) ('/DOutputRoot='+$outputRoot) ('/DOutputBaseFilename='+$OutputBaseName) ('/DAppVersion='+$deployment.version) (Join-Path $projectRoot 'installer\AeroTrace1553.iss')
 if($LASTEXITCODE -ne 0){throw 'Offline installer compilation failed'}
 $installer=Join-Path $outputRoot ($OutputBaseName+'.exe')
+$versionInfo=(Get-Item -LiteralPath $installer).VersionInfo
+$expectedVersion=[version]$deployment.version
+if($versionInfo.FileMajorPart -ne $expectedVersion.Major -or $versionInfo.FileMinorPart -ne $expectedVersion.Minor -or $versionInfo.FileBuildPart -ne $expectedVersion.Build -or $versionInfo.FilePrivatePart -ne 0 -or $versionInfo.ProductVersion.Trim() -ne $deployment.version){throw 'Compiled installer version resources do not match the deployment'}
 Get-FileHash -LiteralPath $installer -Algorithm SHA256 | ForEach-Object {"$($_.Hash)  $([IO.Path]::GetFileName($_.Path))"} | Set-Content -LiteralPath ($installer+'.sha256') -Encoding ASCII
 Write-Output "Installer: $installer"
