@@ -100,8 +100,7 @@ class QWT_EXPORT QwtInterval
 };
 
 Q_DECLARE_OPERATORS_FOR_FLAGS( QwtInterval::BorderFlags )
-Q_DECLARE_METATYPE( QwtInterval )
-Q_DECLARE_TYPEINFO( QwtInterval, Q_MOVABLE_TYPE );
+
 
 /*!
    \brief Default Constructor
@@ -331,5 +330,9 @@ inline void QwtInterval::invalidate()
 #ifndef QT_NO_DEBUG_STREAM
 QWT_EXPORT QDebug operator<<( QDebug, const QwtInterval& );
 #endif
+
+// Register value types after their inline constructors are defined (MinGW DLL import).
+Q_DECLARE_METATYPE( QwtInterval )
+Q_DECLARE_TYPEINFO( QwtInterval, Q_MOVABLE_TYPE );
 
 #endif

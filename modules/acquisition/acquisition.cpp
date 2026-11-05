@@ -7,6 +7,15 @@
 #include <locale>
 
 namespace aero {
+namespace {
+std::string pathUtf8(const std::filesystem::path &path){const auto text=path.generic_u8string();return {text.begin(),text.end()};}
+std::string identityJson(const CaptureIdentity &value){
+  return "{\"backend\":"+jsonString(value.backend)+",\"receive_mode\":"+jsonString(value.receiveMode)+",\"runtime\":"+jsonString(pathUtf8(value.runtime))+
+    ",\"runtime_sha256\":"+jsonString(value.runtimeSha256)+",\"provider\":"+jsonString(pathUtf8(value.provider))+",\"provider_id\":"+jsonString(value.providerId)+
+    ",\"sdk_identity\":"+jsonString(value.sdkIdentity)+",\"header_sha256\":"+jsonString(value.headerSha256)+",\"helper\":"+jsonString(pathUtf8(value.helper))+
+    ",\"helper_sha256\":"+jsonString(value.helperSha256)+",\"manifest\":"+jsonString(pathUtf8(value.manifest))+",\"qualification\":"+jsonString(value.qualification)+"}";
+}
+}
 Acquisition::~Acquisition() { stop(); }
 bool Acquisition::start(const std::filesystem::path &path,std::array<bool,4> enabled) {
   CaptureConfig config;config.hardware=false;config.enabled=enabled;
@@ -23,14 +32,16 @@ bool Acquisition::connectConfigured(CaptureConfig config,std::unique_ptr<Capture
 }
 std::future<bool> Acquisition::beginConnection(CaptureConfig config,std::unique_ptr<CaptureSource> source) {
   stop();
+  if(cleanupFault){std::promise<bool> rejected;auto ready=rejected.get_future();rejected.set_value(false);return ready;}
   {std::lock_guard lock(mutex);state={};pending.clear();live.reset();rtLive.reset();state.hardware=config.hardware;}
   std::promise<bool> completion;auto ready=completion.get_future();
   if(!source)source=config.hardware?makeDdcSource():makeSimulator();
+  if(config.hardware)source=makeSdkOwnedSource(std::move(source));
   worker=std::jthread([this,config,source=std::move(source),completion=std::move(completion)](std::stop_token token) mutable {
     config.stopToken=token;
     const auto userState=config.deviceState;
     config.deviceState=[this,userState](unsigned channel,DevicePhase phase,const std::string &message) {
-      if(channel<2){std::lock_guard lock(mutex);state.devices[channel]={phase,message};}
+      if(channel<2){std::lock_guard lock(mutex);state.devices[channel]={phase,message};if(phase==DevicePhase::Ready)state.configuredChannels[channel]=true;}
       if(userState)userState(channel,phase,message);
     };
     std::string message;
@@ -40,10 +51,20 @@ std::future<bool> Acquisition::beginConnection(CaptureConfig config,std::unique_
       message=source->open(config);
       if(message.empty()&&token.stop_requested())message="Connection cancelled";
     }catch(const std::exception &e){message=e.what();}
+    {const auto identity=source->identity();std::lock_guard lock(mutex);state.identity=identity;}
     if(!message.empty()) {
+      const auto failure=source->lastFailure();
       source->close();
-      std::lock_guard lock(mutex);state.failed=true;state.error=message;
-      for(unsigned c=0;c<2;++c)if(config.enabled[c*2]||config.enabled[c*2+1])state.devices[c]={DevicePhase::Failed,message};
+      const auto closeFailure=source->closeError();
+      if(!closeFailure.empty())cleanupFault=true;
+      std::lock_guard lock(mutex);state.failed=true;state.error=message;state.failure=failure;
+      state.cleanupBlocked=cleanupFault;
+      if(!closeFailure.empty())state.error+="; cleanup failed: "+closeFailure;
+      for(unsigned c=0;c<2;++c)if(config.enabled[c*2]||config.enabled[c*2+1]) {
+        auto &device=state.devices[c];
+        if(device.phase==DevicePhase::Ready)device={DevicePhase::Stopped,"Configuration rolled back because another channel or prerequisite failed"};
+        else if(device.phase!=DevicePhase::Failed)device={DevicePhase::Stopped,"Not checked — "+message};
+      }
       completion.set_value(false);return;
     }
     for(unsigned c=0;c<2;++c)if(config.enabled[c*2]||config.enabled[c*2+1])config.deviceState(c,DevicePhase::Ready,"Connected; acquisition waits for Start recording");
@@ -56,9 +77,11 @@ std::future<bool> Acquisition::beginConnection(CaptureConfig config,std::unique_
 std::future<bool> Acquisition::beginConfigured(const std::filesystem::path &path,CaptureConfig config,std::unique_ptr<CaptureSource> source) {
   stopRecording();
   const bool reuse=!source && retainedSource && config.hardware && retainedConfig.hardware==config.hardware &&
-    retainedConfig.enabled==config.enabled && retainedConfig.logicalDevices==config.logicalDevices && retainedConfig.runtime==config.runtime;
+    retainedConfig.enabled==config.enabled && retainedConfig.logicalDevices==config.logicalDevices && retainedConfig.runtime==config.runtime &&
+    retainedConfig.backend==config.backend && retainedConfig.receiveMode==config.receiveMode && retainedConfig.connectionPolicy==config.connectionPolicy && retainedConfig.helperPack==config.helperPack;
   if(reuse)source=std::move(retainedSource);
-  else {if(retainedSource){retainedSource->close();retainedSource.reset();}connectedFlag=false;}
+  else {if(retainedSource)stop();connectedFlag=false;}
+  if(cleanupFault){std::promise<bool> rejected;auto ready=rejected.get_future();rejected.set_value(false);return ready;}
   retainConnection=true;
   {
     std::lock_guard lock(mutex);state={};pending.clear();live.reset();rtLive.reset();state.hardware=config.hardware;
@@ -69,6 +92,7 @@ std::future<bool> Acquisition::beginConfigured(const std::filesystem::path &path
     std::promise<bool> rejected;auto ready=rejected.get_future();rejected.set_value(false);return ready;
   }
   if(!source) source=config.hardware ? makeDdcSource() : makeSimulator();
+  if(config.hardware)source=makeSdkOwnedSource(std::move(source));
   std::promise<bool> started;auto ready=started.get_future();
   worker=std::jthread([this,path,config,reuse,source=std::move(source),started=std::move(started)](std::stop_token stop) mutable {
     using namespace std::chrono;
@@ -85,7 +109,7 @@ std::future<bool> Acquisition::beginConfigured(const std::filesystem::path &path
     };
     config.deviceState=[this,&emit](unsigned channel,DevicePhase phase,const std::string &message) {
       emit("device_state","\"channel\":"+std::to_string(channel+1)+",\"phase\":"+std::to_string(int(phase))+",\"detail\":"+jsonString(message));
-      if(channel>=2) return;std::lock_guard lock(mutex);state.devices[channel]={phase,message};
+      if(channel>=2) return;std::lock_guard lock(mutex);state.devices[channel]={phase,message};if(phase==DevicePhase::Ready)state.configuredChannels[channel]=true;
     };
     for(unsigned channel=0;channel<2;++channel)
       config.deviceState(channel,config.enabled[channel*2]||config.enabled[channel*2+1] ? DevicePhase::Checking : DevicePhase::Disabled,{});
@@ -110,11 +134,13 @@ std::future<bool> Acquisition::beginConfigured(const std::filesystem::path &path
       if(state.checkEvents.size()>512) state.checkEvents.erase(state.checkEvents.begin(),state.checkEvents.end()-512);
     };
     bool revisionPending=true;
-    auto fail=[this,&emit](const std::string &message) { emit("capture_error","\"detail\":"+jsonString(message));std::lock_guard lock(mutex);
+    auto fail=[this,&emit,&source](const std::string &message) { const auto failure=source?source->lastFailure():CaptureFailure{};emit("capture_error","\"detail\":"+jsonString(message));std::lock_guard lock(mutex);
+      if(failure&&!state.failure)state.failure=failure;
       if(!state.failed)state.error=message;else if(state.error.find(message)==std::string::npos&&state.error.size()<8192)state.error+="; "+message;state.failed=true;
       for(auto &device:state.devices) {
         if(device.phase==DevicePhase::Ready) device={DevicePhase::Stopped,"Configuration closed: the other channel is not ready"};
-        else if(device.phase==DevicePhase::Checking || device.phase==DevicePhase::Monitoring) device={DevicePhase::Failed,message};
+        else if(device.phase==DevicePhase::Checking) device={DevicePhase::Stopped,"Not checked — "+message};
+        else if(device.phase==DevicePhase::Monitoring) device={DevicePhase::Failed,message};
       }
     };
     bool announced=false;
@@ -128,6 +154,9 @@ std::future<bool> Acquisition::beginConfigured(const std::filesystem::path &path
       if(error || space.available<100*1024*1024) throw std::runtime_error("Recording directory unavailable or less than 100 MB free");
       if(!reuse) {if(auto message=source->open(config);!message.empty()) throw std::runtime_error(message);}
       source->updateCallbacks(config);
+      const auto sourceIdentity=source->identity();
+      {std::lock_guard lock(mutex);state.identity=sourceIdentity;}
+      emit("connection_identity","\"identity\":"+identityJson(sourceIdentity));
       connectedFlag=true;
       if(!events) throw std::runtime_error("Capture diagnostic write failed");
       if(stop.stop_requested()) throw std::runtime_error("Connection cancelled");
@@ -145,7 +174,12 @@ std::future<bool> Acquisition::beginConfigured(const std::filesystem::path &path
         configuration.imbue(std::locale::classic());configuration<<std::setprecision(17);
         configuration<<"{\"schema\":\"aerotrace.capture-config.v1\",\"run_id\":"<<jsonString(config.runId)<<",\"hardware\":"<<(config.hardware?"true":"false")<<",\"profile\":"<<serializeProfile(activeMappings)<<",\"simulator\":{\"rate\":"<<config.simulatorRate<<",\"wave\":"<<jsonString(config.simulatorWave)<<",\"amplitude\":"<<config.simulatorAmplitude<<",\"offset\":"<<config.simulatorOffset<<",\"frequency\":"<<config.simulatorFrequency<<",\"seed\":\""<<config.simulatorSeed<<"\",\"drop_every\":"<<config.simulatorDropEvery<<",\"flag_every\":"<<config.simulatorFlagEvery<<"},\"checks\":[";
         for(std::size_t i=0;i<config.checkRules.size();++i){const auto &r=config.checkRules[i];if(i)configuration<<',';configuration<<"{\"signal\":"<<jsonString(r.signalId)<<",\"missing_ns\":\""<<r.missingNs<<"\",\"hysteresis\":"<<r.hysteresis;if(r.minimum)configuration<<",\"minimum\":"<<*r.minimum;if(r.maximum)configuration<<",\"maximum\":"<<*r.maximum;configuration<<'}';}
-        configuration<<"]}";configuration.flush();if(!configuration)throw std::runtime_error("Cannot preserve capture/check configuration");
+        configuration<<"],\"ddc\":{\"backend\":"<<jsonString(config.backend==DdcBackend::HelperX86?"helper_x86":"native_x64")
+          <<",\"receive_mode\":"<<jsonString(config.receiveMode==DdcReceiveMode::MTI?"MTI":config.receiveMode==DdcReceiveMode::LegacyMT?"LegacyMT":"Auto")
+          <<",\"requested_connection_policy\":"<<jsonString(config.connectionPolicy==DdcConnectionPolicy::Compatibility?"compatibility":"qualified_automatic")
+          <<",\"runtime\":"<<jsonString(pathUtf8(config.runtime))<<",\"helper_pack\":"<<jsonString(pathUtf8(config.helperPack))
+          <<",\"resolved_identity\":"<<identityJson(sourceIdentity)
+          <<"},\"rt_statistics\":{\"rules\":\"aerotrace.rt-statistics.v1\",\"unsupported_categories\":\"unavailable\",\"provider_identity\":\"ddc_api/provider_selected event\"}}";configuration.flush();if(!configuration)throw std::runtime_error("Cannot preserve capture/check configuration");
       }
       {auto snapshotPath=path;snapshotPath+=".profile.json";std::ofstream snapshot(snapshotPath);snapshot<<serializeProfile(activeMappings);snapshot.flush();if(!snapshot) throw std::runtime_error("Cannot preserve initial ICD profile");}
       if(stop.stop_requested())throw std::runtime_error("Recording start cancelled");
@@ -257,9 +291,13 @@ std::future<bool> Acquisition::beginConfigured(const std::filesystem::path &path
       }
     } catch(const std::exception &error) { fail(error.what()); }
     if(announced) {
+      try {if(auto message=source->stopMonitoring();!message.empty())fail(message);}catch(const std::exception &e){fail(e.what());}
+      bool more=true;
+      const auto drainDeadline=steady_clock::now()+seconds(15);
+      while(more) {
       SourceBatch tail;
       std::string message;
-      try {message=source->finish(tail);}catch(const std::exception &e){message=e.what();}
+      try {message=source->drainNext(tail,more);}catch(const std::exception &e){message=e.what();more=false;}
       for(const auto &packet:tail.packets) if(packet.channel>=1 && packet.channel<=2) {
         auto &output=packets[packet.channel-1];
         if(!output.is_open()){auto raw=path;raw+=std::string(".ch")+std::to_string(packet.channel)+(packet.chapter10?".ch10":".mt40");output.open(raw,std::ios::binary|std::ios::trunc);}
@@ -283,13 +321,17 @@ std::future<bool> Acquisition::beginConfigured(const std::filesystem::path &path
         state.hardwareLost=std::max(state.hardwareLost,tail.hardwareLost);state.hardwareOverflows=std::max(state.hardwareOverflows,tail.hardwareOverflows);
         for(unsigned c=0;c<2;++c){state.channelLost[c]=std::max(state.channelLost[c],tail.channelLost[c]);state.channelOverflows[c]=std::max(state.channelOverflows[c],tail.channelOverflows[c]);}
       }
-      if(!message.empty()) fail(message);
+      if(!message.empty()) {fail(message);more=false;}
       if(tail.hardwareLost || tail.hardwareOverflows) fail("DDC stop drain reported incomplete capture");
+      if(more&&steady_clock::now()>=drainDeadline){fail("Stop/drain deadline exceeded; received data preserved and session is incomplete");break;}
+      }
     }
     if(!announced) started.set_value(false);
     if(!retainConnection || error()) {
       source->close();connectedFlag=false;
-      if(auto message=source->closeError();!message.empty())fail(message);
+      if(auto message=source->closeError();!message.empty()){
+        cleanupFault=true;{std::lock_guard lock(mutex);state.cleanupBlocked=true;}fail(message);
+      }
     }
     {std::lock_guard lock(mutex);for(auto &device:state.devices)
       if(device.phase==DevicePhase::Monitoring || device.phase==DevicePhase::Simulating) device={DevicePhase::Stopped,{}};}
@@ -316,7 +358,9 @@ std::future<bool> Acquisition::beginConfigured(const std::filesystem::path &path
       retainedConfig=config;retainedConfig.deviceState={};retainedConfig.diagnostic={};retainedConfig.stopToken={};
       retainedSource=std::move(source);connectedFlag=true;
       std::lock_guard lock(mutex);for(auto &device:state.devices)if(device.phase==DevicePhase::Stopped)device={DevicePhase::Ready,"Connected; recording stopped"};
-    } else if(source) {source->close();connectedFlag=false;}
+    } else if(source) {source->close();connectedFlag=false;
+      if(auto message=source->closeError();!message.empty()){cleanupFault=true;{std::lock_guard lock(mutex);state.cleanupBlocked=true;}fail(message);}
+    }
   });
   return ready;
 }
@@ -327,7 +371,9 @@ void Acquisition::stop() {
   std::string closeFailure;
   if(retainedSource){retainedSource->close();closeFailure=retainedSource->closeError();retainedSource.reset();}
   connectedFlag=false;
-  std::lock_guard lock(mutex);if(!closeFailure.empty()){state.failed=true;state.error=closeFailure;}for(auto &device:state.devices)if(device.phase!=DevicePhase::Failed&&device.phase!=DevicePhase::Disabled)device={DevicePhase::Stopped,{}};
+  std::lock_guard lock(mutex);if(!closeFailure.empty()){cleanupFault=true;state.failed=true;state.cleanupBlocked=true;state.error+=(state.error.empty()?"":"; ")+closeFailure;
+    if(!state.failure){state.failure.category=CaptureFailureCategory::Cleanup;state.failure.stage="close";state.failure.operation="close";state.failure.detail=closeFailure;state.failure.recovery={"Restart AeroTrace after checking the driver and channel owner"};}
+  }for(auto &device:state.devices)if(device.phase!=DevicePhase::Failed&&device.phase!=DevicePhase::Disabled&&!(state.failed&&device.phase==DevicePhase::Stopped))device={DevicePhase::Stopped,{}};
 }
 bool Acquisition::connected() const {return connectedFlag;}
 std::vector<Record> Acquisition::drain(std::size_t maximum) {
@@ -341,7 +387,7 @@ bool Acquisition::error() const { std::lock_guard lock(mutex);return state.faile
 std::uint64_t Acquisition::displayDrops() const { std::lock_guard lock(mutex);return state.displayDrops; }
 CaptureMetrics Acquisition::metrics(bool includeEvents) const { std::lock_guard lock(mutex);
   if(includeEvents)return state;
-  CaptureMetrics result;result.recorded=state.recorded;result.displayDrops=state.displayDrops;result.hardwareLost=state.hardwareLost;result.hardwareOverflows=state.hardwareOverflows;result.batches=state.batches;result.queueDepth=state.queueDepth;result.queueHighWater=state.queueHighWater;result.maxBatchMilliseconds=state.maxBatchMilliseconds;result.timings=state.timings;result.decodedValues=state.decodedValues;result.invalidValues=state.invalidValues;result.sourceCounts=state.sourceCounts;result.channelLost=state.channelLost;result.channelOverflows=state.channelOverflows;result.devices=state.devices;result.clocks=state.clocks;result.rtActivity=state.rtActivity;result.hardware=state.hardware;result.failed=state.failed;result.error=state.error;result.checkCount=state.checkCount;return result;
+  CaptureMetrics result;result.recorded=state.recorded;result.displayDrops=state.displayDrops;result.hardwareLost=state.hardwareLost;result.hardwareOverflows=state.hardwareOverflows;result.batches=state.batches;result.queueDepth=state.queueDepth;result.queueHighWater=state.queueHighWater;result.maxBatchMilliseconds=state.maxBatchMilliseconds;result.timings=state.timings;result.decodedValues=state.decodedValues;result.invalidValues=state.invalidValues;result.sourceCounts=state.sourceCounts;result.channelLost=state.channelLost;result.channelOverflows=state.channelOverflows;result.devices=state.devices;result.configuredChannels=state.configuredChannels;result.clocks=state.clocks;result.rtActivity=state.rtActivity;result.hardware=state.hardware;result.failed=state.failed;result.error=state.error;result.failure=state.failure;result.identity=state.identity;result.cleanupBlocked=state.cleanupBlocked;result.checkCount=state.checkCount;return result;
 }
 std::string Acquisition::setProfile(std::vector<Signal> profile) {
   if(auto error=validateProfile(profile);!error.empty()) return error;

@@ -6,7 +6,7 @@ int main(int argc, char **argv) {
   QApplication app(argc, argv);
   app.setApplicationName("AeroTrace1553");
   app.setOrganizationName("AeroTrace");
-  app.setApplicationVersion("0.6.0");
+  app.setApplicationVersion("0.6.4");
   auto args=app.arguments();for(const auto &arg:args)if(arg.startsWith("--") && arg.endsWith("-test"))QStandardPaths::setTestModeEnabled(true);
   if(!initializeApplicationLogging()){QMessageBox::critical(nullptr,"Diagnostic storage unavailable",applicationLogError());return 3;}
   installApplicationCrashHandler();

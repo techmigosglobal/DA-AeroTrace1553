@@ -1,0 +1,704 @@
+{
+  "legacy_sections": [
+    {
+      "name": ".text",
+      "rva": 4096,
+      "virtual_size": 1398224,
+      "bytes": 1398272,
+      "offset": 1024,
+      "entropy": 6.121
+    },
+    {
+      "name": ".data",
+      "rva": 1404928,
+      "virtual_size": 1472,
+      "bytes": 1536,
+      "offset": 1399296,
+      "entropy": 2.945
+    },
+    {
+      "name": ".rdata",
+      "rva": 1409024,
+      "virtual_size": 1734892,
+      "bytes": 1735168,
+      "offset": 1400832,
+      "entropy": 7.545
+    },
+    {
+      "name": ".eh_fram",
+      "rva": 3145728,
+      "virtual_size": 128808,
+      "bytes": 129024,
+      "offset": 3136000,
+      "entropy": 5.178
+    },
+    {
+      "name": ".bss",
+      "rva": 3276800,
+      "virtual_size": 4364,
+      "bytes": 0,
+      "offset": 0,
+      "entropy": 0
+    },
+    {
+      "name": ".idata",
+      "rva": 3284992,
+      "virtual_size": 78616,
+      "bytes": 78848,
+      "offset": 3265024,
+      "entropy": 5.858
+    },
+    {
+      "name": ".CRT",
+      "rva": 3366912,
+      "virtual_size": 52,
+      "bytes": 512,
+      "offset": 3343872,
+      "entropy": 0.283
+    },
+    {
+      "name": ".tls",
+      "rva": 3371008,
+      "virtual_size": 8,
+      "bytes": 512,
+      "offset": 3344384,
+      "entropy": -0.0
+    }
+  ],
+  "nextgen_sections": [
+    {
+      "name": ".text",
+      "rva": 4096,
+      "virtual_size": 4077504,
+      "bytes": 4077568,
+      "offset": 1024,
+      "entropy": 8.0
+    },
+    {
+      "name": ".data",
+      "rva": 4083712,
+      "virtual_size": 43760,
+      "bytes": 44032,
+      "offset": 4078592,
+      "entropy": 7.99
+    },
+    {
+      "name": ".rdata",
+      "rva": 4128768,
+      "virtual_size": 7088736,
+      "bytes": 7089152,
+      "offset": 4122624,
+      "entropy": 8.0
+    },
+    {
+      "name": ".qtversi",
+      "rva": 11218944,
+      "virtual_size": 16,
+      "bytes": 512,
+      "offset": 11211776,
+      "entropy": 0.326
+    },
+    {
+      "name": ".pdata",
+      "rva": 11223040,
+      "virtual_size": 115068,
+      "bytes": 115200,
+      "offset": 11212288,
+      "entropy": 6.331
+    },
+    {
+      "name": ".xdata",
+      "rva": 11341824,
+      "virtual_size": 312100,
+      "bytes": 312320,
+      "offset": 11327488,
+      "entropy": 7.999
+    },
+    {
+      "name": ".bss",
+      "rva": 11657216,
+      "virtual_size": 25920,
+      "bytes": 0,
+      "offset": 0,
+      "entropy": 0
+    },
+    {
+      "name": ".idata",
+      "rva": 11685888,
+      "virtual_size": 141312,
+      "bytes": 141312,
+      "offset": 11639808,
+      "entropy": 7.999
+    },
+    {
+      "name": ".CRT",
+      "rva": 11829248,
+      "virtual_size": 104,
+      "bytes": 512,
+      "offset": 11781120,
+      "entropy": 1.251
+    },
+    {
+      "name": ".tls",
+      "rva": 11833344,
+      "virtual_size": 16,
+      "bytes": 512,
+      "offset": 11781632,
+      "entropy": 0.163
+    },
+    {
+      "name": ".rsrc",
+      "rva": 11837440,
+      "virtual_size": 928,
+      "bytes": 1024,
+      "offset": 11782144,
+      "entropy": 3.092
+    },
+    {
+      "name": ".reloc",
+      "rva": 11841536,
+      "virtual_size": 30580,
+      "bytes": 30720,
+      "offset": 11783168,
+      "entropy": 7.991
+    },
+    {
+      "name": ".merged",
+      "rva": 11874304,
+      "virtual_size": 13279232,
+      "bytes": 13278720,
+      "offset": 11813888,
+      "entropy": 7.111
+    }
+  ],
+  "rtti": [
+    {
+      "name": "16BusMonitorThread",
+      "file_offset": "0x2f700c",
+      "va": "0x6f900c",
+      "typeinfo_candidates": [
+        {
+          "typeinfo_va": "0x6f8990",
+          "vtable_candidates": [
+            {
+              "vtable_va": "0x6fb554",
+              "offset": "0x2f9554",
+              "entries": [
+                "0x4c6b60",
+                "0x4c6e30",
+                "0x4c6e80",
+                "0x4deb30",
+                "0x4deb00",
+                "0x4cb998",
+                "0x4cb9b8",
+                "0x4cb9c8",
+                "0x4cb9d0",
+                "0x4cb9c0",
+                "0x4cb9b0",
+                "0x4cb9a8",
+                "0x4a6fc0",
+                "0x0",
+                "0x6f899c",
+                "0x4bcb80",
+                "0x4bcba0",
+                "0x4bcbf0",
+                "0x4dec20",
+                "0x4deb40",
+                "0x4cb9a0",
+                "0x4cb690",
+                "0x4cb9c8",
+                "0x4cb9d0"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "17LiveMonitorWindow",
+      "file_offset": "0x2f70b0",
+      "va": "0x6f90b0",
+      "typeinfo_candidates": [
+        {
+          "typeinfo_va": "0x6f89f0",
+          "vtable_candidates": [
+            {
+              "vtable_va": "0x6fb954",
+              "offset": "0x2f9954",
+              "entries": [
+                "0x4c8180",
+                "0x4c8380",
+                "0x4c83d0",
+                "0x4ac3c0",
+                "0x4ac450",
+                "0x4cb310",
+                "0x4cb9b8",
+                "0x4cb9c8",
+                "0x4cb9d0",
+                "0x4cb9c0",
+                "0x4cb9b0",
+                "0x4cb9a8",
+                "0x4caef0",
+                "0x4cb3b8",
+                "0x4caee8",
+                "0x4caf10",
+                "0x4caf18",
+                "0x4caf00",
+                "0x4caf28",
+                "0x4cb340",
+                "0x4cb328",
+                "0x4cb318",
+                "0x4cb350",
+                "0x4cb3b0"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "legacy_ddc_imports": [
+    {
+      "ordinal": 10,
+      "name": "aceInitialize",
+      "iat_va": "0x7239b0",
+      "assembly_references": [
+        "4ca3f8:\tff 25 b0 39 72 00    \tjmp    DWORD PTR ds:0x7239b0"
+      ]
+    },
+    {
+      "ordinal": 11,
+      "name": "aceFree",
+      "iat_va": "0x7239b4",
+      "assembly_references": [
+        "4ca400:\tff 25 b4 39 72 00    \tjmp    DWORD PTR ds:0x7239b4"
+      ]
+    },
+    {
+      "ordinal": 13,
+      "name": "aceErrorStr",
+      "iat_va": "0x7239b8",
+      "assembly_references": [
+        "4ca408:\tff 25 b8 39 72 00    \tjmp    DWORD PTR ds:0x7239b8"
+      ]
+    },
+    {
+      "ordinal": 15,
+      "name": "aceSetTimeTagRes",
+      "iat_va": "0x7239bc",
+      "assembly_references": [
+        "4ca410:\tff 25 bc 39 72 00    \tjmp    DWORD PTR ds:0x7239bc"
+      ]
+    },
+    {
+      "ordinal": 16,
+      "name": "aceSetRespTimeOut",
+      "iat_va": "0x7239c0",
+      "assembly_references": [
+        "4ca418:\tff 25 c0 39 72 00    \tjmp    DWORD PTR ds:0x7239c0"
+      ]
+    },
+    {
+      "ordinal": 81,
+      "name": "aceGetHwVersionInfo",
+      "iat_va": "0x7239c4",
+      "assembly_references": [
+        "4ca420:\tff 25 c4 39 72 00    \tjmp    DWORD PTR ds:0x7239c4"
+      ]
+    },
+    {
+      "ordinal": 101,
+      "name": "aceMTEnableRTFilter",
+      "iat_va": "0x7239c8",
+      "assembly_references": [
+        "4ca428:\tff 25 c8 39 72 00    \tjmp    DWORD PTR ds:0x7239c8"
+      ]
+    },
+    {
+      "ordinal": 102,
+      "name": "aceMTDisableRTFilter",
+      "iat_va": "0x7239cc",
+      "assembly_references": [
+        "4ca430:\tff 25 cc 39 72 00    \tjmp    DWORD PTR ds:0x7239cc"
+      ]
+    },
+    {
+      "ordinal": 150,
+      "name": "aceMTIConfigure",
+      "iat_va": "0x7239d0",
+      "assembly_references": [
+        "4ca438:\tff 25 d0 39 72 00    \tjmp    DWORD PTR ds:0x7239d0"
+      ]
+    },
+    {
+      "ordinal": 151,
+      "name": "aceMTIGetCh10DataPkt",
+      "iat_va": "0x7239d4",
+      "assembly_references": [
+        "4ca440:\tff 25 d4 39 72 00    \tjmp    DWORD PTR ds:0x7239d4"
+      ]
+    },
+    {
+      "ordinal": 152,
+      "name": "aceMTIFreeCh10DataPkt",
+      "iat_va": "0x7239d8",
+      "assembly_references": [
+        "4ca448:\tff 25 d8 39 72 00    \tjmp    DWORD PTR ds:0x7239d8"
+      ]
+    },
+    {
+      "ordinal": 153,
+      "name": "aceMTIStart",
+      "iat_va": "0x7239dc",
+      "assembly_references": [
+        "4ca450:\tff 25 dc 39 72 00    \tjmp    DWORD PTR ds:0x7239dc"
+      ]
+    },
+    {
+      "ordinal": 154,
+      "name": "aceMTIStop",
+      "iat_va": "0x7239e0",
+      "assembly_references": [
+        "4ca458:\tff 25 e0 39 72 00    \tjmp    DWORD PTR ds:0x7239e0"
+      ]
+    },
+    {
+      "ordinal": 158,
+      "name": "aceMTIGetCh10TimePkt",
+      "iat_va": "0x7239e4",
+      "assembly_references": [
+        "4ca460:\tff 25 e4 39 72 00    \tjmp    DWORD PTR ds:0x7239e4"
+      ]
+    },
+    {
+      "ordinal": 159,
+      "name": "aceMTIFreeCh10TimePkt",
+      "iat_va": "0x7239e8",
+      "assembly_references": [
+        "4ca468:\tff 25 e8 39 72 00    \tjmp    DWORD PTR ds:0x7239e8"
+      ]
+    },
+    {
+      "ordinal": 160,
+      "name": "aceMTICh10TimePktEnable",
+      "iat_va": "0x7239ec",
+      "assembly_references": [
+        "4ca470:\tff 25 ec 39 72 00    \tjmp    DWORD PTR ds:0x7239ec"
+      ]
+    },
+    {
+      "ordinal": 161,
+      "name": "aceMTIDecodeRawMsg",
+      "iat_va": "0x7239f0",
+      "assembly_references": [
+        "4ca478:\tff 25 f0 39 72 00    \tjmp    DWORD PTR ds:0x7239f0"
+      ]
+    },
+    {
+      "ordinal": 180,
+      "name": "aceMTICh10FileOpen",
+      "iat_va": "0x7239f4",
+      "assembly_references": [
+        "4ca480:\tff 25 f4 39 72 00    \tjmp    DWORD PTR ds:0x7239f4"
+      ]
+    },
+    {
+      "ordinal": 181,
+      "name": "aceMTICh10FileClose",
+      "iat_va": "0x7239f8",
+      "assembly_references": [
+        "4ca488:\tff 25 f8 39 72 00    \tjmp    DWORD PTR ds:0x7239f8"
+      ]
+    },
+    {
+      "ordinal": 182,
+      "name": "aceMTICh10FileRead",
+      "iat_va": "0x7239fc",
+      "assembly_references": [
+        "4ca490:\tff 25 fc 39 72 00    \tjmp    DWORD PTR ds:0x7239fc"
+      ]
+    },
+    {
+      "ordinal": 183,
+      "name": "aceMTICh10FileGetOffset",
+      "iat_va": "0x723a00",
+      "assembly_references": [
+        "4ca498:\tff 25 00 3a 72 00    \tjmp    DWORD PTR ds:0x723a00"
+      ]
+    },
+    {
+      "ordinal": 184,
+      "name": "aceMTICh10FileSetOffset",
+      "iat_va": "0x723a04",
+      "assembly_references": [
+        "4ca4a0:\tff 25 04 3a 72 00    \tjmp    DWORD PTR ds:0x723a04"
+      ]
+    },
+    {
+      "ordinal": 185,
+      "name": "aceMTICh10FileWrite",
+      "iat_va": "0x723a08",
+      "assembly_references": [
+        "4ca4a8:\tff 25 08 3a 72 00    \tjmp    DWORD PTR ds:0x723a08"
+      ]
+    },
+    {
+      "ordinal": 202,
+      "name": "aceRTDataBlkCreate",
+      "iat_va": "0x723a0c",
+      "assembly_references": [
+        "4ca4b0:\tff 25 0c 3a 72 00    \tjmp    DWORD PTR ds:0x723a0c"
+      ]
+    },
+    {
+      "ordinal": 204,
+      "name": "aceRTDataBlkWrite",
+      "iat_va": "0x723a10",
+      "assembly_references": [
+        "4ca4b8:\tff 25 10 3a 72 00    \tjmp    DWORD PTR ds:0x723a10"
+      ]
+    },
+    {
+      "ordinal": 205,
+      "name": "aceRTDataBlkRead",
+      "iat_va": "0x723a14",
+      "assembly_references": [
+        "4ca4c0:\tff 25 14 3a 72 00    \tjmp    DWORD PTR ds:0x723a14"
+      ]
+    },
+    {
+      "ordinal": 401,
+      "name": "aceBCDataBlkCreate",
+      "iat_va": "0x723a18",
+      "assembly_references": [
+        "4ca4c8:\tff 25 18 3a 72 00    \tjmp    DWORD PTR ds:0x723a18"
+      ]
+    },
+    {
+      "ordinal": 403,
+      "name": "aceBCDataBlkWrite",
+      "iat_va": "0x723a1c",
+      "assembly_references": [
+        "4ca4d0:\tff 25 1c 3a 72 00    \tjmp    DWORD PTR ds:0x723a1c"
+      ]
+    },
+    {
+      "ordinal": 404,
+      "name": "aceBCDataBlkRead",
+      "iat_va": "0x723a20",
+      "assembly_references": [
+        "4ca4d8:\tff 25 20 3a 72 00    \tjmp    DWORD PTR ds:0x723a20"
+      ]
+    },
+    {
+      "ordinal": 405,
+      "name": "aceBCFrameCreate",
+      "iat_va": "0x723a24",
+      "assembly_references": [
+        "4ca4e0:\tff 25 24 3a 72 00    \tjmp    DWORD PTR ds:0x723a24"
+      ]
+    },
+    {
+      "ordinal": 407,
+      "name": "aceBCOpCodeCreate",
+      "iat_va": "0x723a28",
+      "assembly_references": [
+        "4ca4e8:\tff 25 28 3a 72 00    \tjmp    DWORD PTR ds:0x723a28"
+      ]
+    },
+    {
+      "ordinal": 411,
+      "name": "aceBCMsgCreateBCtoRT",
+      "iat_va": "0x723a2c",
+      "assembly_references": [
+        "4ca4f0:\tff 25 2c 3a 72 00    \tjmp    DWORD PTR ds:0x723a2c"
+      ]
+    },
+    {
+      "ordinal": 412,
+      "name": "aceBCMsgCreateRTtoBC",
+      "iat_va": "0x723a30",
+      "assembly_references": [
+        "4ca4f8:\tff 25 30 3a 72 00    \tjmp    DWORD PTR ds:0x723a30"
+      ]
+    },
+    {
+      "ordinal": 413,
+      "name": "aceBCMsgCreateRTtoRT",
+      "iat_va": "0x723a34",
+      "assembly_references": [
+        "4ca500:\tff 25 34 3a 72 00    \tjmp    DWORD PTR ds:0x723a34"
+      ]
+    },
+    {
+      "ordinal": 414,
+      "name": "aceBCMsgCreateMode",
+      "iat_va": "0x723a38",
+      "assembly_references": [
+        "4ca508:\tff 25 38 3a 72 00    \tjmp    DWORD PTR ds:0x723a38"
+      ]
+    },
+    {
+      "ordinal": 419,
+      "name": "aceBCStart",
+      "iat_va": "0x723a3c",
+      "assembly_references": [
+        "4ca510:\tff 25 3c 3a 72 00    \tjmp    DWORD PTR ds:0x723a3c"
+      ]
+    },
+    {
+      "ordinal": 420,
+      "name": "aceBCStop",
+      "iat_va": "0x723a40",
+      "assembly_references": [
+        "4ca518:\tff 25 40 3a 72 00    \tjmp    DWORD PTR ds:0x723a40"
+      ]
+    },
+    {
+      "ordinal": 428,
+      "name": "aceBCInstallHBuf",
+      "iat_va": "0x723a44",
+      "assembly_references": [
+        "4ca520:\tff 25 44 3a 72 00    \tjmp    DWORD PTR ds:0x723a44"
+      ]
+    },
+    {
+      "ordinal": 496,
+      "name": "acexBCStartReplay",
+      "iat_va": "0x723a48",
+      "assembly_references": [
+        "4ca528:\tff 25 48 3a 72 00    \tjmp    DWORD PTR ds:0x723a48"
+      ]
+    },
+    {
+      "ordinal": 497,
+      "name": "acexBCConfigureReplay",
+      "iat_va": "0x723a4c",
+      "assembly_references": [
+        "4ca530:\tff 25 4c 3a 72 00    \tjmp    DWORD PTR ds:0x723a4c"
+      ]
+    },
+    {
+      "ordinal": 505,
+      "name": "acexBCPause",
+      "iat_va": "0x723a50",
+      "assembly_references": [
+        "4ca538:\tff 25 50 3a 72 00    \tjmp    DWORD PTR ds:0x723a50"
+      ]
+    },
+    {
+      "ordinal": 530,
+      "name": "aceCmdWordParse",
+      "iat_va": "0x723a54",
+      "assembly_references": [
+        "4ca540:\tff 25 54 3a 72 00    \tjmp    DWORD PTR ds:0x723a54"
+      ]
+    },
+    {
+      "ordinal": 602,
+      "name": "acexMRTStart",
+      "iat_va": "0x723a58",
+      "assembly_references": [
+        "4ca548:\tff 25 58 3a 72 00    \tjmp    DWORD PTR ds:0x723a58"
+      ]
+    },
+    {
+      "ordinal": 603,
+      "name": "acexMRTStop",
+      "iat_va": "0x723a5c",
+      "assembly_references": [
+        "4ca550:\tff 25 5c 3a 72 00    \tjmp    DWORD PTR ds:0x723a5c"
+      ]
+    },
+    {
+      "ordinal": 604,
+      "name": "acexMRTEnableRT",
+      "iat_va": "0x723a60",
+      "assembly_references": [
+        "4ca558:\tff 25 60 3a 72 00    \tjmp    DWORD PTR ds:0x723a60"
+      ]
+    },
+    {
+      "ordinal": 606,
+      "name": "acexMRTConfigure",
+      "iat_va": "0x723a64",
+      "assembly_references": [
+        "4ca560:\tff 25 64 3a 72 00    \tjmp    DWORD PTR ds:0x723a64"
+      ]
+    },
+    {
+      "ordinal": 608,
+      "name": "acexMRTDataBlkMapToRTSA",
+      "iat_va": "0x723a68",
+      "assembly_references": [
+        "4ca568:\tff 25 68 3a 72 00    \tjmp    DWORD PTR ds:0x723a68"
+      ]
+    },
+    {
+      "ordinal": 620,
+      "name": "acexMRTDisableRTMsgLegality",
+      "iat_va": "0x723a6c",
+      "assembly_references": [
+        "4ca570:\tff 25 6c 3a 72 00    \tjmp    DWORD PTR ds:0x723a6c"
+      ]
+    }
+  ],
+  "legacy_qthread_imports": [
+    {
+      "name": "_ZN11QThreadPool14globalInstanceEv",
+      "iat_va": "0x723b18"
+    },
+    {
+      "name": "_ZN11QThreadPool5startEP9QRunnablei",
+      "iat_va": "0x723b1c"
+    },
+    {
+      "name": "_ZN20QFutureInterfaceBase13setThreadPoolEP11QThreadPool",
+      "iat_va": "0x723c08"
+    },
+    {
+      "name": "_ZN7QThread11qt_metacallEN11QMetaObject4CallEiPPv",
+      "iat_va": "0x723d58"
+    },
+    {
+      "name": "_ZN7QThread11qt_metacastEPKc",
+      "iat_va": "0x723d5c"
+    },
+    {
+      "name": "_ZN7QThread16staticMetaObjectE",
+      "iat_va": "0x723d60"
+    },
+    {
+      "name": "_ZN7QThread5eventEP6QEvent",
+      "iat_va": "0x723d64"
+    },
+    {
+      "name": "_ZN7QThread5sleepEm",
+      "iat_va": "0x723d68"
+    },
+    {
+      "name": "_ZN7QThread5startENS_8PriorityE",
+      "iat_va": "0x723d6c"
+    },
+    {
+      "name": "_ZN7QThread6msleepEm",
+      "iat_va": "0x723d70"
+    },
+    {
+      "name": "_ZN7QThread6usleepEm",
+      "iat_va": "0x723d74"
+    },
+    {
+      "name": "_ZN7QThreadC2EP7QObject",
+      "iat_va": "0x723d78"
+    },
+    {
+      "name": "_ZN7QThreadD2Ev",
+      "iat_va": "0x723d7c"
+    },
+    {
+      "name": "_ZNK7QThread9isRunningEv",
+      "iat_va": "0x723f6c"
+    }
+  ]
+}

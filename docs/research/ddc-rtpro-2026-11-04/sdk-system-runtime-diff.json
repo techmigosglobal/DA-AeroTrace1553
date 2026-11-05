@@ -1,0 +1,352 @@
+[
+  {
+    "sdk": "C:\\DDC\\aceXtremeSDKv3.6.15\\Lib\\x64\\Release\\emacepl.dll",
+    "system": "C:\\Windows\\System32\\emacepl.dll",
+    "bytes_sdk": 654528,
+    "bytes_system": 654528,
+    "differing_bytes": 11255,
+    "ranges_first30": [
+      [
+        344,
+        345
+      ],
+      [
+        637963,
+        637963
+      ],
+      [
+        637978,
+        637978
+      ],
+      [
+        637982,
+        637982
+      ],
+      [
+        642287,
+        642287
+      ],
+      [
+        642291,
+        642291
+      ],
+      [
+        642867,
+        642867
+      ],
+      [
+        642871,
+        642871
+      ],
+      [
+        642887,
+        642887
+      ],
+      [
+        642891,
+        642891
+      ],
+      [
+        642906,
+        642906
+      ],
+      [
+        642910,
+        642910
+      ],
+      [
+        642929,
+        642929
+      ],
+      [
+        642945,
+        642945
+      ],
+      [
+        642948,
+        642948
+      ],
+      [
+        642951,
+        642951
+      ],
+      [
+        643004,
+        643036
+      ],
+      [
+        643040,
+        643167
+      ],
+      [
+        643169,
+        643196
+      ],
+      [
+        643198,
+        643198
+      ],
+      [
+        643200,
+        643259
+      ],
+      [
+        643261,
+        643350
+      ],
+      [
+        643352,
+        643353
+      ],
+      [
+        643359,
+        643422
+      ],
+      [
+        643424,
+        643485
+      ],
+      [
+        643488,
+        643501
+      ],
+      [
+        643503,
+        643787
+      ],
+      [
+        643789,
+        643809
+      ],
+      [
+        643811,
+        643812
+      ],
+      [
+        643814,
+        643825
+      ]
+    ],
+    "sections": [
+      {
+        "name": ".text",
+        "raw_offset": 1024,
+        "bytes": 519168,
+        "sha256_sdk": "3c25103c06a7e5585cd5e5269bdef725f1bffd0ecfd3e55e837d2e8a58319c92",
+        "sha256_system": "3c25103c06a7e5585cd5e5269bdef725f1bffd0ecfd3e55e837d2e8a58319c92",
+        "different_bytes": 0
+      },
+      {
+        "name": ".rdata",
+        "raw_offset": 520192,
+        "bytes": 68096,
+        "sha256_sdk": "e32d686407a91ce6d175f7a0c6a5813dc8b8a3047d00349f5a72ed292eb44e4e",
+        "sha256_system": "e32d686407a91ce6d175f7a0c6a5813dc8b8a3047d00349f5a72ed292eb44e4e",
+        "different_bytes": 0
+      },
+      {
+        "name": ".data",
+        "raw_offset": 588288,
+        "bytes": 15360,
+        "sha256_sdk": "e0a5bba8d2778073bb26cf037d9a726adc9c08d2fb64c3789f524a12249029ff",
+        "sha256_system": "e0a5bba8d2778073bb26cf037d9a726adc9c08d2fb64c3789f524a12249029ff",
+        "different_bytes": 0
+      },
+      {
+        "name": ".pdata",
+        "raw_offset": 603648,
+        "bytes": 28672,
+        "sha256_sdk": "e533671de445df0a02f7f986f32458732f5bf4624496d9d80cbaf8f95a9bb6ca",
+        "sha256_system": "e533671de445df0a02f7f986f32458732f5bf4624496d9d80cbaf8f95a9bb6ca",
+        "different_bytes": 0
+      },
+      {
+        "name": ".rsrc",
+        "raw_offset": 632320,
+        "bytes": 1536,
+        "sha256_sdk": "7bad0d005d898a6ef6ac083c2dc0f3b2fa4e47665fd66ed2f3ef4551194f156a",
+        "sha256_system": "7bad0d005d898a6ef6ac083c2dc0f3b2fa4e47665fd66ed2f3ef4551194f156a",
+        "different_bytes": 0
+      },
+      {
+        "name": ".reloc",
+        "raw_offset": 633856,
+        "bytes": 4096,
+        "sha256_sdk": "e4baf65155efdc92450f9c09655db8fac87f8b4fa70c118eb14b49f2c385f463",
+        "sha256_system": "e4baf65155efdc92450f9c09655db8fac87f8b4fa70c118eb14b49f2c385f463",
+        "different_bytes": 0
+      }
+    ]
+  },
+  {
+    "sdk": "C:\\DDC\\aceXtremeSDKv3.6.15\\Lib\\Win32\\Release\\emacepl.dll",
+    "system": "C:\\Windows\\SysWOW64\\emacepl.dll",
+    "bytes_sdk": 622272,
+    "bytes_system": 622272,
+    "differing_bytes": 8160,
+    "ranges_first30": [
+      [
+        344,
+        346
+      ],
+      [
+        610615,
+        610615
+      ],
+      [
+        610631,
+        610631
+      ],
+      [
+        610635,
+        610635
+      ],
+      [
+        610650,
+        610650
+      ],
+      [
+        610654,
+        610654
+      ],
+      [
+        610673,
+        610673
+      ],
+      [
+        610689,
+        610689
+      ],
+      [
+        610692,
+        610692
+      ],
+      [
+        610695,
+        610695
+      ],
+      [
+        610748,
+        610780
+      ],
+      [
+        610783,
+        610783
+      ],
+      [
+        610785,
+        610911
+      ],
+      [
+        610913,
+        610940
+      ],
+      [
+        610942,
+        610942
+      ],
+      [
+        610944,
+        611003
+      ],
+      [
+        611005,
+        611094
+      ],
+      [
+        611096,
+        611097
+      ],
+      [
+        611103,
+        611166
+      ],
+      [
+        611168,
+        611229
+      ],
+      [
+        611232,
+        611245
+      ],
+      [
+        611247,
+        611531
+      ],
+      [
+        611533,
+        611553
+      ],
+      [
+        611555,
+        611556
+      ],
+      [
+        611558,
+        611569
+      ],
+      [
+        611571,
+        611577
+      ],
+      [
+        611579,
+        611581
+      ],
+      [
+        611583,
+        611605
+      ],
+      [
+        611607,
+        611612
+      ],
+      [
+        611614,
+        611638
+      ]
+    ],
+    "sections": [
+      {
+        "name": ".text",
+        "raw_offset": 1024,
+        "bytes": 530944,
+        "sha256_sdk": "5946dd302aedb58a00001839104beac8c02b63bc1658857ea4636ed34c7eb5a9",
+        "sha256_system": "5946dd302aedb58a00001839104beac8c02b63bc1658857ea4636ed34c7eb5a9",
+        "different_bytes": 0
+      },
+      {
+        "name": ".rdata",
+        "raw_offset": 531968,
+        "bytes": 35840,
+        "sha256_sdk": "0d1aeac9db8a4d372fe775a547284659d5f25486f1ba1ef100e3d1bc01c675da",
+        "sha256_system": "0d1aeac9db8a4d372fe775a547284659d5f25486f1ba1ef100e3d1bc01c675da",
+        "different_bytes": 0
+      },
+      {
+        "name": ".data",
+        "raw_offset": 567808,
+        "bytes": 9728,
+        "sha256_sdk": "21dc643df9cfb5195bc9163aad7eb3cb4b22240be7b3161e362842d22a48ae74",
+        "sha256_system": "21dc643df9cfb5195bc9163aad7eb3cb4b22240be7b3161e362842d22a48ae74",
+        "different_bytes": 0
+      },
+      {
+        "name": ".rsrc",
+        "raw_offset": 577536,
+        "bytes": 1536,
+        "sha256_sdk": "77561c8d32de058ac843cfd60f863b524cb75e79f98b6eb0ac3d036282ea7961",
+        "sha256_system": "77561c8d32de058ac843cfd60f863b524cb75e79f98b6eb0ac3d036282ea7961",
+        "different_bytes": 0
+      },
+      {
+        "name": ".reloc",
+        "raw_offset": 579072,
+        "bytes": 26624,
+        "sha256_sdk": "9e49e405c29e4e9502c9c01f88be915285791e9587b5c3e28d958715352d1f1f",
+        "sha256_system": "9e49e405c29e4e9502c9c01f88be915285791e9587b5c3e28d958715352d1f1f",
+        "different_bytes": 0
+      }
+    ]
+  }
+]

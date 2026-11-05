@@ -1,6 +1,8 @@
 #include "ddc_discovery.hpp"
+#include "card_manager.hpp"
 #include "source.hpp"
 #include "ddc_runtime.hpp"
+#include <algorithm>
 #ifdef Q_OS_WIN
 #include <windows.h>
 #include <setupapi.h>
@@ -34,31 +36,94 @@ QJsonObject classifyDdcAssignment(int logical,const QJsonObject &values) {
   // Do not reject a vendor-created candidate using guessed representations.
   entry["state"]="candidate";entry["reason"]="Populated vendor fields; physical association and access require SDK verification";return entry;
 }
-QJsonObject discoverDdc(const QString &runtimePath) {
-  QJsonObject report{{"schema","aerotrace.hardware-discovery.v1"},{"utc",QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)}};
-  const auto selection=aero::selectDdcRuntime(std::filesystem::path(runtimePath.toStdWString()));
-  QJsonArray candidates;
-  for(const auto &candidate:selection.candidates)candidates.append(QJsonObject{
-    {"path",QString::fromStdWString(candidate.path.wstring())},{"origin",QString::fromStdString(candidate.origin)},
-    {"file_version",QString::fromStdString(candidate.version)},{"api_raw",int(candidate.api)},
-    {"usable",candidate.usable},{"driver_version_match",candidate.driverMatch},{"error",QString::fromStdString(candidate.error)},
-    {"mt_receive_interface",candidate.legacyMt},{"mti_receive_interface",candidate.mti},
-    {"missing_mt_exports",[&]{QJsonArray a;for(const auto &s:candidate.missingMt)a.append(QString::fromStdString(s));return a;}()},
-    {"missing_mti_exports",[&]{QJsonArray a;for(const auto &s:candidate.missingMti)a.append(QString::fromStdString(s));return a;}()},
-    {"compatibility_scope","Receive exports detected; SDK ABI, firmware, driver and hardware qualification remain separate"}});
-  report["runtime_candidates"]=candidates;report["runtime_selection_error"]=QString::fromStdString(selection.error);
-  const auto runtime=aero::inspectDdcRuntime(std::filesystem::path(runtimePath.toStdWString()));
-  const auto path=QString::fromStdWString(runtime.path.wstring());
-  report["runtime_available"]=runtime.available;report["runtime_message"]=QString::fromStdString(runtime.message);report["runtime_path"]=path;
-  QFile file(path);QCryptographicHash hash(QCryptographicHash::Sha256);if(file.open(QIODevice::ReadOnly)&&hash.addData(&file))report["runtime_sha256"]=QString::fromLatin1(hash.result().toHex());
+QJsonArray ddcAssignmentChoices(const QJsonObject &report) {
+  QJsonArray choices;
+  for(const auto &value:report.value("logical_assignments").toArray()) {
+    auto entry=value.toObject();const auto values=entry.value("values").toObject();
+    const auto id=values.value("DeviceID").toString();bool channelOk=false;
+    const auto physical=values.value("Channel").toVariant().toString().toInt(&channelOk);
+    const auto number=entry.value("logical_device").toInt(-1);
+    if(entry.value("state")!="candidate" || number<0||number>31 || id.isEmpty() || !channelOk || physical<0 || values.value("Remote").toVariant().toInt()!=0)continue;
+    for(const auto &deviceValue:report.value("devices").toArray()) {
+      const auto device=deviceValue.toObject();if(!ddcAssignmentMatchesDevice(id,device.value("instance_id").toString()))continue;
+      entry["physical_channel"]=physical;entry["device_id"]=device.value("instance_id");entry["device_name"]=device.value("name");
+      entry["label"]=QString("%1 · physical CH%2 · logical %3").arg(device.value("name").toString(device.value("instance_id").toString())).arg(physical+1).arg(entry.value("logical_device").toInt());
+      choices.append(entry);break;
+    }
+  }
+  return choices;
+}
+QJsonObject resolveDdcAssignments(const QJsonObject &report,const std::array<bool,4> &enabled,
+                                 const std::array<int,2> &saved,const std::array<bool,2> &hasSaved,bool manual) {
+  QJsonObject result;QJsonArray logical{saved[0],saved[1]},selected;const auto choices=ddcAssignmentChoices(report);
+  auto reject=[&](const QString &message){result["valid"]=false;result["error"]=message;result["logical_devices"]=logical;return result;};
+  if(!std::any_of(enabled.begin(),enabled.end(),[](bool v){return v;}))return reject("Select at least one channel and bus before connecting.");
+  if(!manual && (!report.value("device_enumeration_complete").toBool() || report.contains("logical_registry_error")))
+    return reject("Card Manager assignments could not be verified. Rescan DDC, inspect Windows/registry details, or deliberately select Advanced manual logical numbers.");
+  for(int channel=0;channel<2;++channel) {
+    if(!enabled[channel*2]&&!enabled[channel*2+1])continue;
+    if(manual){if(saved[channel]<0||saved[channel]>31)return reject("Manual logical device numbers must be between 0 and 31.");continue;}
+    QJsonArray candidates;for(const auto &value:choices){const auto c=value.toObject();if(hasSaved[channel]?c.value("logical_device").toInt()==saved[channel]:c.value("physical_channel").toInt()==channel)candidates.append(c);}
+    if(candidates.size()!=1)return reject(hasSaved[channel]
+      ?QString("CH%1 saved logical device %2 is missing, duplicated, or no longer associated with a present board. Choose its current Card Manager assignment.").arg(channel+1).arg(saved[channel])
+      :QString("CH%1 has %2 matching Card Manager assignments. Select the board/channel explicitly; AeroTrace will not guess.").arg(channel+1).arg(candidates.size()));
+    const auto chosen=candidates[0].toObject();logical[channel]=chosen.value("logical_device");selected.append(chosen);
+  }
+  if((enabled[0]||enabled[1])&&(enabled[2]||enabled[3])&&logical[0]==logical[1])return reject("The requested channels must use distinct Card Manager logical device numbers.");
+  result["valid"]=true;result["logical_devices"]=logical;result["selected_assignments"]=selected;
+  result["manual_unverified"]=manual;return result;
+}
+QString runtimeReadiness(const QJsonObject &report) {
+  if(report.isEmpty())return "Not inspected";
+  if(report.contains("runtime_probe_error"))return "SDK inspection incomplete — see Technical details";
+  if(report.value("runtime_probe_blocked").toBool())return "Probe deferred — disconnect hardware before inspecting SDKs";
+  if(report.value("provider_available").toBool())return report.value("automatic_approved").toBool()
+    ?"Runtime and matching provider detected; channel connection not yet verified"
+    :"Compatibility connection available; hardware qualification pending (NOT RUN)";
+  if(report.value("runtime_detected").toBool())return report.value("runtime_loadable").toBool()
+    ?"Runtime detected; matching provider unavailable"
+    :"Runtime detected; loader or compatibility check failed";
+  return "No runtime detected — see candidate evidence";
+}
+QJsonObject discoverDdc(const QString &runtimePath,bool probeRuntime) {
+  QJsonObject report{{"schema","aerotrace.hardware-discovery.v2"},{"utc",QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)}};
+  report["runtime_available"]=false;
+  aero::DdcRuntimeProbe inspection(probeRuntime);
+  const bool blocked=!probeRuntime||!inspection.admitted();
+  report["runtime_probe_blocked"]=blocked;
+  if(!blocked)report["runtime_inspected_utc"]=report["utc"];
+  if(!blocked) {
+    QString inspector=QDir(QCoreApplication::applicationDirPath()).filePath("aerotrace_provider_info.exe");
+#ifdef AEROTRACE_RUNTIME_INSPECTOR
+    if(!QFileInfo::exists(inspector)&&!QFileInfo::exists(QDir(QCoreApplication::applicationDirPath()).filePath("deployment.json")))inspector=QString::fromUtf8(AEROTRACE_RUNTIME_INSPECTOR);
+#endif
+    if(!QFileInfo::exists(inspector))report["runtime_probe_error"]="The packaged SDK inspector is missing; repair the AeroTrace installation.";
+    else {
+      QProcess process;QByteArray output,errors;bool oversized=false;
+      QObject::connect(&process,&QProcess::readyReadStandardOutput,[&]{output+=process.readAllStandardOutput();if(output.size()>4*1024*1024){oversized=true;process.kill();}});
+      QObject::connect(&process,&QProcess::readyReadStandardError,[&]{errors+=process.readAllStandardError();if(errors.size()>65536)errors=errors.right(65536);});
+      QStringList arguments{"--json"};if(runtimePath.trimmed().isEmpty())arguments<<"--inventory";else arguments<<runtimePath;
+      process.start(inspector,arguments);
+      if(!process.waitForStarted(3000))report["runtime_probe_error"]="SDK inspector could not start: "+process.errorString();
+      else if(!process.waitForFinished(30000)){process.kill();process.waitForFinished(3000);report["runtime_probe_error"]="SDK inspection timed out after 30 seconds; no channel was opened.";}
+      else if(oversized)report["runtime_probe_error"]="SDK inspector exceeded its bounded report size.";
+      else {
+        output+=process.readAllStandardOutput();QJsonParseError parse;
+        const auto document=QJsonDocument::fromJson(output,&parse);const auto result=document.object();
+        if(process.exitStatus()!=QProcess::NormalExit||parse.error!=QJsonParseError::NoError||result.value("schema")!="aerotrace.ddc-runtime-report.v2"||result.value("card_opened").toBool(true))
+          report["runtime_probe_error"]="SDK inspector did not return a complete identity report: "+QString::fromUtf8(errors.right(4096));
+        else {
+          for(const auto &key:{"runtime_detected","runtime_loadable","provider_available","automatic_approved","runtime_path","provider_id","provider_path","qualification","runtime_selection_error","runtime_candidates"})report[key]=result.value(key);
+          report["runtime_available"]=result.value("provider_available");report["runtime_message"]=result.value("message");report["runtime_stage"]=result.value("stage");
+          report["runtime_file_version"]=result.value("file_version");report["runtime_sha256"]=result.value("sha256");report["runtime_architecture"]=result.value("architecture");
+        }
+      }
+    }
+  }else report["runtime_message"]="Runtime probing deferred while a provider connection exists. Windows inventory was refreshed without loading SDKs.";
+  report["channel_checks"]=QJsonArray{QJsonObject{{"channel",1},{"state","not_checked"}},QJsonObject{{"channel",2},{"state","not_checked"}}};
+  const auto manager=locateCardManager();report["card_manager_path"]=manager.path;report["card_manager_error"]=manager.error;
   QJsonArray devices;
 #ifdef Q_OS_WIN
-  DWORD ignored=0;const auto bytes=GetFileVersionInfoSizeW(reinterpret_cast<LPCWSTR>(path.utf16()),&ignored);
-  QByteArray version(bytes,0);
-  if(bytes && GetFileVersionInfoW(reinterpret_cast<LPCWSTR>(path.utf16()),0,bytes,version.data())) {
-    VS_FIXEDFILEINFO *info=nullptr;UINT size=0;
-    if(VerQueryValueW(version.data(),L"\\",reinterpret_cast<void **>(&info),&size)&&info)report["runtime_file_version"]=QString("%1.%2.%3.%4").arg(HIWORD(info->dwFileVersionMS)).arg(LOWORD(info->dwFileVersionMS)).arg(HIWORD(info->dwFileVersionLS)).arg(LOWORD(info->dwFileVersionLS));
-  }
   QJsonArray assignments,emptySlots,malformedSlots;
   // This branch is read by the installed emacepl runtime and maintained by Card Manager.
   QSettings configuration("HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\DDC1553Devices",QSettings::NativeFormat);
@@ -76,7 +141,10 @@ QJsonObject discoverDdc(const QString &runtimePath) {
   report["empty_logical_slots"]=emptySlots;report["malformed_logical_slots"]=malformedSlots;
   if(configuration.status()!=QSettings::NoError)report["logical_registry_error"]="Vendor registry could not be read completely; assignment state unknown";
   report["logical_registry_path"]="HKLM/SYSTEM/CurrentControlSet/Control/DDC1553Devices";
-  QProcess driverStore;driverStore.start(QDir(qEnvironmentVariable("SystemRoot","C:/Windows")).filePath("System32/pnputil.exe"),{"/enum-drivers","/class","{b8fd1ebc-0bfd-4973-9a61-258d72bda69f}"});
+  // /enum-drivers /class requires Windows 11; keep inventory valid on Windows 10.
+  QStringList driverArguments{"/enum-drivers"};
+  if(QSysInfo::kernelVersion().section('.',2,2).toUInt()>=22000)driverArguments<<"/class"<<"{b8fd1ebc-0bfd-4973-9a61-258d72bda69f}";
+  QProcess driverStore;driverStore.start(QDir(qEnvironmentVariable("SystemRoot","C:/Windows")).filePath("System32/pnputil.exe"),driverArguments);
   if(driverStore.waitForFinished(15000)){report["driver_store_evidence"]=QString::fromLocal8Bit(driverStore.readAllStandardOutput());report["driver_store_exit_code"]=driverStore.exitCode();if(driverStore.exitCode()!=0)report["driver_store_error"]="Driver-store inventory failed; staging state unknown";}
   else {driverStore.kill();driverStore.waitForFinished();report["driver_store_error"]="PnPUtil driver inventory timed out";}
   struct Match {const char *id,*inf;};static const Match matches[]={
@@ -112,6 +180,7 @@ QJsonObject discoverDdc(const QString &runtimePath) {
   report["discovery_error"]="Windows SetupAPI discovery is unavailable on this platform";
 #endif
   report["devices"]=devices;report["detected_devices"]=devices.size();
+  report["assignment_choices"]=ddcAssignmentChoices(report);
   // Suggest only the local two-channel Card Manager mapping, never a sweep of SDK IDs.
   const auto assigned=report["logical_assignments"].toArray();
   if(devices.size()==1 && assigned.size()==2){
@@ -138,7 +207,7 @@ QJsonObject discoverDdc(const QString &runtimePath) {
   return report;
 }
 QString discoverySummary(const QJsonObject &r) {
-  QString text=r.value("runtime_message").toString()+"\nRuntime: "+r.value("runtime_path").toString()+"\nFile version: "+r.value("runtime_file_version").toString()+"\nSHA-256: "+r.value("runtime_sha256").toString()+"\n";
+  QString text=runtimeReadiness(r)+"\n"+r.value("runtime_probe_error").toString()+"\n"+r.value("runtime_message").toString()+"\nRuntime: "+r.value("runtime_path").toString()+"\nArchitecture: "+r.value("runtime_architecture").toString()+"\nFile version: "+r.value("runtime_file_version").toString()+"\nSHA-256: "+r.value("runtime_sha256").toString()+"\nProvider: "+r.value("provider_id").toString()+"\nCard Manager: "+r.value("card_manager_path").toString()+"\n";
   const auto devices=r.value("devices").toArray();text+=r.value("physical_presence").toString()=="unknown"?"Windows hardware detection incomplete — presence unknown.\n":QString("Windows detected %1 matching DDC device(s).\n").arg(devices.size());
   for(const auto &v:devices){const auto d=v.toObject();text+=d.value("name").toString()+"\n  "+d.value("pnp_status").toString()+"; problem "+QString::number(d.value("pnp_problem").toInt())+"; service "+d.value("driver_service").toString()+"; driver "+d.value("driver_version").toString()+"\n  Installed INF: "+d.value("installed_inf").toString()+"\n  SDK match: "+d.value("matching_sdk_inf").toString()+"\n";}
   if(!r.value("discovery_error").toString().isEmpty())text+=r.value("discovery_error").toString()+"\n";
@@ -147,7 +216,8 @@ QString discoverySummary(const QJsonObject &r) {
     const auto candidate=value.toObject();
     text+="Runtime candidate: "+candidate["path"].toString()+" · "+candidate["file_version"].toString()+" · "+candidate["origin"].toString()+
       (candidate["driver_version_match"].toBool()?" · matches installed driver":"")+
-      (candidate["usable"].toBool()?QString():" · "+candidate["error"].toString())+"\n";
+      " · "+candidate["stage"].toString()+(candidate["provider_id"].toString().isEmpty()?QString():" · provider "+candidate["provider_id"].toString())+
+      (candidate["error"].toString().isEmpty()?QString():" · "+candidate["error"].toString())+"\n";
   }
   if(!r["runtime_selection_error"].toString().isEmpty())text+=r["runtime_selection_error"].toString()+"\n";
   const auto assignments=r.value("logical_assignments").toArray();
@@ -157,7 +227,7 @@ QString discoverySummary(const QJsonObject &r) {
   if(assignments.isEmpty())text+="No vendor logical assignments were found on this PC. Staged driver packages alone do not configure a logical channel.\n";
   for(const auto &v:r["malformed_logical_slots"].toArray())text+=QString::fromUtf8(QJsonDocument(v.toObject()).toJson(QJsonDocument::Compact))+"\n";
   if(r.contains("logical_registry_error"))text+=r["logical_registry_error"].toString()+"\n";
-  text+=r.value("logical_assignment").toString()+"\nFor -82, check the matching driver, logical assignments, access permissions, and whether another analyzer owns the device. These are possible causes until verified.";
+  text+=r.value("logical_assignment").toString()+"\nFor -80, inspect the Card Manager logical-assignment registry and its read permissions. For -82, check the matching driver, logical assignments, access permissions, and whether another analyzer owns the device. These are possible causes until verified.";
   return text;
 }
 }

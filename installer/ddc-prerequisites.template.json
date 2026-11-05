@@ -1,0 +1,14 @@
+{
+  "schema": "aerotrace.ddc-prerequisites.v1",
+  "policy": "preserve-active-and-staged",
+  "clean_pc_baseline": "4.10.2.1",
+  "driver_packages": [],
+  "card_manager": {
+    "reuse_existing": true,
+    "redistribution_receipt": null,
+    "qualification_receipt": null,
+    "dependency_verification_receipt": null,
+    "recipe": null
+  },
+  "release_status": "BLOCKED: supply vendor-authorized packages and exact qualification receipts; this template authorizes no installation"
+}

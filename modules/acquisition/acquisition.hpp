@@ -21,10 +21,14 @@ struct CaptureMetrics {
   std::array<std::uint64_t,4> sourceCounts{};
   std::array<std::uint64_t,2> channelLost{},channelOverflows{};
   std::array<DeviceState,2> devices;
+  std::array<bool,2> configuredChannels{}; // Successful configuration before any atomic rollback, not current connectivity.
   std::array<ClockStats,4> clocks;
   RtActivity rtActivity;
   bool hardware{}, failed{};
   std::string error;
+  CaptureFailure failure;
+  CaptureIdentity identity;
+  bool cleanupBlocked{};
   std::uint64_t checkCount{};
   std::vector<CheckEvent> checkEvents; // Most recent 512; complete log remains on disk.
 };
@@ -42,6 +46,7 @@ class Acquisition {
   std::shared_ptr<const LiveFrame> live;
   std::shared_ptr<const RtMonitorFrame> rtLive;
   std::atomic<bool> running{}, connectedFlag{}, retainConnection{};
+  std::atomic<bool> cleanupFault{};
   std::unique_ptr<CaptureSource> retainedSource;
   CaptureConfig retainedConfig;
 public:

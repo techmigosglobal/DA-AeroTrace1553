@@ -8,7 +8,7 @@
 #endif
 #define CHECK(x) do{if(!(x))throw std::runtime_error(#x);}while(false)
 int main(int argc,char **argv){QCoreApplication app(argc,argv);app.setApplicationName("AeroTraceDiagnosticsTests");const auto args=app.arguments();
-  if(args.contains("--bad-dir")){QTemporaryDir temp;QFile blocker(temp.path()+"/blocker");blocker.open(QIODevice::WriteOnly);blocker.close();return !initializeApplicationLogging(blocker.fileName()+"/child") && !applicationLogError().isEmpty()?0:1;}
+  if(args.contains("--bad-dir")){QTemporaryDir temp;QFile blocker(temp.path()+"/blocker");if(!blocker.open(QIODevice::WriteOnly))return 2;blocker.close();return !initializeApplicationLogging(blocker.fileName()+"/child") && !applicationLogError().isEmpty()?0:1;}
 #ifdef Q_OS_WIN
   if(args.contains("--crash-child")){if(!initializeApplicationLogging(args.last()))return 2;installApplicationCrashHandler();SetErrorMode(SEM_NOGPFAULTERRORBOX|SEM_FAILCRITICALERRORS);RaiseException(0xE000A301,0,0,nullptr);return 3;}
 #endif

@@ -19,7 +19,10 @@ class Window : public QMainWindow {
   std::array<QTableView *,2> paneViews{};
   std::array<QPointer<QTreeView>,2> rtViews;
   std::array<RtRecordModel,2> rtModels;
-  bool rtGrouped{true},rtDisplayPaused{};
+  bool rtGrouped{true},rtStatistics{true},rtDisplayPaused{},viewingReplayStatistics{};
+  std::shared_ptr<const aero::RtMonitorFrame> replayRtFrame,displayedRtFrame;
+  QString rtFrameScope;
+  QString rtMonitorSummary(unsigned channel,const QString &state) const;
   aero::TimingHistogram guiUpdateTiming;
   void refreshRtMonitor();
   std::array<QLabel *,2> paneCounts{};
@@ -49,7 +52,19 @@ class Window : public QMainWindow {
   void applyMonitorLayout();
   QComboBox *monitorLayoutEdit{};
   QJsonObject hardwareDiscovery;
+  QJsonObject connectionAttempt;
+  QJsonArray connectionAttempts;
+  bool connectAfterDiscovery{},connectionAssignmentsFresh{};
+  QWidget *connectionResultPanel();
+  void saveConnectionEvidence();
+  void preserveSessionConnection(const QString &recording);
+  void finishConnectionEvidence(bool ok,const QString &error={});
+  QString recordingDisabledReason() const;
+  void connectCompatibilityPack();
+  void connectWorkingChannel(unsigned channel);
   bool discoveryRunning{},savingSession{},closingCapture{};
+  bool cardManagerRefreshPending{};
+  QMetaObject::Connection cardManagerReactivation;
   QString sessionSaveState;
 
 

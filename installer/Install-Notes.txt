@@ -1,13 +1,13 @@
-AeroTrace 1553 V0.6.0
+AeroTrace 1553 V0.6.1
 
 All application libraries and the offline PDF/OCR/retrieval runtime are installed together. No separate Qt, Python, Node.js or internet connection is required.
 
-Real DDC acquisition additionally requires the matching vendor x64 driver and correct logical-device assignments. This installer does not install, replace or downgrade device drivers.
+Real DDC acquisition additionally requires a verified SDK/provider/runtime, matching vendor x64 driver, and correct logical-device assignments. A review installer only inspects prerequisites. A complete bundle is blocked until actual vendor redistribution and hardware qualification receipts are supplied. Complete bundles preserve existing drivers and staged packages; signed driver installation is limited to a missing matching device. Repair is an explicit separate operation, with backup and no forced replacement or automatic reboot. Uninstall retains shared drivers, Card Manager, recordings and preferences.
 
 Read the Operator guide from the Start menu before the first bench test. Use Help & Diagnostics (F1) to open logs and collect a support bundle after a test. New user settings, profiles, logs and recordings are kept outside program files.
 
 This is a receive-only hardware-test delivery. Software validation does not qualify physical hardware behavior, electrical transmit inhibition, sustained rates or card-clock accuracy. No physical key is required.
 
-This update includes the grouped External/Internal RT monitor, structured logging, SDK provider support, and software four-stream qualification improvements. Providers for aceXtreme 4.4.2.4 and 4.10.2 are included. Other SDK/header/runtime combinations require their own verified provider.
+Private SDK/provider packs contain exact binary hashes and separate software verification and physical qualification states. Additional validated packs can be installed without rebuilding AeroTrace. Read provider-pack.json and release-gate.json for the contents and actual verification state of this delivery; a version string alone is not ABI or hardware qualification evidence.
 
 The software soak reconciled over 30 million records across all four simulated streams. Physical responding-RT, bus-B, simultaneous-channel and endurance acceptance remain pending. Session SQLite, DuckDB/Parquet and scientific-analysis modules are a later development stage.

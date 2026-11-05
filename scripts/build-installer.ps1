@@ -1,5 +1,7 @@
-param([string]$PackageName='AeroTrace1553-0.6.0',[string]$OutputBaseName='',[string]$Compiler=(Join-Path $env:LOCALAPPDATA 'AeroTraceBuildTools\InnoSetup\ISCC.exe'))
+param([string]$PackageName='AeroTrace1553-0.6.4',[string]$OutputBaseName='',[string]$Compiler='')
 $ErrorActionPreference='Stop'
+. (Join-Path $PSScriptRoot 'resolve-inno-compiler.ps1')
+$Compiler=Resolve-InnoCompiler $Compiler
 $projectRoot=Split-Path $PSScriptRoot -Parent
 $packageRoot=Join-Path $projectRoot ('dist\'+$PackageName)
 foreach($required in @($Compiler,(Join-Path $packageRoot 'AeroTrace1553.exe'),(Join-Path $packageRoot 'deployment.json'),(Join-Path $packageRoot 'docs\Operator-Guide.pdf'))){if(!(Test-Path -LiteralPath $required)){throw ('Missing build input: '+$required)}}
@@ -9,7 +11,22 @@ if($deployment.version -notmatch '^\d+\.\d+\.\d+$'){throw 'Deployment version is
 if(!$OutputBaseName){$OutputBaseName='AeroTrace1553-'+$deployment.version+'-Setup-x64'}
 if((Get-Item -LiteralPath (Join-Path $packageRoot 'AeroTrace1553.exe')).VersionInfo.ProductVersion -ne $deployment.version){throw 'Deployment/executable versions differ'}
 New-Item -ItemType Directory -Force -Path $outputRoot | Out-Null
-& $Compiler /Qp ('/DPackageRoot='+$packageRoot) ('/DOutputRoot='+$outputRoot) ('/DOutputBaseFilename='+$OutputBaseName) ('/DAppVersion='+$deployment.version) (Join-Path $projectRoot 'installer\AeroTrace1553.iss')
+$issFile=Join-Path $projectRoot 'installer\AeroTrace1553.iss'
+# Inno's preprocessor receives each /D value as one argument. Keep the quotes
+# inside the argument so paths containing spaces remain a single preprocessor
+# value instead of being split by ISCC.
+$defines=@(
+  ('/DPackageRoot="'+$packageRoot+'"'),
+  ('/DOutputRoot="'+$outputRoot+'"'),
+  ('/DOutputBaseFilename="'+$OutputBaseName+'"'),
+  ('/DAppVersion="'+$deployment.version+'"')
+)
+Push-Location $projectRoot
+try {
+  & $Compiler /Qp @defines $issFile
+} finally {
+  Pop-Location
+}
 if($LASTEXITCODE -ne 0){throw 'Offline installer compilation failed'}
 $installer=Join-Path $outputRoot ($OutputBaseName+'.exe')
 $versionInfo=(Get-Item -LiteralPath $installer).VersionInfo

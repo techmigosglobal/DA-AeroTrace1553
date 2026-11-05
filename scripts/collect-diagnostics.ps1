@@ -6,6 +6,7 @@ param(
   [string]$PreferencesPath,
   [string]$CapturePath,
   [string]$RuntimePath,
+  [string]$ConnectionReportPath,
   [switch]$SkipDeviceInventory
 )
 $ErrorActionPreference='Stop'
@@ -44,6 +45,8 @@ Copy-Evidence $PreferencesPath 'configuration'
 Copy-Evidence (Join-Path $DataDirectory 'active-profile.json') 'configuration'
 Copy-Evidence (Join-Path $applicationRoot 'deployment.json') 'configuration'
 Copy-Evidence (Join-Path $applicationRoot 'SHA256SUMS.txt') 'configuration'
+if(!$ConnectionReportPath){$ConnectionReportPath=Join-Path $DataDirectory 'connection-latest.json'}
+Copy-Evidence $ConnectionReportPath 'configuration'
 $logRoot=Join-Path $DataDirectory 'Logs'
 if(Test-Path -LiteralPath $logRoot){Get-ChildItem -LiteralPath $logRoot -File | Sort-Object LastWriteTime -Descending | Select-Object -First 100 | ForEach-Object {Copy-Evidence $_.FullName 'logs'}}
 $auditRoot=Join-Path $DataDirectory 'ReviewedActions'
@@ -53,7 +56,7 @@ if(Test-Path -LiteralPath $SessionDirectory){$captures=@(Get-ChildItem -LiteralP
 if($CapturePath -and (Test-Path -LiteralPath (Split-Path $CapturePath -Parent))){$captures=@($CapturePath)+$captures}
 foreach($capture in ($captures | Select-Object -Unique)){
   $group='captures\'+[IO.Path]::GetFileName($capture)
-  foreach($suffix in @('.events.jsonl','.checks.jsonl','.configuration.json','.icd.jsonl','.profile.json','.status.txt','.session.json')){Copy-Evidence ($capture+$suffix) $group}
+  foreach($suffix in @('.events.jsonl','.checks.jsonl','.configuration.json','.icd.jsonl','.profile.json','.status.txt','.session.json','.connection.json')){Copy-Evidence ($capture+$suffix) $group}
 }
 $present=@();$drivers=@()
 if(!$SkipDeviceInventory){
@@ -73,11 +76,25 @@ if(!$SkipDeviceInventory){
   try{$present=@(Get-PnpDevice -PresentOnly | Where-Object {$_.Class -eq 'DDC Devices' -or $_.FriendlyName -match 'DDC|Data Device|BU-(65|67)'} | Select-Object Class,FriendlyName,InstanceId,Status)}catch{$issues.Add($_.Exception.Message)}
   try{$drivers=@(Get-CimInstance Win32_PnPSignedDriver | Where-Object {$_.Manufacturer -match 'Data Device|^DDC' -or $_.DeviceName -match 'DDC|67103|67113'} | Select-Object DeviceName,Manufacturer,DriverVersion,DriverDate,IsSigned,InfName)}catch{$issues.Add($_.Exception.Message)}
 }
-if(!$RuntimePath){$RuntimePath=Join-Path $applicationRoot 'emacepl.dll';if(!(Test-Path -LiteralPath $RuntimePath)){$RuntimePath='C:\DDC\aceXtremeSDKv4.10.2\libraries\emacepl\bin\x64\Release\emacepl.dll'}}
+$connectionEvidence=$null;$runtimeSource=if($RuntimePath){'explicit collector argument'}else{'unresolved'}
+if(Test-Path -LiteralPath $ConnectionReportPath -PathType Leaf){
+  try {
+    $connectionEvidence=Get-Content -LiteralPath $ConnectionReportPath -Raw | ConvertFrom-Json
+    $selected=$connectionEvidence.latest_attempt.runtime_path
+    if($selected){$RuntimePath=[string]$selected;$runtimeSource='recorded connection selection'}
+    elseif(!$RuntimePath -and $connectionEvidence.discovery.runtime_path){$RuntimePath=[string]$connectionEvidence.discovery.runtime_path;$runtimeSource='SDK discovery selection (not loaded-module evidence)'}
+  }catch{$issues.Add('Connection report: '+$_.Exception.Message)}
+}
+# Do not guess a globally installed SDK version. Resolve a directory only when it
+# contains one distinct DLL identity; an active connection report takes precedence.
+if($RuntimePath -and (Test-Path -LiteralPath $RuntimePath -PathType Container)){
+  $candidates=@('emacepl.dll','Lib\x64\Release\emacepl.dll','libraries\emacepl\bin\x64\Release\emacepl.dll','Lib\Win32\Release\emacepl.dll' | ForEach-Object {Join-Path $RuntimePath $_} | Where-Object {Test-Path -LiteralPath $_ -PathType Leaf})
+  if($candidates.Count -eq 1){$RuntimePath=$candidates[0];$runtimeSource+='; unambiguous directory'}else{$RuntimePath='';$runtimeSource='unresolved directory; inspect connection candidate evidence'}
+}
 $runtimeInfo=$null
-if(Test-Path -LiteralPath $RuntimePath -PathType Leaf){$runtimeInfo=@{path=$RuntimePath;sha256=(Evidence-Sha256 $RuntimePath);fileVersion=(Get-Item -LiteralPath $RuntimePath).VersionInfo.FileVersion}}
+if($RuntimePath -and (Test-Path -LiteralPath $RuntimePath -PathType Leaf)){$runtimeInfo=@{path=$RuntimePath;sha256=(Evidence-Sha256 $RuntimePath);fileVersion=(Get-Item -LiteralPath $RuntimePath).VersionInfo.FileVersion;selectionEvidence=$runtimeSource}}
 $executable=Join-Path $applicationRoot 'AeroTrace1553.exe';$exeHash=$null;if(Test-Path -LiteralPath $executable){$exeHash=(Evidence-Sha256 $executable)}
-$report=@{utc=(Get-Date).ToUniversalTime().ToString('o');application=$applicationRoot;executableSha256=$exeHash;dataDirectory=$DataDirectory;sessionDirectory=$SessionDirectory;capturePath=$CapturePath;os=[Environment]::OSVersion.VersionString;processArchitecture=$env:PROCESSOR_ARCHITECTURE;runtime=$runtimeInfo;presentDdcDevices=$present;ddcDrivers=$drivers;collectionIssues=$issues.ToArray();copied=$copies.ToArray();note='Read-only inventory. No bus initialization or driver/device reconfiguration. Evidence is a snapshot; files from an active capture can be incomplete. Raw ATD/Chapter 10 recordings, full PDFs and model files are not copied. Most recent 100 log files, 10 capture sidecar groups and 20 action audits, bounded to 256 MiB total.'}
+$report=@{utc=(Get-Date).ToUniversalTime().ToString('o');application=$applicationRoot;executableSha256=$exeHash;dataDirectory=$DataDirectory;sessionDirectory=$SessionDirectory;capturePath=$CapturePath;os=[Environment]::OSVersion.VersionString;processArchitecture=$env:PROCESSOR_ARCHITECTURE;runtime=$runtimeInfo;runtimeSelectionEvidence=$runtimeSource;connectionReport=$ConnectionReportPath;presentDdcDevices=$present;ddcDrivers=$drivers;collectionIssues=$issues.ToArray();copied=$copies.ToArray();note='Read-only inventory. No bus initialization or driver/device reconfiguration. Evidence is a snapshot; files from an active capture can be incomplete. Raw ATD/Chapter 10 recordings, full PDFs and model files are not copied. Most recent 100 log files, 10 capture sidecar groups and 20 action audits, bounded to 256 MiB total.'}
 $report | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $bundleRoot 'system.json') -Encoding UTF8
 'Keep the complete recording (.atd) and all of its sidecars. This bundle omits raw ATD/Chapter 10 files and full PDFs. Stop capture before collecting for the most complete snapshot. See collectionIssues in system.json for omissions.' | Set-Content -LiteralPath (Join-Path $bundleRoot 'READ-ME.txt') -Encoding UTF8
 try{Compress-Archive -LiteralPath (Get-ChildItem -LiteralPath $bundleRoot | ForEach-Object {$_.FullName}) -DestinationPath ($bundleRoot+'.zip') -Force}catch{$issues.Add('ZIP: '+$_.Exception.Message);$report.collectionIssues=$issues.ToArray();$report | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $bundleRoot 'system.json') -Encoding UTF8}

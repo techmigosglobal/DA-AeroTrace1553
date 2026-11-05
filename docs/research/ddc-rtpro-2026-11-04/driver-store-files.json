@@ -1,0 +1,122 @@
+[
+  {
+    "Path": "C:\\Windows\\System32\\DriverStore\\FileRepository\\acexpci.inf_amd64_9f50ddccf9e6c1c0\\acexpci.inf",
+    "Bytes": 6386,
+    "Version": null,
+    "SHA256": "052A8BB7DBBAFFE0358DC9639C0A503B5DBF8773FDBB22489A3B6E2F672A434F"
+  },
+  {
+    "Path": "C:\\Windows\\System32\\DriverStore\\FileRepository\\acexpci.inf_amd64_9f50ddccf9e6c1c0\\acexpci.sys",
+    "Bytes": 165560,
+    "Version": "4.10.2.1",
+    "SHA256": "9FD43726D4570BFD97DA098FD39C405EB5E044162DC191F1AE2651A2BDD08B11"
+  },
+  {
+    "Path": "C:\\Windows\\System32\\DriverStore\\FileRepository\\acexpci.inf_amd64_e623c7e4a0fe21ad\\acexpci.inf",
+    "Bytes": 6490,
+    "Version": null,
+    "SHA256": "6A9F067632387BB48D69000F21126F8C9FA43B8F6C2167C8B7692584ADA4782C"
+  },
+  {
+    "Path": "C:\\Windows\\System32\\DriverStore\\FileRepository\\acexpci.inf_amd64_e623c7e4a0fe21ad\\acexpci.sys",
+    "Bytes": 166680,
+    "Version": "3.6.15.1",
+    "SHA256": "AF511FD4256A4AA9F3E2D298439FADC3A8F3AC38737D89607F1B55FB2F2E1B26"
+  },
+  {
+    "Path": "C:\\Windows\\System32\\DriverStore\\FileRepository\\acexusb.inf_amd64_5fd0e015a1330064\\acexusb.inf",
+    "Bytes": 4241,
+    "Version": null,
+    "SHA256": "3A90E5BB3CADFBE1BDE07AF2AE2427FF153A66D25ADA83E3E69E7BCE2EFA0408"
+  },
+  {
+    "Path": "C:\\Windows\\System32\\DriverStore\\FileRepository\\acexusb.inf_amd64_5fd0e015a1330064\\acexusb.sys",
+    "Bytes": 122552,
+    "Version": "4.10.2.1",
+    "SHA256": "77692126484C247AD1C22E94C1EA025A4FA9DCC66584F2948D25C2D41C3AC844"
+  },
+  {
+    "Path": "C:\\Windows\\System32\\DriverStore\\FileRepository\\acexusb.inf_amd64_82759c9be1a95df7\\acexusb.inf",
+    "Bytes": 4783,
+    "Version": null,
+    "SHA256": "A43C446BDC736565232AAAE5D4B5161D61EB84D510BE4F36A9AB10324C54FA68"
+  },
+  {
+    "Path": "C:\\Windows\\System32\\DriverStore\\FileRepository\\acexusb.inf_amd64_82759c9be1a95df7\\acexusb.sys",
+    "Bytes": 125720,
+    "Version": "3.6.15.1",
+    "SHA256": "068F1EA527BC6ADA170D63648E215065555DD92C782EE8B3E1C783E9050685FE"
+  },
+  {
+    "Path": "C:\\Windows\\System32\\DriverStore\\FileRepository\\e2mausb.inf_amd64_1bf8002692569eb8\\e2mausb.inf",
+    "Bytes": 3500,
+    "Version": null,
+    "SHA256": "A3B4FDB50E5040AD89961C4B191D95E681FBE65C510950531289303315E8EAAB"
+  },
+  {
+    "Path": "C:\\Windows\\System32\\DriverStore\\FileRepository\\e2mausb.inf_amd64_1bf8002692569eb8\\e2mausb.sys",
+    "Bytes": 53944,
+    "Version": "4.10.2.1",
+    "SHA256": "1F0465C6A73192A5DF6DAE9466C7C5C95D2C775068B487A3A7088737D1B6B146"
+  },
+  {
+    "Path": "C:\\Windows\\System32\\DriverStore\\FileRepository\\e2mausb.inf_amd64_ffd307d182f34e8c\\e2mausb.inf",
+    "Bytes": 3620,
+    "Version": null,
+    "SHA256": "E7DAF06D75CBF248FBF11BD7F4737231F0808E86F097E92DC937912BB633992E"
+  },
+  {
+    "Path": "C:\\Windows\\System32\\DriverStore\\FileRepository\\e2mausb.inf_amd64_ffd307d182f34e8c\\e2mausb.sys",
+    "Bytes": 58136,
+    "Version": "3.6.15.1",
+    "SHA256": "7563E3DCAF5BF059F832D34A8B472AC1B24335603D3352C29DF1BABCAE733B85"
+  },
+  {
+    "Path": "C:\\Windows\\System32\\DriverStore\\FileRepository\\emaebrpci.inf_amd64_98c7d1bcd712e88a\\emaebrpci.inf",
+    "Bytes": 3277,
+    "Version": null,
+    "SHA256": "BC0A05AA71DD2580C65E59982CD1BD13532197ECB7ABE20F3EBC93A562A77324"
+  },
+  {
+    "Path": "C:\\Windows\\System32\\DriverStore\\FileRepository\\emaebrpci.inf_amd64_98c7d1bcd712e88a\\emaebrpci.sys",
+    "Bytes": 39088,
+    "Version": "4.10.2.1",
+    "SHA256": "F689074CB0E2F8F4AF0E895884A1B8532D601F1F5A053BD43B04FA8370690922"
+  },
+  {
+    "Path": "C:\\Windows\\System32\\DriverStore\\FileRepository\\emaebrpci.inf_amd64_eb2718d7f126a29f\\emaebrpci.inf",
+    "Bytes": 2593,
+    "Version": null,
+    "SHA256": "78BF9D22451E699E4EF945AC2CDE6B934D656C1D9F1018BC08066DF0AE2516B2"
+  },
+  {
+    "Path": "C:\\Windows\\System32\\DriverStore\\FileRepository\\emaebrpci.inf_amd64_eb2718d7f126a29f\\emaebrpci.sys",
+    "Bytes": 43288,
+    "Version": "3.6.15.1",
+    "SHA256": "D9076F47CE2B55D9E23EFA8688B3A2B0D5FBD8A4530901CA1C2D3AF4CD647F86"
+  },
+  {
+    "Path": "C:\\Windows\\System32\\DriverStore\\FileRepository\\emapci.inf_amd64_692d81d201cef347\\emapci.inf",
+    "Bytes": 4702,
+    "Version": null,
+    "SHA256": "ECE5BE44C307ECC6453254101C2A5650AE7807761283DF94C14464690810250C"
+  },
+  {
+    "Path": "C:\\Windows\\System32\\DriverStore\\FileRepository\\emapci.inf_amd64_692d81d201cef347\\emapci.sys",
+    "Bytes": 40120,
+    "Version": "4.10.2.1",
+    "SHA256": "948A52B47814B35E9049D5E9FBF2EE7A359F181DEEF7C1E613C0D5C687F1C17F"
+  },
+  {
+    "Path": "C:\\Windows\\System32\\DriverStore\\FileRepository\\emapci.inf_amd64_cf7592803838b212\\emapci.inf",
+    "Bytes": 4435,
+    "Version": null,
+    "SHA256": "FD4E2D10F0BD2A67EC6627298F9713D0871646D051DD0559F40BD4478BFD15E3"
+  },
+  {
+    "Path": "C:\\Windows\\System32\\DriverStore\\FileRepository\\emapci.inf_amd64_cf7592803838b212\\emapci.sys",
+    "Bytes": 44824,
+    "Version": "3.6.15.1",
+    "SHA256": "89CB629A933FBB21B2E9DE8D10ED6CD71D7A7ED1F127683EA5F797F03598BEF9"
+  }
+]

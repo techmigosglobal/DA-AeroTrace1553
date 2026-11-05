@@ -1,8 +1,12 @@
-# AeroTrace 1553 — V0.6.0 Windows x64
+# AeroTrace 0.6.3 connection recovery
 
-V0.6.0 delivers the approved External/Internal RT monitor, SDK provider DLLs for verified aceXtreme 4.10.2 and 4.4.2.4 inputs, bounded application logging, and native qualification tooling. The deterministic four-stream run reconciled 30,026,073 messages across CH1 A/B and CH2 A/B at 50,043 messages/s. See [release and qualification results](docs/Release-0.6.0.md) and [current status](docs/current-status.md). Physical simultaneous monitoring and one-hour/24-hour endurance remain NOT RUN.
+See [0.6.3 delivery and installer command](docs/Release-0.6.3.md). Physical hardware acceptance remains NOT RUN. Earlier release sections below are historical.
 
-The local offline installer is `dist/installers/AeroTrace1553-0.6.0-Setup-x64.exe` after packaging. It bundles Qt/Qwt and the isolated document Python/OCR/ONNX runtime. Real capture additionally requires a supported DDC driver and matching provider/runtime evidence. Raw monitoring, recording, replay and paired CSV exports require no ICD.
+# AeroTrace 1553 — V0.6.1 Windows x64
+
+V0.6.1 adds dynamic SDK/provider discovery, Card Manager recovery, RT/Bus error statistics and guarded offline installation. Runtime recognition, provider support and actual channel access are separate states. See the [0.6.1 delivery record](docs/Release-0.6.1.md) and [current status](docs/current-status.md). Physical BU-67113U four-stream qualification and vendor payload redistribution approval remain release gates.
+
+The review installer is `dist/installers/AeroTrace1553-0.6.1-Review-Setup-x64.exe` after packaging. It bundles Qt/Qwt, isolated document Python/OCR/ONNX and private provider/runtime packs. A complete production bundle additionally requires documented vendor redistribution rights and hardware qualification receipts. Review installation preserves shared DDC drivers and Card Manager. Raw monitoring, recording, replay and paired CSV exports require no ICD.
 
 # AeroTrace 1553
 
@@ -18,14 +22,14 @@ The Windows helpers default to the installed `C:\Qt` kit:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/build.ps1 -Test
-powershell -ExecutionPolicy Bypass -File scripts/package.ps1 -PackageName AeroTrace1553-SES-Qt611-DDC315-Verified
+powershell -ExecutionPolicy Bypass -File scripts/package.ps1 -PackageName AeroTrace1553-0.6.1 -BundleMode review
 ```
 
 Launch the installed application or the locally built `aerotrace_desktop` target. **Connect devices** opens/configures the selected DDC channels without acquisition or recording. In Live Monitor, **Start recording** begins receiving and saving. **Stop & save** finalizes the recording and paired CSVs while retaining the connection. **Disconnect devices** saves an active recording before releasing the card. Device arrival and application launch never start a recording automatically.
 
 ## Operator workflow
 
-- **Device 0 / Channel 1 = External; Device 1 / Channel 2 = Internal.** A/B are redundant paths within each channel. Both channels and all four bus paths are enabled by default in the updated workflow. The approved RT grouping is implemented in the development source: fixed RT rows per channel, independent A/B values/counts, expandable routes and a chronological mode. Logical IDs remain configurable.
+- **Device 0 / Channel 1 = External; Device 1 / Channel 2 = Internal.** A/B are redundant paths within each channel. Both channels and all four paths are enabled by default. RT statistics shows stable active RT/Bus rows, channel totals and error counters. Message routes and chronological records are alternate views. Logical IDs remain configurable.
 - **Both channels**, **Device 0 · External** and **Device 1 · Internal** tabs select the table view. Bus and RT filters affect the display, not raw recording.
 - Collapse the sidebar with its chevron or **Ctrl+B**. Icons retain accessible names and tooltips. Eight primary destinations stay visible; **More tools** retains the other screens, including replay, inspector, exports, security and diagnostics.
 - Recording always requires **Start recording**. Changing connection settings closes the idle connection so the new settings are applied on the next explicit Connect.
@@ -56,7 +60,7 @@ The Windows adapter builds against the selected installed aceXtreme SDK, loads i
 
 The supplied November 2 SES notes report BU-67113U, started acexusb 3.6.15.1 and logical channels 0/1. The original zero-message check was followed by loopback: 6,041 messages over 600 seconds before clock correction, then six corrected-clock runs totaling 606 messages with populated CSV verification. These are historical results from SES, not live inventory of the computer reading this source. See `.codebase-memory/RecordingFix-validation-20261102.md`.
 
-`DDC_SDK_ROOT` is a CMake cache path. The licensed SDK remains external to the source tree. The Windows package includes the selected runtime/license for this PC; external redistribution remains subject to the vendor license. The supplied SES evidence used Qt 6.11.1 and SDK 3.6.15. Current development verification uses Qt 6.12.0 and a provider built against the locally installed SDK 4.10.2; its physical qualification remains NOT RUN. Other SDKs require their own provider build and evidence, as described in the [provider contract](docs/provider-contract.md).
+`DDC_SDK_ROOT` is a CMake cache path. Licensed development inputs stay outside source control. Each packaged SDK/runtime pair lives in its own private directory with exact fingerprints and a compatibility manifest. The default build families are 3.6.15, 4.9.5 and 4.10.2; automatic acquisition selection requires a qualified hardware/driver/OS matrix entry. Additional packs can be installed without rebuilding the desktop. See the [provider contract](docs/provider-contract.md) and [0.6.1 delivery record](docs/Release-0.6.1.md).
 
 ## Automatic ICD workflow
 

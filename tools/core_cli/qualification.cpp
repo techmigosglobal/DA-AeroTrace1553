@@ -1,6 +1,7 @@
 // Passive bench evidence collection. Never transmits or configures a generator.
 #include "acquisition.hpp"
 #include "ddc_runtime.hpp"
+#include "helper_packs.hpp"
 #include "protocol.hpp"
 #include "capture_time.hpp"
 #include "evidence_identity.hpp"
@@ -37,7 +38,7 @@ int main(int argc,char **argv) {
     aero::CaptureConfig config;config.enabled={true,true,true,true};config.runId="qualification-"+std::to_string(system_clock::now().time_since_epoch().count());
     unsigned seconds=60,cycles=1;std::string sourceLabel="physical-bench";
     for(int i=1;i<argc;++i){const std::string key=argv[i];
-      if(key=="--help"){std::cout<<"aerotrace_qualification --output <new-directory> [--seconds 60] [--cycles 1] [--streams 1A,1B,2A,2B] [--logical1 0] [--logical2 1] [--runtime <emacepl.dll>] [--source-label physical-bench|sdk-fixture]\n";return 0;}
+      if(key=="--help"){std::cout<<"aerotrace_qualification --output <new-directory> [--seconds 60] [--cycles 1] [--streams 1A,1B,2A,2B] [--logical1 0] [--logical2 1] [--runtime <emacepl.dll>] [--backend native-x64|helper-x86] [--receive-mode auto|mti|legacy-mt] [--connection-policy qualified|compatibility] [--helper-pack <helper-pack.json>] [--source-label physical-bench|sdk-fixture]\n";return 0;}
       if(i+1>=argc)throw std::runtime_error("Missing value for "+key);const std::string value=argv[++i];
       if(key=="--output")output=std::filesystem::path(std::u8string(value.begin(),value.end()));
       else if(key=="--seconds"){seconds=number(value,7*24*3600);if(!seconds)throw std::runtime_error("Duration must be positive");}
@@ -45,6 +46,10 @@ int main(int argc,char **argv) {
       else if(key=="--runtime")config.runtime=std::filesystem::path(std::u8string(value.begin(),value.end()));
       else if(key=="--logical1")config.logicalDevices[0]=number(value,31);
       else if(key=="--logical2")config.logicalDevices[1]=number(value,31);
+      else if(key=="--backend") {if(value=="native-x64")config.backend=aero::DdcBackend::NativeX64;else if(value=="helper-x86")config.backend=aero::DdcBackend::HelperX86;else throw std::runtime_error("Unknown DDC backend");}
+      else if(key=="--receive-mode") {if(value=="auto")config.receiveMode=aero::DdcReceiveMode::Auto;else if(value=="mti")config.receiveMode=aero::DdcReceiveMode::MTI;else if(value=="legacy-mt")config.receiveMode=aero::DdcReceiveMode::LegacyMT;else throw std::runtime_error("Unknown receive mode");}
+      else if(key=="--connection-policy") {if(value=="qualified")config.connectionPolicy=aero::DdcConnectionPolicy::QualifiedAutomatic;else if(value=="compatibility")config.connectionPolicy=aero::DdcConnectionPolicy::Compatibility;else throw std::runtime_error("Unknown connection policy");}
+      else if(key=="--helper-pack")config.helperPack=std::filesystem::path(std::u8string(value.begin(),value.end()));
       else if(key=="--source-label"){if(value!="physical-bench"&&value!="sdk-fixture")throw std::runtime_error("Unknown evidence source");sourceLabel=value;}
       else if(key=="--streams") {config.enabled={};std::istringstream list(value);std::string item;bool any=false;
         if(value.empty()||value.back()==',')throw std::runtime_error("Invalid stream list");
@@ -57,7 +62,14 @@ int main(int argc,char **argv) {
     if(output.empty())throw std::runtime_error("Specify --output with a new evidence directory; use --help");
     if(!std::filesystem::create_directory(output))throw std::runtime_error("Output directory must be new; previous evidence is never overwritten");
     ownsOutput=true;
-    std::ofstream runtime(output/"runtime.json");const auto selection=aero::selectDdcRuntime(config.runtime);runtimeJson(runtime,selection);runtime.flush();
+    std::ofstream runtime(output/"runtime.json");
+    aero::DdcRuntimeSelection selection;
+    if(config.backend==aero::DdcBackend::HelperX86){
+      const auto pack=aero::readDdcHelperPack(config.helperPack);
+      selection.path=pack.runtimePath;selection.error=pack.error;
+      runtime<<"{\"backend\":\"helper_x86\",\"manifest\":"<<aero::jsonString(config.helperPack.string())<<",\"runtime\":"<<aero::jsonString(pack.runtimePath.string())<<",\"helper_sha256\":"<<aero::jsonString(pack.helperSha256)<<",\"runtime_sha256\":"<<aero::jsonString(pack.runtimeSha256)<<",\"error\":"<<aero::jsonString(pack.error)<<'}';
+    }else {selection=aero::selectDdcRuntime(config.runtime);runtimeJson(runtime,selection);}
+    runtime.flush();
     if(!runtime)throw std::runtime_error("Cannot save runtime evidence");
     const auto executableHash=bench::executableSha256();
     std::ofstream report(output/"runs.jsonl");if(!report)throw std::runtime_error("Cannot create run report");

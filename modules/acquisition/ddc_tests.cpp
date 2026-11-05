@@ -1,5 +1,6 @@
 #include "acquisition.hpp"
 #include "ddc_runtime.hpp"
+#include "providers/provider_abi.h"
 #include <chrono>
 #include <iostream>
 #include <stdexcept>
@@ -36,7 +37,13 @@ int main(int argc,char **argv) {
       {std::ofstream changed(ambiguous/"second.dll",std::ios::binary|std::ios::app);changed<<'x';}
       SetEnvironmentVariableW(L"AEROTRACE_DDC_PROVIDER",ambiguous.c_str());CHECK(aero::inspectDdcRuntime(config.runtime).message.find("Ambiguous")!=std::string::npos);
       SetEnvironmentVariableW(L"AEROTRACE_DDC_PROVIDER",good.c_str());CHECK(aero::inspectDdcRuntime(config.runtime).available);
-      auto one=aero::makeDdcSource(),two=aero::makeDdcSource();CHECK(one->open(config).empty());CHECK(two->open(config).find("already owns")!=std::string::npos);one->close();CHECK(two->open(config).empty());two->close();
+      auto one=aero::makeDdcSource(),two=aero::makeDdcSource();CHECK(one->open(config).empty());
+      CHECK(aero::ddcProviderConnectionActive());
+      const auto metadata=aero::inspectDdcRuntime(config.runtime);
+      CHECK(metadata.probeBlocked && metadata.runtimeDetected && !metadata.available && !metadata.runtimeLoadable && metadata.path==config.runtime && !metadata.sha256.empty());
+      const auto scan=aero::selectDdcRuntime(config.runtime);
+      CHECK(scan.probeBlocked && scan.candidates.size()==1 && scan.candidates.front().api==0 && !scan.candidates.front().loadable);
+      CHECK(two->open(config).find("already owns")!=std::string::npos);one->close();CHECK(!aero::ddcProviderConnectionActive());CHECK(two->open(config).empty());two->close();
     }
     {
       struct RestoreSdkRoot {
@@ -59,10 +66,10 @@ int main(int argc,char **argv) {
       const auto empty=root/"SDK missing runtime";std::filesystem::create_directory(empty);
       CHECK(SetEnvironmentVariableW(L"DDC_SDK_ROOT",empty.c_str()));
       const auto missing=aero::selectDdcRuntime();
-      CHECK(missing.path.empty() && missing.error.find("Configured DDC SDK folder")!=std::string::npos);
+      CHECK(missing.path==empty && missing.error.find("Configured DDC SDK folder")!=std::string::npos);
       const auto broken=empty/"emacepl.dll";{std::ofstream out(broken);out<<"not a PE image";}
       const auto invalidSdk=aero::selectDdcRuntime();
-      CHECK(invalidSdk.path.empty() && invalidSdk.error.find("x64 PE")!=std::string::npos);
+      CHECK(invalidSdk.path==broken && invalidSdk.error.find("x64 PE")!=std::string::npos);
       const auto conflict=root/"SDK conflicting interfaces";
       std::filesystem::create_directories(conflict/"Lib/x64/Release");
       std::filesystem::create_directories(conflict/"libraries/emacepl/bin/x64/Release");
@@ -95,6 +102,45 @@ int main(int argc,char **argv) {
     const auto count=reinterpret_cast<int(WINAPI *)()>(GetProcAddress(fake,"aeroTestStartCount"));
     const auto reset=reinterpret_cast<void(WINAPI *)()>(GetProcAddress(fake,"aeroTestResetStarts"));CHECK(count && reset);
     const auto openCount=reinterpret_cast<int(WINAPI *)()>(GetProcAddress(fake,"aeroTestOpenCount"));CHECK(openCount);
+    {
+      // ABI v1 remains exactly queryable while v2 is independently negotiated.
+      wchar_t providerPath[32768]{};CHECK(GetEnvironmentVariableW(L"AEROTRACE_DDC_PROVIDER",providerPath,32768)>0);
+      const auto provider=LoadLibraryW(providerPath);CHECK(provider);
+      const auto get=reinterpret_cast<AtGetProviderApi>(GetProcAddress(provider,"aerotrace_provider_get_api"));CHECK(get);
+      const auto v1=get(AT_PROVIDER_ABI,sizeof(AtProviderApi));CHECK(v1&&v1->abi==1);
+      const auto v2=reinterpret_cast<const AtProviderApiV2 *>(get(AT_PROVIDER_ABI_V2,sizeof(AtProviderApiV2)));CHECK(v2&&v2->v1==v1&&v2->abi==2);
+      CHECK(!get(AT_PROVIDER_ABI_V2,sizeof(AtProviderApi)));FreeLibrary(provider);
+      auto explicitMode=config;explicitMode.receiveMode=aero::DdcReceiveMode::LegacyMT;
+      auto source=aero::makeDdcSource();CHECK(source->open(explicitMode).empty());CHECK(source->startMonitoring().empty());
+      aero::SourceBatch batch;CHECK(source->poll(batch,{}).empty());CHECK(batch.records.size()==2&&batch.records.front().source==2);
+      CHECK(source->stopMonitoring().empty());bool more=true;batch={};CHECK(source->drainNext(batch,more).empty()&&!more);source->close();CHECK(source->closeError().empty());
+      CHECK(source->identity().backend=="NativeX64"&&source->identity().runtime==config.runtime&&source->identity().runtimeSha256.size()==64);
+#ifdef AEROTRACE_TEST_V1_PROVIDER
+      SetEnvironmentVariableA("AEROTRACE_DDC_PROVIDER",AEROTRACE_TEST_V1_PROVIDER);
+      auto v1Source=aero::makeDdcSource();CHECK(v1Source->open(config).empty());CHECK(v1Source->startMonitoring().empty());
+      batch={};CHECK(v1Source->poll(batch,{}).empty()&&batch.records.size()==4);CHECK(v1Source->stopMonitoring().empty());
+      batch={};more=true;CHECK(v1Source->drainNext(batch,more).empty()&&!more);v1Source->close();CHECK(v1Source->closeError().empty());
+      CHECK(!v1Source->open(explicitMode).empty()&&v1Source->lastFailure().category==aero::CaptureFailureCategory::UnsupportedMode);
+      SetEnvironmentVariableW(L"AEROTRACE_DDC_PROVIDER",providerPath);
+#endif
+      explicitMode.receiveMode=aero::DdcReceiveMode::MTI;SetEnvironmentVariableA("AEROTRACE_TEST_DDC_NO_MTI","1");
+      CHECK(!source->open(explicitMode).empty());CHECK(source->lastFailure().category==aero::CaptureFailureCategory::UnsupportedMode&&source->lastFailure().code==-68);
+      SetEnvironmentVariableA("AEROTRACE_TEST_DDC_NO_MTI",nullptr);
+      SetEnvironmentVariableA("AEROTRACE_TEST_DDC_FAIL_SECOND","1");CHECK(!source->open(config).empty());
+      CHECK(source->lastFailure().category==aero::CaptureFailureCategory::Registry&&source->lastFailure().code==-80&&source->lastFailure().channel==1&&source->lastFailure().logicalDevice==1);
+      SetEnvironmentVariableA("AEROTRACE_TEST_DDC_FAIL_SECOND",nullptr);
+      SetEnvironmentVariableA("AEROTRACE_TEST_DDC_DRIVER_OPEN","1");CHECK(!source->open(config).empty());
+      CHECK(source->lastFailure().category==aero::CaptureFailureCategory::DriverOpen&&source->lastFailure().code==-82&&!source->lastFailure().recovery.empty());
+      SetEnvironmentVariableA("AEROTRACE_TEST_DDC_DRIVER_OPEN",nullptr);
+      auto compatibility=config;compatibility.connectionPolicy=aero::DdcConnectionPolicy::Compatibility;compatibility.runtime.clear();
+      CHECK(!source->open(compatibility).empty()&&source->lastFailure().category==aero::CaptureFailureCategory::RuntimeSelection);
+      CHECK(openCount()==0);
+      // A failed Open can also fail rollback, without returning a live handle.
+      auto rollback=aero::makeDdcSource();SetEnvironmentVariableA("AEROTRACE_TEST_DDC_FAIL_SECOND","1");SetEnvironmentVariableA("AEROTRACE_TEST_DDC_FREE_OPEN_FAIL","1");
+      CHECK(!rollback->open(config).empty()&&rollback->lastFailure().cleanupFailed&&!rollback->closeError().empty());
+      SetEnvironmentVariableA("AEROTRACE_TEST_DDC_FAIL_SECOND",nullptr);SetEnvironmentVariableA("AEROTRACE_TEST_DDC_FREE_OPEN_FAIL",nullptr);
+      CHECK(rollback->open(config).find("cleanup failed")!=std::string::npos);
+    }
     SetEnvironmentVariableA("AEROTRACE_TEST_DDC_REQUIRE_DUAL","1");
 #endif
     aero::Acquisition acquisition;
@@ -206,7 +252,7 @@ int main(int argc,char **argv) {
     CHECK(acquisition.error());
     SetEnvironmentVariableA("AEROTRACE_TEST_DDC_SDK_OWNED",nullptr);SetEnvironmentVariableA("AEROTRACE_TEST_DDC_FREE_UNSUPPORTED",nullptr);
     for(const auto setting:{"AEROTRACE_TEST_DDC_STOP_LOSS","AEROTRACE_TEST_DDC_COUNTER_OVERFLOW","AEROTRACE_TEST_DDC_STOP_FAIL","AEROTRACE_TEST_DDC_FREE_FAIL","AEROTRACE_TEST_DDC_PACKET_FREE_FAIL"}) {
-      SetEnvironmentVariableA(setting,"1");CHECK(acquisition.startConfigured(root/(std::string(setting)+".atd"),config));std::this_thread::sleep_for(milliseconds(20));acquisition.stop();CHECK(acquisition.error()&&openCount()==0);
+      aero::Acquisition acquisition; SetEnvironmentVariableA(setting,"1");CHECK(acquisition.startConfigured(root/(std::string(setting)+".atd"),config));std::this_thread::sleep_for(milliseconds(20));acquisition.stop();CHECK(acquisition.error()&&openCount()==0);
       if(std::string(setting)=="AEROTRACE_TEST_DDC_STOP_LOSS"){CHECK(acquisition.metrics().channelLost[0]==1&&acquisition.metrics().channelLost[1]==2&&acquisition.metrics().hardwareLost==3);}
       if(std::string(setting)=="AEROTRACE_TEST_DDC_COUNTER_OVERFLOW"){CHECK(acquisition.metrics().channelOverflows[0]==1&&acquisition.metrics().channelOverflows[1]==2);}
       SetEnvironmentVariableA(setting,nullptr);

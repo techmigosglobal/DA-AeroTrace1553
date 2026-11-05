@@ -1,37 +1,59 @@
 #include "main_window.hpp"
 #include "services/ddc_discovery.hpp"
+#include "services/card_manager.hpp"
 #include "services/session_store.hpp"
 #include "services/runtime_paths.hpp"
+#include "helper_packs.hpp"
 #include "ui_rt_channel_body.h"
 #ifdef Q_OS_WIN
 #include <windows.h>
 #include <shellapi.h>
 #endif
 void Window::rescanDdc(QLabel *target) {
-  if(backend.captureConfig.hardware&&(connecting||backend.acquisition.active()||savingSession)){toast("Stop monitoring and finish saving before rescanning the DDC runtime");return;}
   if(discoveryRunning){toast("A DDC scan is already running");return;}
   discoveryRunning=true;QPointer<QLabel> label=target;if(label)label->setText("Inspecting Windows device and runtime evidence…");
   auto watcher=new QFutureWatcher<QJsonObject>(this);
-  connect(watcher,&QFutureWatcher<QJsonObject>::finished,this,[this,watcher,label]{hardwareDiscovery=watcher->result();discoveryRunning=false;
+  connect(watcher,&QFutureWatcher<QJsonObject>::finished,this,[this,watcher,label]{auto result=watcher->result();
+    if(result.value("runtime_probe_blocked").toBool())for(auto i=hardwareDiscovery.constBegin();i!=hardwareDiscovery.constEnd();++i)
+      if((i.key().startsWith("runtime_")&&i.key()!="runtime_probe_blocked"&&i.key()!="runtime_probe_message")||i.key().startsWith("provider_")||i.key()=="qualification"||i.key()=="automatic_approved")result.insert(i.key(),i.value());
+    QJsonArray helpers;for(const auto &pack:aero::discoverDdcHelperPacks())helpers.append(QJsonObject{{"manifest",QString::fromStdWString(pack.manifest.wstring())},{"id",QString::fromStdString(pack.id)},{"helper_path",QString::fromStdWString(pack.helperPath.wstring())},{"runtime_path",QString::fromStdWString(pack.runtimePath.wstring())},{"error",QString::fromStdString(pack.error)},{"software_verified",pack.softwareVerified},{"automatic_approved",pack.automaticApproved}});result["helper_packs"]=helpers;
+    if(backend.captureConfig.backend==aero::DdcBackend::HelperX86&&!backend.captureConfig.helperPack.empty()) {
+      const auto pack=aero::readDdcHelperPack(backend.captureConfig.helperPack);const bool valid=pack.error.empty()&&pack.softwareVerified;
+      result.remove("runtime_probe_error");result["runtime_detected"]=!pack.runtimePath.empty();result["runtime_loadable"]=false;result["provider_available"]=valid;result["runtime_available"]=valid;result["automatic_approved"]=pack.automaticApproved;
+      result["runtime_path"]=QString::fromStdWString(pack.runtimePath.wstring());result["runtime_sha256"]=QString::fromStdString(pack.runtimeSha256);result["runtime_architecture"]="x86";result["provider_id"]=QString::fromStdString(pack.id);result["provider_path"]=QString::fromStdWString(pack.helperPath.wstring());
+      result["helper_sha256"]=QString::fromStdString(pack.helperSha256);result["helper_manifest"]=QString::fromStdWString(pack.manifest.wstring());result["header_sha256"]=QString::fromStdString(pack.headerSha256);result["qualification"]=pack.automaticApproved?"Qualified matrix receipt":"NOT RUN";
+      result["runtime_stage"]=valid?"helper_pack_verified":"helper_pack_rejected";result["runtime_message"]=valid?"Exact x86 helper/runtime software receipts verified; SDK open remains untested":QString::fromStdString(pack.error);
+      result["runtime_selection_error"]=valid?QString():QString::fromStdString(pack.error);
+    }
+    hardwareDiscovery=result;discoveryRunning=false;saveConnectionEvidence();
     applicationEvent("ddc_discovery","",hardwareDiscovery);if(label)label->setText(desktop::discoverySummary(hardwareDiscovery));
-    toast(hardwareDiscovery.value("physical_presence").toString()=="unknown"?"DDC scan incomplete; hardware presence unknown":QString("DDC scan complete: %1 matching Windows device(s). Logical assignments require Card Manager.").arg(hardwareDiscovery.value("detected_devices").toInt()));watcher->deleteLater();});
-  const auto path=QString::fromStdWString(backend.captureConfig.runtime.wstring());watcher->setFuture(QtConcurrent::run([path]{return desktop::discoverDdc(path);}));
+    toast(hardwareDiscovery.value("physical_presence").toString()=="unknown"?"DDC scan incomplete; hardware presence unknown":QString("DDC scan complete: %1 matching Windows device(s). Logical assignments require Card Manager.").arg(hardwareDiscovery.value("detected_devices").toInt()));watcher->deleteLater();
+    if(connectAfterDiscovery){connectAfterDiscovery=false;connectionAssignmentsFresh=true;connectDevices();}
+  });
+  const auto path=QString::fromStdWString(backend.captureConfig.runtime.wstring());
+  const bool probe=!connecting&&!backend.acquisition.connected()&&!backend.acquisition.active()&&!savingSession;
+  if(QStandardPaths::isTestModeEnabled()&&hardwareDiscovery.value("sdk_fixture").toBool()) {
+    const auto fixture=hardwareDiscovery;watcher->setFuture(QtConcurrent::run([fixture]{return fixture;}));
+  }else watcher->setFuture(QtConcurrent::run([path,probe]{return desktop::discoverDdc(path,probe);}));
 }
 void Window::openCardManager() {
-#ifdef Q_OS_WIN
-  const auto path=QDir(qEnvironmentVariable("SystemRoot","C:/Windows")).filePath("System32/ddccm.exe");
-  if(!QFileInfo::exists(path)){toast("DDC Card Manager is not installed. Install the matching vendor SDK/driver on this PC.");return;}
-  const auto result=reinterpret_cast<INT_PTR>(ShellExecuteW(nullptr,L"runas",reinterpret_cast<LPCWSTR>(path.utf16()),nullptr,nullptr,SW_SHOWNORMAL));
-  applicationEvent("ddc_card_manager_launch",path,{{"result",double(result)}});
-  if(result<=32)toast("DDC Card Manager did not open; Windows elevation may have been cancelled.");
-#else
-  toast("DDC Card Manager is available on Windows");
-#endif
+  if(discoveryRunning){toast("Wait for the DDC scan to finish before opening Card Manager.");return;}
+  if(connecting||backend.acquisition.connected()||backend.acquisition.active()||savingSession){toast("Disconnect devices and finish saving before changing Card Manager assignments.");return;}
+  const auto location=desktop::locateCardManager(settings.value("ddcCardManagerPath").toString());
+  if(location.path.isEmpty()){applicationEvent("ddc_card_manager_not_found",location.error);toast(location.error);return;}
+  const auto result=desktop::launchCardManager(location.path);
+  applicationEvent("ddc_card_manager_launch",location.path,{{"launched",result.launched},{"cancelled",result.cancelled},{"error_code",int(result.errorCode)},{"process_id",int(result.processId)},{"message",result.message}});
+  if(!result.launched){toast(result.message);return;}
+  cardManagerRefreshPending=true;
+  if(!cardManagerReactivation)cardManagerReactivation=connect(qApp,&QGuiApplication::applicationStateChanged,this,[this](Qt::ApplicationState state){
+    if(state==Qt::ApplicationActive&&cardManagerRefreshPending){cardManagerRefreshPending=false;QTimer::singleShot(600,this,[this]{if(!discoveryRunning)rescanDdc();});}
+  });
+  toast("Card Manager opened. Verify logical assignments there, then return to AeroTrace; devices remain disconnected.");
 }
 void Window::stopAndSave(QString recording) {
   if(savingSession){toast("Stop & save is already running");return;}
   if(connecting){toast("Wait for connection to finish or cancel it before saving");return;}
-  const auto path=!recording.isEmpty()?recording:(backend.acquisition.active()?currentFile:((page==11&&backend.replaySource&&!currentReplay.isEmpty())?currentReplay:currentFile));
+  const auto path=!recording.isEmpty()?recording:(backend.acquisition.active()?currentFile:(((page==11||viewingReplayStatistics)&&backend.replaySource&&!currentReplay.isEmpty())?currentReplay:currentFile));
   if(!recording.isEmpty()&&recording!=currentFile&&backend.acquisition.active()){toast("Stop the active capture before exporting another session");return;}
   if(path.isEmpty()||!QFileInfo::exists(path)){toast("No recording to save. The DDC connection must succeed first.");return;}
   automaticHeld=true;configurationRetry.stop();savingSession=true;sessionSaveState="Stopping and draining";
@@ -79,13 +101,18 @@ void Window::buildMonitorPanes(QTableView *original) {
   auto container=original->parentWidget();auto layout=qobject_cast<QVBoxLayout *>(container->layout());
   monitorWorkspace=new QMdiArea(container);monitorWorkspace->setObjectName("monitorWorkspace");monitorWorkspace->setBackground(QColor("#eef1e9"));monitorWorkspace->setMinimumHeight(280);auto workspacePalette=monitorWorkspace->palette();workspacePalette.setColor(QPalette::Highlight,QColor("#315f43"));workspacePalette.setColor(QPalette::HighlightedText,Qt::white);workspacePalette.setColor(QPalette::WindowText,QColor("#2e3931"));monitorWorkspace->setPalette(workspacePalette);
   layout->insertWidget(layout->indexOf(original),monitorWorkspace,1);
-  rtGrouped=settings.value("monitorRowMode","rt").toString()=="rt";
-  auto rowTools=new QHBoxLayout;auto grouping=new QComboBox;grouping->setObjectName("monitorRowMode");grouping->setAccessibleName("Live monitor row grouping");grouping->addItems({"Grouped by RT","Chronological records"});grouping->setCurrentIndex(rtGrouped?0:1);
+  const auto rowMode=settings.value("monitorRowMode","statistics").toString();
+  rtGrouped=rowMode!="raw";rtStatistics=rowMode!="rt";
+  auto rowTools=new QHBoxLayout;auto grouping=new QComboBox;grouping->setObjectName("monitorRowMode");grouping->setAccessibleName("Live monitor row grouping");grouping->addItems({"RT statistics","Message routes","Chronological records"});grouping->setCurrentIndex(rtGrouped?(rtStatistics?0:1):2);
   auto pause=new QPushButton("Pause RT display");pause->setObjectName("pauseRtDisplay");rowTools->addWidget(grouping);rowTools->addWidget(pause);rowTools->addStretch();layout->insertLayout(layout->indexOf(monitorWorkspace),rowTools);
   if(recordButton)rowTools->addWidget(recordButton);
-  connect(grouping,&QComboBox::currentIndexChanged,container,[this,pause](int mode){rtGrouped=mode==0;settings.setValue("monitorRowMode",rtGrouped?"rt":"raw");pause->setEnabled(rtGrouped);refreshMonitorPanes();});
-  connect(pause,&QPushButton::clicked,container,[this,pause]{rtDisplayPaused=!rtDisplayPaused;pause->setText(rtDisplayPaused?"Resume RT display":"Pause RT display");refreshRtMonitor();});
+  connect(grouping,&QComboBox::currentIndexChanged,container,[this,pause](int mode){
+    if(viewingReplayStatistics&&mode==2){viewingReplayStatistics=false;navigate(11);return;}
+    rtGrouped=mode!=2;rtStatistics=mode==0;settings.setValue("monitorRowMode",mode==0?"statistics":mode==1?"rt":"raw");pause->setEnabled(rtGrouped);refreshMonitorPanes();});
+  connect(pause,&QPushButton::clicked,container,[this,pause]{rtDisplayPaused=!rtDisplayPaused;pause->setText(rtDisplayPaused?"Resume RT display":"Pause RT display");refreshRtMonitor();refreshOperatorState();});
   pause->setEnabled(rtGrouped);
+  if(replayRtFrame){auto source=new QPushButton(viewingReplayStatistics?"Return to live monitor":"Recorded session RT statistics");source->setObjectName("monitorStatisticsSource");rowTools->addWidget(source);
+    connect(source,&QPushButton::clicked,container,[this]{viewingReplayStatistics=!viewingReplayStatistics;rtDisplayPaused=false;settings.setValue("monitorRowMode","statistics");settings.setValue("monitorLayout","windows");navigate(4);});}
   for(const auto channel:{0,1}) {
     auto &source=paneModels[channel];source.channelFilter=channel+1;source.sharedSource=&model;source.refresh();
     if(!paneSelection[channel])paneSelection[channel]=settings.value(QString("pane%1Selection").arg(channel)).toULongLong();
@@ -116,7 +143,7 @@ void Window::buildMonitorPanes(QTableView *original) {
     connect(view,&QTableView::doubleClicked,panel,[this,view](const QModelIndex &i){monitor=view;if(i.column()>=17)plotMonitorSelection();else inspectSelection();});
     auto window=monitorWorkspace->addSubWindow(panel,Qt::SubWindow|Qt::CustomizeWindowHint|Qt::WindowTitleHint|Qt::WindowMinMaxButtonsHint);
     // Child windows stay inside the workspace; neither window can stop capture.
-    channelWindows[channel]=window;window->setWindowTitle(QString("%1 / Channel %2 / Logical %3").arg(channel?"Internal":"External").arg(channel+1).arg(backend.captureConfig.logicalDevices[channel]));window->setMinimumSize(320,220);window->show();
+    channelWindows[channel]=window;window->setWindowTitle(viewingReplayStatistics?QString("%1 / Recorded Channel %2").arg(channel?"Internal":"External").arg(channel+1):QString("%1 / Channel %2 / Logical %3").arg(channel?"Internal":"External").arg(channel+1).arg(backend.captureConfig.logicalDevices[channel]));window->setMinimumSize(320,220);window->show();
   }
   connect(monitorWorkspace,&QMdiArea::subWindowActivated,this,[this](QMdiSubWindow *w){for(int c=0;c<2;++c)if(w==channelWindows[c]){monitor=paneViews[c];settings.setValue("activeMonitorChannel",c);}});
   applyMonitorLayout();refreshMonitorPanes();
@@ -141,7 +168,7 @@ void Window::applyMonitorLayout() {
   if(auto readiness=content->findChild<QWidget *>("deviceReadiness"))readiness->setVisible(!windows);
   for(const auto &name:{"allBusButton","busAButton","busBButton","rtFilter","hexSearch","columnsButton"})if(auto w=content->findChild<QWidget *>(name))w->setVisible(!windows);
   monitor=windows?paneViews[settings.value("activeMonitorChannel",0).toInt()==1?1:0]:tabMonitor;
-  if(auto grouping=content->findChild<QComboBox *>("monitorRowMode")){QSignalBlocker block(grouping);grouping->setEnabled(windows);grouping->setCurrentIndex(windows&&rtGrouped?0:1);}
+  if(auto grouping=content->findChild<QComboBox *>("monitorRowMode")){QSignalBlocker block(grouping);grouping->setEnabled(windows);grouping->setCurrentIndex(windows&&rtGrouped?(rtStatistics?0:1):2);}
   if(auto pause=content->findChild<QPushButton *>("pauseRtDisplay"))pause->setEnabled(windows&&rtGrouped);
   refreshOperatorState();
 }
@@ -155,27 +182,42 @@ void Window::refreshMonitorPanes(bool incremental) {
     const auto m=backend.acquisition.metrics(false);const auto count=m.sourceCounts[c*2]+m.sourceCounts[c*2+1];
     if(paneCounts[c]) {
       const auto phase=m.devices[c].phase;
-      const auto state=phase==aero::DevicePhase::Monitoring?(count?"Receiving":"Monitoring / no traffic"):phase==aero::DevicePhase::Simulating?"Simulation":phase==aero::DevicePhase::Failed?"Connection failed":phase==aero::DevicePhase::Disabled?"Disabled":phase==aero::DevicePhase::Checking?"Checking":phase==aero::DevicePhase::Ready?"Connected · waiting for Start recording":"Stopped";
+      const QString state=phase==aero::DevicePhase::Monitoring?(count?"Receiving":"Monitoring / no traffic"):phase==aero::DevicePhase::Simulating?"Simulation":phase==aero::DevicePhase::Failed?"Connection failed":phase==aero::DevicePhase::Disabled?"Disabled":phase==aero::DevicePhase::Checking?"Checking":phase==aero::DevicePhase::Ready?"Connected · waiting for Start recording":m.devices[c].message.empty()?QString("Stopped"):QString::fromStdString(m.devices[c].message);
       paneCounts[c]->setText(QString("%1 · CH%2 / logical %3 · %4\n%5 recorded · %6 shown").arg(c?"Internal":"External").arg(c+1).arg(backend.captureConfig.logicalDevices[c]).arg(state).arg(count).arg(source.rowCount()));
-      if(rtGrouped)paneCounts[c]->setText(QString("%1 · CH%2 / logical %3 · %4\nA: %5 messages · B: %6 messages · %7 RT groups%8").arg(c?"Internal":"External").arg(c+1).arg(backend.captureConfig.logicalDevices[c]).arg(state).arg(m.sourceCounts[c*2]).arg(m.sourceCounts[c*2+1]).arg(rtModels[c].rowCount()).arg(rtDisplayPaused?" · DISPLAY PAUSED":""));
-      paneCounts[c]->setToolTip(QString::fromStdString(m.devices[c].message));
+      if(rtGrouped)paneCounts[c]->setText(rtMonitorSummary(c,state));
+      paneCounts[c]->setToolTip(QString::fromStdString(m.devices[c].message)+"\nTotal commands counts each recorded message once. RT-to-RT participates in both RT rows; display filters and pause never change acquisition counts.");
     }
   }
 }
 void Window::refreshRtMonitor() {
   for(auto button:content->findChildren<QPushButton *>())if(button->property("rawColumnsOnly").toBool())button->setEnabled(!rtGrouped);
-  auto frame=backend.acquisition.rtFrame();aero::RtMonitorFrame fallback;
-  if(!frame){fallback.session=currentFile.toStdString()+"/retained";for(const auto &r:model.records)fallback.consume(r);}
+  if(!rtDisplayPaused){
+    displayedRtFrame=viewingReplayStatistics?replayRtFrame:backend.acquisition.rtFrame();
+    rtFrameScope=viewingReplayStatistics?"Recorded session · full file":"Live acquisition";
+    if(!displayedRtFrame){auto fallback=std::make_shared<aero::RtMonitorFrame>();fallback->session=currentFile.toStdString()+"/retained";for(const auto &r:model.records)fallback->consume(r);displayedRtFrame=fallback;rtFrameScope="Retained display records only";}
+  }
   for(int c=0;c<2;++c)if(auto tree=rtViews[c]) {
     if(auto panel=tree->parentWidget())panel->setVisible(rtGrouped);if(paneViews[c])paneViews[c]->setVisible(!rtGrouped);
     if(!rtGrouped||rtDisplayPaused)continue;
-    const auto &filter=paneModels[c];rtModels[c].update(frame?*frame:fallback,c,filter.busFilter);
-    if(!tree->property("widthsSet").toBool()){const int widths[]={110,135,135,85,125,90};for(int i=0;i<6;++i)tree->setColumnWidth(i,widths[i]);tree->setProperty("widthsSet",true);}
-    tree->setColumnHidden(1,filter.busFilter=="B");tree->setColumnHidden(2,filter.busFilter=="A");
+    const auto &filter=paneModels[c];const auto mode=rtStatistics?RtRecordModel::Mode::Statistics:RtRecordModel::Mode::Routes;
+    if(rtModels[c].mode()!=mode){rtModels[c].setMode(mode);tree->setProperty("widthsSet",false);}
+    if(!displayedRtFrame)continue;rtModels[c].update(*displayedRtFrame,c,filter.busFilter);
+    if(!tree->property("widthsSet").toBool()){const int statsWidths[]={96,45,110,110,90,90,110,105,110,100};const int routeWidths[]={110,135,135,85,125,90};
+      for(int i=0;i<rtModels[c].columnCount();++i){tree->setColumnHidden(i,false);tree->setColumnWidth(i,rtStatistics?statsWidths[i]:routeWidths[i]);}tree->setRootIsDecorated(!rtStatistics);tree->setUniformRowHeights(rtStatistics);tree->setProperty("widthsSet",true);}
+    if(!rtStatistics){tree->setColumnHidden(1,filter.busFilter=="B");tree->setColumnHidden(2,filter.busFilter=="A");}
     for(int row=0;row<rtModels[c].rowCount();++row){const auto parent=rtModels[c].index(row,0);const auto rt=parent.data(Qt::UserRole+1).toInt();bool matching=false;
       for(int child=0;child<rtModels[c].rowCount(parent);++child){const auto i=rtModels[c].index(child,0,parent);const auto r=rtModels[c].recordFor(i);const bool visible=r&&(filter.busFilter.isEmpty()||filter.busFilter==(r->bus?"B":"A"))&&(filter.search.isEmpty()||words(*r).contains(filter.search,Qt::CaseInsensitive));tree->setRowHidden(child,parent,!visible);matching|=visible;}
+      if(rtStatistics){const auto r=rtModels[c].recordFor(parent);matching=r&&(filter.busFilter.isEmpty()||filter.busFilter==(r->bus?"B":"A"))&&(filter.search.isEmpty()||words(*r).contains(filter.search,Qt::CaseInsensitive));}
       tree->setRowHidden(row,{},(filter.rtFilter>=0&&rt!=filter.rtFilter)||!matching);
     }
-    if(!tree->currentIndex().isValid())for(int row=0;row<rtModels[c].rowCount();++row)if(!tree->isRowHidden(row,{})){tree->setCurrentIndex(rtModels[c].index(row,0));break;}
+    const auto selected=tree->currentIndex();
+    if(!selected.isValid()||tree->isRowHidden(selected.row(),selected.parent()))for(int row=0;row<rtModels[c].rowCount();++row)if(!tree->isRowHidden(row,{})){tree->setCurrentIndex(rtModels[c].index(row,0));break;}
   }
+}
+QString Window::rtMonitorSummary(unsigned channel,const QString &state) const {
+  const auto total=displayedRtFrame?displayedRtFrame->totalCommands[channel]:0;
+  const auto invalid=displayedRtFrame?displayedRtFrame->invalidCommands[channel]:0;
+  const auto identity=viewingReplayStatistics?QString("%1 · Recorded CH%2").arg(channel?"Internal":"External").arg(channel+1):QString("%1 · CH%2 / logical %3").arg(channel?"Internal":"External").arg(channel+1).arg(backend.captureConfig.logicalDevices[channel]);
+  return QString("%1 · %2\nTotal commands: %3 · Invalid commands: %4\n%5%6")
+    .arg(identity).arg(viewingReplayStatistics?"Recorded session":state).arg(total).arg(invalid).arg(rtFrameScope).arg(rtDisplayPaused?" · DISPLAY PAUSED":"");
 }

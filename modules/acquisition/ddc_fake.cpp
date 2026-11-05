@@ -29,7 +29,7 @@ EXPORT S16BIT WINAPI aceGetHwVersionInfo(S16BIT device,PHWVERSIONINFO out){std::
   legacy=!flag("AEROTRACE_TEST_DDC_FORCE_MTI");
 #endif
   out->dwCapabilities=legacy?0:HWVER_CAPABILITY_MTI;out->dwFamilyNumber=legacy?E2MACE:ACEX;return 0;}
-EXPORT S16BIT WINAPI aceFree(S16BIT device){configured[device]=false;active[device]=false;return startedOnce[device]&&flag("AEROTRACE_TEST_DDC_FREE_FAIL")?-81:0;}
+EXPORT S16BIT WINAPI aceFree(S16BIT device){configured[device]=false;active[device]=false;return flag("AEROTRACE_TEST_DDC_FREE_OPEN_FAIL")||(startedOnce[device]&&flag("AEROTRACE_TEST_DDC_FREE_FAIL"))?-81:0;}
 EXPORT S16BIT WINAPI aceSetTimeTagRes(S16BIT,U16BIT resolution){return resolution==ACE_TT_2US ? 0 : -1;}
 EXPORT int WINAPI aeroTestStartCount(){return starts;}
 EXPORT void WINAPI aeroTestResetStarts(){starts=0;}

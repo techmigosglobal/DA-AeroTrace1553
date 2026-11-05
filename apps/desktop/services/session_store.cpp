@@ -13,7 +13,10 @@ QString describeSession(const QString &p,const aero::CaptureConfig &c) {
   QJsonArray devices,enabled;for(auto n:c.logicalDevices)devices.append(n);for(auto on:c.enabled)enabled.append(on);
   QJsonObject o{{"schema","aerotrace.session.v1"},{"session_id",QFileInfo(p).baseName()},{"application_run_id",QString::fromStdString(c.runId)},
     {"source",c.hardware?"DDC_HARDWARE":"SIMULATED"},{"logical_devices",devices},{"enabled",enabled},{"external_channel",1},{"internal_channel",2},
-    {"recording",QFileInfo(p).fileName()},{"started_utc",QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)},{"export_state","not_exported"}};
+    {"recording",QFileInfo(p).fileName()},{"started_utc",QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)},{"export_state","not_exported"},
+    {"receive_backend",c.backend==aero::DdcBackend::NativeX64?"native_x64":"helper_x86"},{"receive_mode",int(c.receiveMode)},
+    {"connection_policy",c.connectionPolicy==aero::DdcConnectionPolicy::Compatibility?"compatibility":"qualified_automatic"},
+    {"configured_runtime",QString::fromStdWString(c.runtime.wstring())},{"helper_manifest",QString::fromStdWString(c.helperPack.wstring())}};
   return writeJson(p+".session.json",o)?QString():"Cannot preserve session descriptor";
 }
 QString sessionDisplayName(const QString &recording) {const auto o=readJson(recording+".session.json");return o.value("run_name").toString(QFileInfo(recording).baseName());}

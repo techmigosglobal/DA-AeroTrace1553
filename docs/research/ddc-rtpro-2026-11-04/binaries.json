@@ -1,0 +1,452 @@
+[
+  {
+    "Path": "C:\\RTips Technologies\\RTProAnalyzer\\cm.dll",
+    "Bytes": 54272,
+    "FileVersion": "6.1.0",
+    "ProductVersion": "6.1.0",
+    "ProductName": "CopyMinder DLL",
+    "CompanyName": "Microcosm Ltd.",
+    "SHA256": "A943083E59DC2F71DEBE2FD83B636328FF2C7DCCDEFB4D97FA3625733C2D6DE5",
+    "PEMachine": "x86"
+  },
+  {
+    "Path": "C:\\RTips Technologies\\RTProAnalyzer\\CMInstall.exe",
+    "Bytes": 81920,
+    "FileVersion": "6, 1, 0, 0",
+    "ProductVersion": "6, 1, 0, 0",
+    "ProductName": "CopyMinder",
+    "CompanyName": "Microcosm (www.microcosm.co.uk)",
+    "SHA256": "C39B9ACF52B9A3A53642990DB303CA78F368D57389E45918A920455FF5F559A6",
+    "PEMachine": "x86"
+  },
+  {
+    "Path": "C:\\RTips Technologies\\RTProAnalyzer\\CMServer.exe",
+    "Bytes": 598528,
+    "FileVersion": "6.1.0",
+    "ProductVersion": "6.1.0",
+    "ProductName": "CMServer",
+    "CompanyName": "Microcosm Ltd.",
+    "SHA256": "4FE5434166157FDC2D427610B978D37ABDDDFC07B2BB75387458173CF081E642",
+    "PEMachine": "x86"
+  },
+  {
+    "Path": "C:\\RTips Technologies\\RTProAnalyzer\\dipswitchplugin.dll",
+    "Bytes": 45568,
+    "FileVersion": null,
+    "ProductVersion": null,
+    "ProductName": null,
+    "CompanyName": null,
+    "SHA256": "70E1F95C317662A52482C34745AC1CCE9E4B28D966B1C99E16F256A19CF62DCB",
+    "PEMachine": "x86"
+  },
+  {
+    "Path": "C:\\RTips Technologies\\RTProAnalyzer\\emacepl.dll",
+    "Bytes": 612936,
+    "FileVersion": "3.6.13.1",
+    "ProductVersion": "3.6.13.1",
+    "ProductName": "DDC MIL-STD-1553 AceXtreme C SDK",
+    "CompanyName": "Data Device Corporation",
+    "SHA256": "D32D19CC7A31443A504AE3E1B34D103BB3411AD122FAF6CD22652D0BC1A3733F",
+    "PEMachine": "x86"
+  },
+  {
+    "Path": "C:\\RTips Technologies\\RTProAnalyzer\\hasp_windows_112879.dll",
+    "Bytes": 4411392,
+    "FileVersion": "7.4.1.56018",
+    "ProductVersion": "7.4",
+    "ProductName": "SafeNet Sentinel LDK RuntimeExternalAPI DLL",
+    "CompanyName": "SafeNet Inc.",
+    "SHA256": "595D5A031A9335591F9D1BCA010507C126FAC55B6993B49F5730576E1C44F260",
+    "PEMachine": "x86"
+  },
+  {
+    "Path": "C:\\RTips Technologies\\RTProAnalyzer\\libgcc_s_dw2-1.dll",
+    "Bytes": 113678,
+    "FileVersion": null,
+    "ProductVersion": null,
+    "ProductName": null,
+    "CompanyName": null,
+    "SHA256": "AA8180B63A849E755323BB1ABE364B654C0EED9B433738FC491E5B64C410EF76",
+    "PEMachine": "x86"
+  },
+  {
+    "Path": "C:\\RTips Technologies\\RTProAnalyzer\\libstdc++-6.dll",
+    "Bytes": 1542158,
+    "FileVersion": null,
+    "ProductVersion": null,
+    "ProductName": null,
+    "CompanyName": null,
+    "SHA256": "C05B714B94BAB75DDFB77339AA5F48772BE7AC2C3E9D7322E2D1549FC0A39CFD",
+    "PEMachine": "x86"
+  },
+  {
+    "Path": "C:\\RTips Technologies\\RTProAnalyzer\\libwinpthread-1.dll",
+    "Bytes": 47104,
+    "FileVersion": "1, 0, 0, 0",
+    "ProductVersion": "1, 0, 0, 0",
+    "ProductName": "",
+    "CompanyName": "MingW-W64 Project. All rights reserved.",
+    "SHA256": "AE1B4FE65DA58196FEA59B4DC0BE64AE68D6EF04497027FADBDDBC2DC38D843D",
+    "PEMachine": "x86"
+  },
+  {
+    "Path": "C:\\RTips Technologies\\RTProAnalyzer\\qledplugin.dll",
+    "Bytes": 103936,
+    "FileVersion": null,
+    "ProductVersion": null,
+    "ProductName": null,
+    "CompanyName": null,
+    "SHA256": "8BBEF247E0D6EB826290F8A41D77C0D1D91E00414B46A1B91508C0CE7846A39C",
+    "PEMachine": "x86"
+  },
+  {
+    "Path": "C:\\RTips Technologies\\RTProAnalyzer\\Qt5Core.dll",
+    "Bytes": 6729368,
+    "FileVersion": "5.13.1.0",
+    "ProductVersion": "5.13.1.0",
+    "ProductName": "Qt5",
+    "CompanyName": "The Qt Company Ltd.",
+    "SHA256": "FC1548DA5A7D1B6ED1BD8705E80B550C6C7E405411A2171E7862F4701EBF32F5",
+    "PEMachine": "x86"
+  },
+  {
+    "Path": "C:\\RTips Technologies\\RTProAnalyzer\\Qt5Gui.dll",
+    "Bytes": 6939800,
+    "FileVersion": "5.13.1.0",
+    "ProductVersion": "5.13.1.0",
+    "ProductName": "Qt5",
+    "CompanyName": "The Qt Company Ltd.",
+    "SHA256": "EB053F4A80C3F4CD0383E82157F788CCDCA341287F39FA77DC610F538F4E1E0E",
+    "PEMachine": "x86"
+  },
+  {
+    "Path": "C:\\RTips Technologies\\RTProAnalyzer\\Qt5Network.dll",
+    "Bytes": 1916056,
+    "FileVersion": "5.13.1.0",
+    "ProductVersion": "5.13.1.0",
+    "ProductName": "Qt5",
+    "CompanyName": "The Qt Company Ltd.",
+    "SHA256": "2BD60A4BED8D16DD37F0461C6027603B156E7144A3D1FD82E7574B3431CFD849",
+    "PEMachine": "x86"
+  },
+  {
+    "Path": "C:\\RTips Technologies\\RTProAnalyzer\\Qt5OpenGL.dll",
+    "Bytes": 333976,
+    "FileVersion": "5.13.1.0",
+    "ProductVersion": "5.13.1.0",
+    "ProductName": "Qt5",
+    "CompanyName": "The Qt Company Ltd.",
+    "SHA256": "213C3E9179C86EEE3025AF2F9C02FCBA0180CF9D6B4BAA38243C4B460835DD9F",
+    "PEMachine": "x86"
+  },
+  {
+    "Path": "C:\\RTips Technologies\\RTProAnalyzer\\Qt5PrintSupport.dll",
+    "Bytes": 357016,
+    "FileVersion": "5.13.1.0",
+    "ProductVersion": "5.13.1.0",
+    "ProductName": "Qt5",
+    "CompanyName": "The Qt Company Ltd.",
+    "SHA256": "CAE9BDAA1F997D401B9966025593BAB5E5E722BA8DB6FD07A38F0AFFB958322C",
+    "PEMachine": "x86"
+  },
+  {
+    "Path": "C:\\RTips Technologies\\RTProAnalyzer\\Qt5Sql.dll",
+    "Bytes": 301208,
+    "FileVersion": "5.13.1.0",
+    "ProductVersion": "5.13.1.0",
+    "ProductName": "Qt5",
+    "CompanyName": "The Qt Company Ltd.",
+    "SHA256": "2DF1AC0C5C6D5B1763095E3DFAD529752CDE5E2B9AA91CDEC8BDD0B5C37B43EF",
+    "PEMachine": "x86"
+  },
+  {
+    "Path": "C:\\RTips Technologies\\RTProAnalyzer\\Qt5Svg.dll",
+    "Bytes": 367256,
+    "FileVersion": "5.13.1.0",
+    "ProductVersion": "5.13.1.0",
+    "ProductName": "Qt5",
+    "CompanyName": "The Qt Company Ltd.",
+    "SHA256": "047CFC9A0601AAD7171709201DD8376240047D86BB0D8E92A945C2DD5E17075B",
+    "PEMachine": "x86"
+  },
+  {
+    "Path": "C:\\RTips Technologies\\RTProAnalyzer\\Qt5Widgets.dll",
+    "Bytes": 6363800,
+    "FileVersion": "5.13.1.0",
+    "ProductVersion": "5.13.1.0",
+    "ProductName": "Qt5",
+    "CompanyName": "The Qt Company Ltd.",
+    "SHA256": "B35A684DE7A49ECF06E5B4C32AADBBEAC59661E8B34D62B25DE20FB7D247FBBC",
+    "PEMachine": "x86"
+  },
+  {
+    "Path": "C:\\RTips Technologies\\RTProAnalyzer\\qwt.dll",
+    "Bytes": 1130496,
+    "FileVersion": null,
+    "ProductVersion": null,
+    "ProductName": null,
+    "CompanyName": null,
+    "SHA256": "D07B23283ADA7C11C8063AAF1A7B03BBF3D09DCAAF1C93923CA58F756D25B842",
+    "PEMachine": "x86"
+  },
+  {
+    "Path": "C:\\RTips Technologies\\RTProAnalyzer\\Rockey5.dll",
+    "Bytes": 94208,
+    "FileVersion": "1, 0, 0, 0",
+    "ProductVersion": "1, 0, 0, 0",
+    "ProductName": "Rockey5 TIME",
+    "CompanyName": "FEITIAN Technologies Co.,Ltd.",
+    "SHA256": "0B12ECFDB73916504675478F3CE4C8C57987699755A15ECC020C36E05E01754B",
+    "PEMachine": "x86"
+  },
+  {
+    "Path": "C:\\RTips Technologies\\RTProAnalyzer\\RTProAnalyzer_MaintenanceTool.exe",
+    "Bytes": 19796480,
+    "FileVersion": null,
+    "ProductVersion": null,
+    "ProductName": null,
+    "CompanyName": null,
+    "SHA256": "7A4957E962C6176D514276FBFACEA99124C1235F9D7891B71C713193C424F981",
+    "PEMachine": "x86"
+  },
+  {
+    "Path": "C:\\RTips Technologies\\RTProAnalyzer\\RTProAnalyzer.exe",
+    "Bytes": 3344896,
+    "FileVersion": null,
+    "ProductVersion": null,
+    "ProductName": null,
+    "CompanyName": null,
+    "SHA256": "2B4A3DE447EB1BF83A6E45F4E4257F77C5402327463F2C6EEC80DF6DD0582DA4",
+    "PEMachine": "x86"
+  },
+  {
+    "Path": "C:\\RTips Technologies\\RTProAnalyzerNxtGen\\D3Dcompiler_47.dll",
+    "Bytes": 4173928,
+    "FileVersion": "6.3.9600.16384 (winblue_rtm.130821-1623)",
+    "ProductVersion": "6.3.9600.16384",
+    "ProductName": "Microsoft\u00ae Windows\u00ae Operating System",
+    "CompanyName": "Microsoft Corporation",
+    "SHA256": "E994847E01A6F1E4CBDC5A864616AC262F67EE4F14DB194984661A8D927AB7F4",
+    "PEMachine": "x64"
+  },
+  {
+    "Path": "C:\\RTips Technologies\\RTProAnalyzerNxtGen\\hasp_rt.exe",
+    "Bytes": 5554408,
+    "FileVersion": "30.3.1.180838",
+    "ProductVersion": "10.0",
+    "ProductName": "Sentinel LDK",
+    "CompanyName": "THALES",
+    "SHA256": "938AFB5821F23294CEEDD76ED3A845114DB7505FD151321A071D6ED5DBF792FB",
+    "PEMachine": "x86"
+  },
+  {
+    "Path": "C:\\RTips Technologies\\RTProAnalyzerNxtGen\\hasp_windows_x64_112879.dll",
+    "Bytes": 6359272,
+    "FileVersion": "10.21.1.186893",
+    "ProductVersion": "10.2",
+    "ProductName": "Sentinel LDK",
+    "CompanyName": "THALES",
+    "SHA256": "D2024CEE1E0A4875AD92D745373BB6FFF4B7DEC5810BAEFE1F939E5BFCAADA25",
+    "PEMachine": "x64"
+  },
+  {
+    "Path": "C:\\RTips Technologies\\RTProAnalyzerNxtGen\\haspvlib_112879.dll",
+    "Bytes": 762600,
+    "FileVersion": "10.21.1.186893",
+    "ProductVersion": "10.2",
+    "ProductName": "Sentinel LDK",
+    "CompanyName": "THALES",
+    "SHA256": "9D7445FEAD1D642E0AEB4E9D12FD608D27C0D428D8B939B4DB46C09DD277AD93",
+    "PEMachine": "x86"
+  },
+  {
+    "Path": "C:\\RTips Technologies\\RTProAnalyzerNxtGen\\libgcc_s_seh-1.dll",
+    "Bytes": 75264,
+    "FileVersion": null,
+    "ProductVersion": null,
+    "ProductName": null,
+    "CompanyName": null,
+    "SHA256": "8660371EF7B69772138EF71F9077AE5C742B4A9B768CCCA59263D20E8DEC1815",
+    "PEMachine": "x64"
+  },
+  {
+    "Path": "C:\\RTips Technologies\\RTProAnalyzerNxtGen\\libstdc++-6.dll",
+    "Bytes": 2243072,
+    "FileVersion": null,
+    "ProductVersion": null,
+    "ProductName": null,
+    "CompanyName": null,
+    "SHA256": "8013488C5528BAD7966CA07F3EA2E7A9B743CACB258FE76B46A326F821CC83B0",
+    "PEMachine": "x64"
+  },
+  {
+    "Path": "C:\\RTips Technologies\\RTProAnalyzerNxtGen\\libwinpthread-1.dll",
+    "Bytes": 53248,
+    "FileVersion": "1, 0, 0, 0",
+    "ProductVersion": "1, 0, 0, 0",
+    "ProductName": "",
+    "CompanyName": "MingW-W64 Project. All rights reserved.",
+    "SHA256": "48A1D7FB4F81671BABB514A801946F49B7C4EFC54AAFE7CAA81F9A582AC30690",
+    "PEMachine": "x64"
+  },
+  {
+    "Path": "C:\\RTips Technologies\\RTProAnalyzerNxtGen\\opengl32sw.dll",
+    "Bytes": 20639888,
+    "FileVersion": null,
+    "ProductVersion": null,
+    "ProductName": null,
+    "CompanyName": null,
+    "SHA256": "B04DE4541863BC7D8879040A78889C4849C1B1DA2784C4630F734C146C2998CE",
+    "PEMachine": "x64"
+  },
+  {
+    "Path": "C:\\RTips Technologies\\RTProAnalyzerNxtGen\\qledplugin.dll",
+    "Bytes": 103936,
+    "FileVersion": null,
+    "ProductVersion": null,
+    "ProductName": null,
+    "CompanyName": null,
+    "SHA256": "D2B9592903768BB1379D22EAE578B3145845F9B27B5A1B7888E2414358A8FBF1",
+    "PEMachine": "x64"
+  },
+  {
+    "Path": "C:\\RTips Technologies\\RTProAnalyzerNxtGen\\Qt6Core.dll",
+    "Bytes": 11100000,
+    "FileVersion": "6.10.2.0",
+    "ProductVersion": "6.10.2.0",
+    "ProductName": "Qt6",
+    "CompanyName": "The Qt Company Ltd.",
+    "SHA256": "7E14027A0BB4017325DB707C315C70EE008C8F2364F60BB2EB04D53C017EE762",
+    "PEMachine": "x64"
+  },
+  {
+    "Path": "C:\\RTips Technologies\\RTProAnalyzerNxtGen\\Qt6Gui.dll",
+    "Bytes": 11387736,
+    "FileVersion": "6.10.2.0",
+    "ProductVersion": "6.10.2.0",
+    "ProductName": "Qt6",
+    "CompanyName": "The Qt Company Ltd.",
+    "SHA256": "5A6A0971E71979520B01682CE7DCD5B4138EE95F208286AC45010050AA386D9D",
+    "PEMachine": "x64"
+  },
+  {
+    "Path": "C:\\RTips Technologies\\RTProAnalyzerNxtGen\\Qt6Network.dll",
+    "Bytes": 2043224,
+    "FileVersion": "6.10.2.0",
+    "ProductVersion": "6.10.2.0",
+    "ProductName": "Qt6",
+    "CompanyName": "The Qt Company Ltd.",
+    "SHA256": "FED7A1924045AAB4B15005941B2113B9853C43ACC80BDFEEC8EA9B17D61BAB86",
+    "PEMachine": "x64"
+  },
+  {
+    "Path": "C:\\RTips Technologies\\RTProAnalyzerNxtGen\\Qt6OpenGL.dll",
+    "Bytes": 605528,
+    "FileVersion": "6.10.2.0",
+    "ProductVersion": "6.10.2.0",
+    "ProductName": "Qt6",
+    "CompanyName": "The Qt Company Ltd.",
+    "SHA256": "C1D2DE9CF356E7C7B00A96787EE4CB799BABBDE0AA7138334F2EF754FE0A1B4C",
+    "PEMachine": "x64"
+  },
+  {
+    "Path": "C:\\RTips Technologies\\RTProAnalyzerNxtGen\\Qt6PrintSupport.dll",
+    "Bytes": 421208,
+    "FileVersion": "6.10.2.0",
+    "ProductVersion": "6.10.2.0",
+    "ProductName": "Qt6",
+    "CompanyName": "The Qt Company Ltd.",
+    "SHA256": "74C20D48BFF7E5B5DB5D6C48B3EF2AC743E1CDA271F3C809F5E22F87AA4E3078",
+    "PEMachine": "x64"
+  },
+  {
+    "Path": "C:\\RTips Technologies\\RTProAnalyzerNxtGen\\Qt6Sql.dll",
+    "Bytes": 336728,
+    "FileVersion": "6.10.2.0",
+    "ProductVersion": "6.10.2.0",
+    "ProductName": "Qt6",
+    "CompanyName": "The Qt Company Ltd.",
+    "SHA256": "ACB3316405B615E57719E507444D49CB6350563C151788CE855ABB4722E58630",
+    "PEMachine": "x64"
+  },
+  {
+    "Path": "C:\\RTips Technologies\\RTProAnalyzerNxtGen\\Qt6Svg.dll",
+    "Bytes": 617816,
+    "FileVersion": "6.10.2.0",
+    "ProductVersion": "6.10.2.0",
+    "ProductName": "Qt6",
+    "CompanyName": "The Qt Company Ltd.",
+    "SHA256": "F68A1A456CBFCAD1BD9376883164217514B8DA7B7CFAC8FF390ACA3C6F363A35",
+    "PEMachine": "x64"
+  },
+  {
+    "Path": "C:\\RTips Technologies\\RTProAnalyzerNxtGen\\Qt6Widgets.dll",
+    "Bytes": 7155032,
+    "FileVersion": "6.10.2.0",
+    "ProductVersion": "6.10.2.0",
+    "ProductName": "Qt6",
+    "CompanyName": "The Qt Company Ltd.",
+    "SHA256": "18DCE4F681CDBF0970301B5E6FBF5E8EB32182051C684B9366435269301870B9",
+    "PEMachine": "x64"
+  },
+  {
+    "Path": "C:\\RTips Technologies\\RTProAnalyzerNxtGen\\RTProAnalyzerNxtGen_MaintenanceTool.exe",
+    "Bytes": 35169280,
+    "FileVersion": "\u0004\u6339\u4546\u5832\u6488\u6339\u7ffb",
+    "ProductVersion": "",
+    "ProductName": "",
+    "CompanyName": "",
+    "SHA256": "64010977249928ECE496E66DC06022986F712BC4D7EE27A8A11A65D1BAAB542B",
+    "PEMachine": "x64"
+  },
+  {
+    "Path": "C:\\RTips Technologies\\RTProAnalyzerNxtGen\\RTProAnalyzerNxtGen.exe",
+    "Bytes": 25092608,
+    "FileVersion": "4.1.1.142",
+    "ProductVersion": "4.1.1",
+    "ProductName": "RTProAnalyzer_NG",
+    "CompanyName": "RTips Technologies",
+    "SHA256": "C8BEC50FC39292FEC7F2B678A6D3D7DDCCB106372C296C5025540D746CB5B001",
+    "PEMachine": "x64"
+  },
+  {
+    "Path": "C:\\DDC\\ddccm.exe",
+    "Bytes": 2683432,
+    "FileVersion": "4.0.3.1",
+    "ProductVersion": "4.0.3.1",
+    "ProductName": "DDC Card Manager",
+    "CompanyName": "Data Device Corporation",
+    "SHA256": "E6816C9958DDC8D026555789A14F479854F8E258B7CFC7310EA393656D3AC529",
+    "PEMachine": "x64"
+  },
+  {
+    "Path": "C:\\DDC\\aceXtremeSDKv3.6.15\\Lib\\Win32\\Release\\emacepl.dll",
+    "Bytes": 622272,
+    "FileVersion": "3.6.15.1",
+    "ProductVersion": "3.6.15.1",
+    "ProductName": "DDC MIL-STD-1553 AceXtreme C SDK",
+    "CompanyName": "Data Device Corporation",
+    "SHA256": "9A97CCB6FA8F7F865C4345951D6F9BFE0B7A679FCBE95F8CADB9D835F94DD647",
+    "PEMachine": "x86"
+  },
+  {
+    "Path": "C:\\DDC\\aceXtremeSDKv3.6.15\\Lib\\x64\\Release\\emacepl.dll",
+    "Bytes": 654528,
+    "FileVersion": "3.6.15.1",
+    "ProductVersion": "3.6.15.1",
+    "ProductName": "DDC MIL-STD-1553 AceXtreme C SDK",
+    "CompanyName": "Data Device Corporation",
+    "SHA256": "71033E145FAA0E3D0303565CF15B2C274B4428CE91F53F3CF393C3A023511231",
+    "PEMachine": "x64"
+  },
+  {
+    "Path": "C:\\RTips Technologies\\RTProAnalyzerNxtGen\\RTProOfflineAnalysis\\RTProOfflineAnalysis.exe",
+    "Bytes": 23704219,
+    "FileVersion": null,
+    "ProductVersion": null,
+    "ProductName": null,
+    "CompanyName": null,
+    "SHA256": "174909964921E7350DAA1C89865751B53E23B7E5AB3A57BA51785E227FE5998F",
+    "PEMachine": "x64"
+  }
+]

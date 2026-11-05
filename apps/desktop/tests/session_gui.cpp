@@ -1,5 +1,6 @@
 #include "main_window.hpp"
 #include "services/session_store.hpp"
+#include "services/ddc_discovery.hpp"
 #include "record_csv.hpp"
 bool Window::sessionWorkflowTest(const QString &directory) {
   QDir().mkpath(directory);QStringList report;bool passed=true;
@@ -36,7 +37,7 @@ bool Window::sessionWorkflowTest(const QString &directory) {
   backend.profile.clear();backend.captureConfig.hardware=true;discoveryRunning=true;const auto beforeScanCapture=currentFile;startCapture();check(!connecting&&currentFile==beforeScanCapture,"Hardware connection waits for discovery to finish");discoveryRunning=false;backend.captureConfig.hardware=false;
   startCapture();navigate(4);settle(600);
   check(backend.acquisition.active()&&csvFolderEdit->text().isEmpty()&&runNameEdit->text().isEmpty(),"Monitoring starts without CSV folder or run name");
-  backend.captureConfig.hardware=true;rescanDdc();check(!discoveryRunning,"Runtime discovery cannot overlap SDK capture ownership");backend.captureConfig.hardware=false;
+  backend.captureConfig.hardware=true;rescanDdc();for(int i=0;i<150&&discoveryRunning;++i)settle(100);check(!discoveryRunning&&hardwareDiscovery.value("runtime_probe_blocked").toBool(),"Windows inventory refresh does not probe the SDK during capture");backend.captureConfig.hardware=false;
   check(monitorWorkspace&&paneViews[0]&&paneViews[1]&&paneModels[0].rowCount()>0&&paneModels[1].rowCount()>0,"Movable workspace displays both channels");
   check(channelWindows[0]->geometry().left()<channelWindows[1]->geometry().left(),"Initial channel windows are side by side");
   channelWindows[0]->move(15,25);channelWindows[0]->resize(460,280);persistMonitorWorkspace();check(settings.value("monitorWindow0").toRect().topLeft()==QPoint(15,25),"Child window geometry persists");
@@ -97,10 +98,15 @@ bool Window::hardwareConnectionTest(const QString &reportDirectory,const QString
   wait([&]{return !discoveryRunning;});backend.acquisition.stop();unlocked=true;sessionDir=directory;
   backend.captureConfig.hardware=true;backend.captureConfig.runtime=std::filesystem::path(runtime.toStdWString());backend.captureConfig.logicalDevices={0,1};
   settings.setValue("logicalChannel1",0);settings.setValue("logicalChannel2",1);
+  settings.setValue("ddcAssignmentMode","card_manager");
+  const QString board="USB\\VID_4DDC&PID_0300\\SDK-FIXTURE";
+  hardwareDiscovery={{"sdk_fixture",true},{"device_enumeration_complete",true},{"physical_presence","detected"},
+    {"devices",QJsonArray{QJsonObject{{"name","SDK fixture — no physical card"},{"instance_id",board}}}},
+    {"logical_assignments",QJsonArray{desktop::classifyDdcAssignment(0,{{"DeviceID",board},{"Channel",0},{"Family",3}}),desktop::classifyDdcAssignment(1,{{"DeviceID",board},{"Channel",1},{"Family",3}})}}};
   for(int c=1;c<=2;++c)for(auto b:{"A","B"})settings.setValue(QString("channel%1Bus %2").arg(c).arg(b),true);
   settings.setValue("exportFolder",directory+"/csv");settings.setValue("nextRunName","run1");
   navigate(4);wait([&]{return !discoveryRunning;});const auto before=QDir(directory).entryList({"*.atd"},QDir::Files).size();
-  connectDevices();wait([&]{return !connecting;});
+  connectDevices();wait([&]{return !connecting&&!connectAfterDiscovery&&!discoveryRunning;});
   check(backend.acquisition.connected()&&!backend.acquisition.active()&&backend.acquisition.metrics().recorded==0,"Connect initializes without starting acquisition");
   check(QDir(directory).entryList({"*.atd"},QDir::Files).size()==before,"Connect creates no recording file");
   check(recordButton&&recordButton->isEnabled()&&recordButton->text()=="Start recording","Live Monitor exposes Start recording after Connect");
@@ -111,8 +117,24 @@ bool Window::hardwareConnectionTest(const QString &reportDirectory,const QString
     check(!backend.acquisition.active()&&sessionSaveState=="Complete",QString("Cycle %1 stops and saves").arg(cycle+1));
     check(backend.acquisition.connected()==(cycle<2),"Stop retains connection; Disconnect releases it after save");
   }
-  connectDevices();wait([&]{return !connecting;});check(backend.acquisition.connected()&&!backend.acquisition.active(),"Reconnect does not auto-record");disconnectDevices();
+  connectDevices();wait([&]{return !connecting&&!connectAfterDiscovery&&!discoveryRunning;});check(backend.acquisition.connected()&&!backend.acquisition.active(),"Reconnect does not auto-record");disconnectDevices();
   check(QDir(directory+"/csv").entryList({"*_EXT.csv","*_INT.csv"},QDir::Files).size()==6,"Three runs retain distinct paired CSVs");
+  backend.captureConfig.runtime=std::filesystem::path((directory+"/missing-runtime.dll").toStdWString());connectDevices();wait([&]{return !connecting&&!connectAfterDiscovery&&!discoveryRunning;});
+  check(!backend.acquisition.connected()&&recordButton&&!recordButton->isEnabled(),"Failed SDK selection keeps Start recording disabled");
+  const auto failure=connectionAttempt.value("error").toString();check(!failure.isEmpty()&&connectionAttempt.value("failure").toObject().contains("stage"),"Global pre-channel failure preserves structured connection detail");
+  QEventLoop expiredToast;QTimer::singleShot(8200,&expiredToast,&QEventLoop::quit);expiredToast.exec();navigate(2);navigate(4);
+  const auto persistent=content->findChild<QLabel *>("connectionResultSummary"),reason=content->findChild<QLabel *>("recordingDisabledReason");
+  check(persistent&&persistent->text().contains(failure)&&reason&&reason->text().contains(failure),"Failure and disabled reason survive toast expiry and navigation");
+  check(connectionAttempt.value("resolved_identity").isObject(),"Connection report retains resolved backend identity independently of discovery");
+  navigate(2);QApplication::processEvents();
+  auto method=content->findChild<QComboBox *>("ddcBackend");auto receive=content->findChild<QComboBox *>("ddcReceiveMode");
+  check(method&&receive,"Designer connection method and receive controls are present");
+  if(method&&receive){method->setCurrentIndex(1);receive->setCurrentIndex(2);QApplication::processEvents();
+    check(backend.captureConfig.backend==aero::DdcBackend::HelperX86&&backend.captureConfig.receiveMode==aero::DdcReceiveMode::LegacyMT&&!backend.acquisition.connected()&&!connecting,"Manual method and mode selection does not connect");
+    check(settings.value("ddcBackend").toString()=="helper"&&settings.value("ddcReceiveMode").toInt()==2,"Selected method and mode persist in existing settings");
+    method->setCurrentIndex(0);receive->setCurrentIndex(0);
+  }
+  backend.captureConfig.runtime=std::filesystem::path(runtime.toStdWString());
   QFile report(reportDirectory+"/hardware-connection.txt");if(report.open(QIODevice::WriteOnly))report.write(checks.join('\n').toUtf8());else passed=false;
   settings.clear();for(auto it=previous.begin();it!=previous.end();++it)settings.setValue(it.key(),it.value());settings.sync();
   return passed;

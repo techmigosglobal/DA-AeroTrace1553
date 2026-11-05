@@ -57,7 +57,7 @@ void Window::renameSession(){
         name.contains(".."))
       return;
     auto dest = QFileInfo(path).dir().filePath(name + ".atd");
-    if(currentReplay==path){backend.recordingIndex.reset();backend.replayRecords.clear();backend.replayPlaying=false;}
+    if(currentReplay==path){backend.recordingIndex.reset();backend.replayRecords.clear();backend.replayPlaying=false;replayRtFrame.reset();viewingReplayStatistics=false;}
     if(auto error=desktop::renameRecording(path,dest);!error.isEmpty())toast(error);
     else {if(currentFile==path)currentFile=dest;if(currentReplay==path)currentReplay=dest;}
     navigate(10);
@@ -78,7 +78,7 @@ void Window::loadSession(QString p){
       return;
     }
     const auto loadGeneration=++*replayGeneration;const auto loadRequest=++replayLoadRequest;replayLoadPending=true;replaySeekPending=false;
-    struct Loaded {std::shared_ptr<aero::RecordingIndex> first; aero::ScanResult second;std::shared_ptr<std::vector<aero::RtActivity>> checkpoints;};
+    struct Loaded {std::shared_ptr<aero::RecordingIndex> first; aero::ScanResult second;std::shared_ptr<std::vector<aero::RtActivity>> checkpoints;std::shared_ptr<const aero::RtMonitorFrame> statistics;};
     auto watcher=new QFutureWatcher<Loaded>(this);
     connect(watcher,&QFutureWatcherBase::finished,this,[this,watcher,p,loadGeneration,loadRequest]{
       auto result=watcher->result();watcher->deleteLater();
@@ -87,21 +87,23 @@ void Window::loadSession(QString p){
       applicationEvent("replay_open_result",p,{{"records",QString::number(result.second.count)},{"recovered",result.second.recovered},{"error",QString::fromStdString(result.second.error)}});
       if(!result.second.error.empty()){toast(QString::fromStdString(result.second.error));return;}
       if(backend.acquisition.active()||connecting||savingSession){toast("Capture state changed; reopen the recording when stopped.");return;}
-      replayCheckpoints=result.checkpoints;replayActivity={};++*replayGeneration;
+      replayCheckpoints=result.checkpoints;replayActivity={};replayRtFrame=result.statistics;viewingReplayStatistics=false;++*replayGeneration;
       try{backend.recordingIndex=std::move(result.first);backend.replaySource=true;backend.replayPlaying=false;backend.replayIndex=0;backend.replayWindowStart=0;backend.replayRecords.clear();backend.selected={};}catch(const std::exception &e){backend.replaySource=false;toast(QString::fromUtf8(e.what()));return;}
       currentReplay=p;backend.applyProfile({});QFile profileFile(p+".profile.json");
       if(profileFile.open(QIODevice::ReadOnly)&&profileFile.size()<4*1024*1024){std::vector<aero::Signal> mappings;if(desktop::profileFromJson(QJsonDocument::fromJson(profileFile.readAll()).object(),mappings).isEmpty())backend.applyProfile(std::move(mappings));}
       eventText=result.second.recovered?"Recovered recording: incomplete tail discarded":"Recording CRC validation passed; device clocks remain independent";
       navigate(11);toast(eventText);
     });
-    watcher->setFuture(QtConcurrent::run([p]{auto index=std::make_shared<aero::RecordingIndex>();auto checkpoints=std::make_shared<std::vector<aero::RtActivity>>(1);aero::RtActivity activity;std::uint64_t count=0;
-      auto status=index->open(std::filesystem::path(p.toStdWString()),[&](const auto &r){activity.observe(r);if(++count%4096==0)checkpoints->push_back(activity);});return Loaded{index,status,checkpoints};}));
+    watcher->setFuture(QtConcurrent::run([p,loadGeneration,cancel=replayGeneration]{auto index=std::make_shared<aero::RecordingIndex>();auto checkpoints=std::make_shared<std::vector<aero::RtActivity>>(1);auto statistics=std::make_shared<aero::RtMonitorFrame>();statistics->session=p.toStdString()+"/full-file";aero::RtActivity activity;std::uint64_t count=0;
+      auto status=index->open(std::filesystem::path(p.toStdWString()),[&](const auto &r){if(cancel->load()!=loadGeneration)throw std::runtime_error("Recording load cancelled");activity.observe(r);statistics->consume(r);if(++count%4096==0)checkpoints->push_back(activity);});return Loaded{index,status,checkpoints,statistics};}));
     toast("Validating recording and building replay index…");
   }
 
 void Window::replay() {
   backend.replaySource=bool(backend.recordingIndex)||!backend.replayRecords.empty();
   auto form=showForm<Ui::ReplayPage>();
+  auto statistics=new QPushButton("RT statistics · full recorded session");statistics->setObjectName("showReplayRtStatistics");statistics->setEnabled(bool(replayRtFrame));pageLayout->insertWidget(0,statistics,0,Qt::AlignLeft);
+  connect(statistics,&QPushButton::clicked,this,[this]{if(!replayRtFrame)return;backend.replayPlaying=false;viewingReplayStatistics=true;rtDisplayPaused=false;settings.setValue("monitorRowMode","statistics");settings.setValue("monitorLayout","windows");navigate(4);});
   connect(form.openReplayButton,&QPushButton::clicked,this,[this] { openSession(); });
   connect(form.inspectReplayButton,&QPushButton::clicked,this,[this] { navigate(5); });
   form.speed->setCurrentIndex(backend.replaySpeed==.25 ? 0 : backend.replaySpeed==1 ? 1 : backend.replaySpeed==2 ? 2 : 3);

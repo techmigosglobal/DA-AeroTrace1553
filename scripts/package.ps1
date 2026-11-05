@@ -1,4 +1,4 @@
-param([string]$QtRoot='',[string]$PackageName='AeroTrace1553',[string]$BuildDirectory='out\build\desktop-local')
+param([string]$QtRoot='',[string]$PackageName='AeroTrace1553',[string]$BuildDirectory='out\build\desktop-local',[string]$ProviderPacksRoot='out\provider-packs-062',[string]$HelperPacksRoot='out\helper-packs-062',[ValidateSet('review','complete')][string]$BundleMode='review',[string]$PrerequisiteManifest='')
 $ErrorActionPreference='Stop'
 $projectRoot=Split-Path $PSScriptRoot -Parent
 if(![IO.Path]::IsPathRooted($BuildDirectory)){$BuildDirectory=Join-Path $projectRoot $BuildDirectory}
@@ -18,14 +18,17 @@ $cache=Join-Path $BuildDirectory 'CMakeCache.txt'
 if(!(Test-Path $cache)){throw "Build cache missing: $cache"}
 $sdkLine=Get-Content $cache | Where-Object {$_ -match '^DDC_SDK_ROOT:PATH='} | Select-Object -First 1
 $sdkRoot=if($sdkLine){$sdkLine.Substring('DDC_SDK_ROOT:PATH='.Length)}else{''}
-$ddcCandidates=@("$sdkRoot\libraries\emacepl\bin\x64\Release\emacepl.dll","$sdkRoot\Lib\x64\Release\emacepl.dll")
-$ddcRuntime=$ddcCandidates | Where-Object {Test-Path -LiteralPath $_ -PathType Leaf} | Select-Object -First 1
-if(!$ddcRuntime){throw "Matching x64 DDC runtime missing for configured SDK: $sdkRoot"}
+if(![IO.Path]::IsPathRooted($ProviderPacksRoot)){$ProviderPacksRoot=Join-Path $projectRoot $ProviderPacksRoot}
+$packs=@(Get-ChildItem -LiteralPath $ProviderPacksRoot -Directory | Where-Object {Test-Path -LiteralPath (Join-Path $_.FullName 'provider-pack.json')})
+if(!$packs.Count){throw 'Build verified private SDK/provider packs before packaging'}
 $sourceExe=Join-Path $BuildDirectory 'apps/desktop/aerotrace_desktop.exe'
 if((Get-Item -LiteralPath $sourceExe).VersionInfo.ProductVersion -ne $projectVersion){throw 'Executable version does not match the project; rebuild before packaging'}
-@{schema='aerotrace.deployment.v1';version=$projectVersion;sourceCommit=(& git -C $projectRoot rev-parse HEAD).Trim();architecture='x64';minimumWindows='Windows 10 1809';builtUtc=(Get-Date).ToUniversalTime().ToString('o');developmentFallbacks=$false;hardwareQualified=$false;qtVersion=(& "$QtRoot\bin\qmake.exe" -query QT_VERSION).Trim();ddcSdkRoot=$sdkRoot;ddcRuntimeSha256=(Get-FileHash -LiteralPath $ddcRuntime -Algorithm SHA256).Hash} | ConvertTo-Json | Set-Content -LiteralPath "$packageRoot\deployment.json" -Encoding UTF8
+@{schema='aerotrace.deployment.v1';version=$projectVersion;sourceCommit=(& git -C $projectRoot rev-parse HEAD).Trim();architecture='x64';minimumWindows='Windows 10 1809';builtUtc=(Get-Date).ToUniversalTime().ToString('o');developmentFallbacks=$false;hardwareQualified=$false;bundleMode=$BundleMode;providerPacks=@($packs.Name);qtVersion=(& "$QtRoot\bin\qmake.exe" -query QT_VERSION).Trim()} | ConvertTo-Json | Set-Content -LiteralPath "$packageRoot\deployment.json" -Encoding UTF8
 '[Paths]','Prefix=.' | Set-Content -LiteralPath "$packageRoot\qt.conf" -Encoding ASCII
 Copy-Item -LiteralPath $sourceExe -Destination "$packageRoot\AeroTrace1553.exe" -Force
+$inspector=Join-Path $BuildDirectory 'aerotrace_provider_info.exe'
+if(!(Test-Path -LiteralPath $inspector)){throw 'Build the bounded SDK inspector before packaging'}
+Copy-Item -LiteralPath $inspector -Destination $packageRoot
 $qwtRuntime=Join-Path $projectRoot 'out\build\qwt-local\lib\qwt.dll'
 if(!(Test-Path -LiteralPath $qwtRuntime)){throw "Qt-matched Qwt runtime missing: $qwtRuntime"}
 Copy-Item -LiteralPath $qwtRuntime -Destination $packageRoot
@@ -39,6 +42,7 @@ if(Test-Path -LiteralPath "$packageRoot\qwt.dll"){
 }
 Copy-Item -LiteralPath "$projectRoot\README.md" -Destination $packageRoot
 Copy-Item -LiteralPath "$projectRoot\apps\desktop\icons\aerotrace.ico" -Destination "$packageRoot\aerotrace.ico" -Force
+Copy-Item -LiteralPath "$projectRoot\installer\Install-Notes.txt" -Destination "$packageRoot\Install-Notes.txt" -Force
 Copy-Item -LiteralPath "$projectRoot\AeroTrace_1553_PRD_v2.0_Vinay_Ravali.md" -Destination $packageRoot -Force
 Copy-Item -LiteralPath "$projectRoot\docs" -Destination $packageRoot -Recurse -Force
 Copy-Item -LiteralPath "$projectRoot\docs\Operator-Guide.html" -Destination "$packageRoot\START-HERE.html" -Force
@@ -67,13 +71,46 @@ else {
   Copy-Item -LiteralPath (Join-Path $installed 'licenses\Microsoft-CRT-NOTICE.txt') -Destination "$packageRoot\licenses" -Force
   Copy-Item -LiteralPath (Join-Path $installed 'licenses\Microsoft-CRT-provenance.json') -Destination "$packageRoot\licenses" -Force
 }
-$providerRoot=Join-Path $BuildDirectory 'providers'
-if(!(Test-Path -LiteralPath $providerRoot)){throw 'Build the SDK provider before packaging'}
-Copy-Item -LiteralPath $providerRoot -Destination $packageRoot -Recurse -Force
-Copy-Item -LiteralPath $ddcRuntime -Destination $packageRoot -Force
-$ddcLicense=@("$sdkRoot\docs\license.txt","$sdkRoot\Documentation\license.txt") | Where-Object {Test-Path -LiteralPath $_} | Select-Object -First 1
-if(!$ddcLicense){throw "DDC SDK license text missing: $sdkRoot"}
-Copy-Item -LiteralPath $ddcLicense -Destination "$packageRoot\licenses\DDC-SDK-LICENSE.txt" -Force
+$privatePacks=Join-Path $packageRoot 'providers/packs'
+if(![IO.Path]::IsPathRooted($HelperPacksRoot)){$HelperPacksRoot=Join-Path $projectRoot $HelperPacksRoot}
+if(!(Test-Path -LiteralPath $HelperPacksRoot)){throw 'Build the x86 helper with scripts/build-ddc-helper.ps1 -Test before packaging'}
+foreach($helperPack in (Get-ChildItem -LiteralPath $HelperPacksRoot -Directory)){
+  & python (Join-Path $PSScriptRoot 'helper-packs.py') $helperPack.FullName (Join-Path $packageRoot 'helpers/packs')
+  if($LASTEXITCODE -ne 0){throw 'Helper pack validation/staging failed'}
+}
+foreach($pack in $packs){
+  & python (Join-Path $PSScriptRoot 'provider-packs.py') stage --source $pack.FullName --destination $privatePacks
+  if($LASTEXITCODE -ne 0){throw "Provider pack validation/staging failed: $($pack.Name)"}
+}
+foreach($script in @('ddc-prerequisites.ps1','ddc-prerequisites.psm1','provider-packs.py','install-provider-pack.ps1')){Copy-Item -LiteralPath (Join-Path $PSScriptRoot $script) -Destination "$packageRoot/scripts"}
+if(!$PrerequisiteManifest){$PrerequisiteManifest=Join-Path $projectRoot 'installer/ddc-prerequisites.template.json'}
+# Approved external payload files must already be rooted in the supplied
+# manifest directory. The template contains no driver-install authorization.
+$prereqRoot=Split-Path ([IO.Path]::GetFullPath($PrerequisiteManifest)) -Parent
+$prereq=Get-Content -LiteralPath $PrerequisiteManifest -Raw | ConvertFrom-Json
+if($prereq.schema -ne 'aerotrace.ddc-prerequisites.v1'){throw 'Invalid prerequisite manifest'}
+if(@($prereq.driver_packages).Count){
+  Import-Module (Join-Path $PSScriptRoot 'ddc-prerequisites.psm1') -Force
+  foreach($driver in @($prereq.driver_packages)){
+    foreach($relative in @($driver.files.PSObject.Properties.Name)+@($driver.rights_receipt,$driver.qualification_receipt,$driver.signature_receipt)){
+      $inputFile=Resolve-DdcManifestFile $prereqRoot $relative
+      $target=Join-Path $packageRoot $relative
+      New-Item -ItemType Directory -Force (Split-Path $target -Parent) | Out-Null
+      Copy-Item -LiteralPath $inputFile -Destination $target
+    }
+  }
+}
+if($prereq.card_manager.recipe){
+  Import-Module (Join-Path $PSScriptRoot 'ddc-prerequisites.psm1') -Force
+  foreach($relative in @($prereq.card_manager.files.PSObject.Properties.Name)+@($prereq.card_manager.redistribution_receipt,$prereq.card_manager.qualification_receipt,$prereq.card_manager.dependency_verification_receipt)){
+    $inputFile=Resolve-DdcManifestFile $prereqRoot $relative
+    $target=Join-Path $packageRoot $relative
+    New-Item -ItemType Directory -Force (Split-Path $target -Parent) | Out-Null
+    Copy-Item -LiteralPath $inputFile -Destination $target
+  }
+}
+Copy-Item -LiteralPath $PrerequisiteManifest -Destination "$packageRoot/ddc-prerequisites.json"
+Copy-Item -LiteralPath (Join-Path $packs[0].FullName 'DDC-SDK-LICENSE.txt') -Destination "$packageRoot\licenses\DDC-SDK-LICENSE.txt"
 Copy-Item -LiteralPath "$projectRoot\third_party\qwt\COPYING" -Destination "$packageRoot\licenses\Qwt-LICENSE.txt"
 Get-ChildItem -LiteralPath "$QtRoot\..\..\Licenses" -File -ErrorAction SilentlyContinue | Copy-Item -Destination "$packageRoot\licenses"
 if(Test-Path -LiteralPath "$QtRoot\..\..\Docs\Qt-6.12.0\qtdoc\lgpl.html"){
@@ -82,6 +119,8 @@ if(Test-Path -LiteralPath "$QtRoot\..\..\Docs\Qt-6.12.0\qtdoc\lgpl.html"){
 $packagePrefix=[IO.Path]::GetFullPath($packageRoot).TrimEnd('\')+'\'
 & "$packageRoot\document-runtime\python.exe" "$projectRoot\scripts\audit-pe-dependencies.py" $packageRoot (Join-Path $packageRoot 'dependency-audit.json')
 if($LASTEXITCODE -ne 0){throw 'Package contains missing native imports; see dependency-audit.json'}
+& "$packageRoot\document-runtime\python.exe" (Join-Path $PSScriptRoot 'provider-packs.py') release-gate --package-root $packageRoot --mode $BundleMode
+if($LASTEXITCODE -ne 0){throw 'Complete offline bundle is BLOCKED; see release-gate.json. A review build can still be packaged explicitly.'}
 $hashLines=Get-ChildItem -LiteralPath $packageRoot -File -Recurse | Where-Object {$_.Name -notin @('SHA256SUMS.txt','preferences.ini') -and $_.FullName -notmatch '\\(Sessions|Diagnostics|Logs|test-results|__pycache__)\\' -and $_.Extension -ne '.atd'} | Get-FileHash -Algorithm SHA256 | ForEach-Object {"$($_.Hash)  $($_.Path.Substring($packagePrefix.Length))"}
 $hashLines | Set-Content "$packageRoot\SHA256SUMS.txt"
 Write-Output "Launch: $packageRoot\AeroTrace1553.exe"

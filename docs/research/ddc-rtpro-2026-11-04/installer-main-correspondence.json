@@ -1,0 +1,26 @@
+[
+  {
+    "installer": "RTProAnalyzer_1.0.exe",
+    "validated_archives": 6,
+    "main_executables": [
+      {
+        "path": "RTProAnalyzer.exe",
+        "bytes": 3344896,
+        "sha256": "2b4a3de447eb1bf83a6e45f4e4257f77c5402327463f2c6eec80df6dd0582da4",
+        "exit_code": 0
+      }
+    ]
+  },
+  {
+    "installer": "RTPRO_4.1.1_28102026\\RTProAnalyzerNxtGen_Installer.exe",
+    "validated_archives": 14,
+    "main_executables": [
+      {
+        "path": "RTProAnalyzerNxtGen.exe",
+        "bytes": 25092608,
+        "sha256": "c8bec50fc39292fec7f2b678a6d3d7ddccb106372c296c5025540d746cb5b001",
+        "exit_code": 0
+      }
+    ]
+  }
+]

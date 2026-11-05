@@ -20,10 +20,10 @@ qt_add_executable(aerotrace_desktop
   services/profile_io.hpp forms/document_dialog.ui
   services/task_services.hpp services/task_services.cpp pages/task_pages.cpp forms/task_dialog.ui
   services/key_gate.hpp services/key_gate.cpp pages/key_pages.cpp
-  pages/support_pages.cpp services/session_store.cpp services/session_store.hpp pages/hardware_pages.cpp services/ddc_discovery.cpp services/ddc_discovery.hpp services/runtime_paths.hpp services/ui_observer.hpp
+  pages/support_pages.cpp services/session_store.cpp services/session_store.hpp pages/hardware_pages.cpp services/ddc_discovery.cpp services/ddc_discovery.hpp services/card_manager.cpp services/card_manager.hpp services/runtime_paths.hpp services/ui_observer.hpp
   tests/rt_monitor_gui.cpp
   pages/page_catalog.hpp
-  forms/welcome_page.ui forms/device_page.ui forms/dashboard_page.ui
+  forms/welcome_page.ui forms/device_page.ui forms/ddc_method.ui forms/dashboard_page.ui
   forms/monitor_page.ui forms/inspector_page.ui forms/engineering_page.ui
   forms/plots_page.ui forms/topology_page.ui forms/events_page.ui
   forms/sessions_page.ui forms/replay_page.ui forms/icd_library_page.ui
@@ -38,6 +38,8 @@ target_compile_definitions(aerotrace_desktop PRIVATE
   AEROTRACE_DOCUMENT_PYTHON="${document_python_path}"
   AEROTRACE_DOCUMENT_WORKER="${PROJECT_SOURCE_DIR}/tools/document_worker/worker.py")
 target_compile_definitions(aerotrace_desktop PRIVATE AEROTRACE_DIAGNOSTIC_COLLECTOR="${PROJECT_SOURCE_DIR}/scripts/collect-diagnostics.ps1" AEROTRACE_OPERATOR_GUIDE="${PROJECT_SOURCE_DIR}/docs/Operator-Guide.html")
+target_compile_definitions(aerotrace_desktop PRIVATE AEROTRACE_RUNTIME_INSPECTOR="$<TARGET_FILE:aerotrace_provider_info>")
+add_dependencies(aerotrace_desktop aerotrace_provider_info)
 qt_add_resources(aerotrace_desktop styles PREFIX "/" FILES style.qss)
 file(GLOB AEROTRACE_ICONS CONFIGURE_DEPENDS "icons/*.svg")
 qt_add_resources(aerotrace_desktop operator_icons PREFIX "/" BASE "${CMAKE_CURRENT_SOURCE_DIR}" FILES ${AEROTRACE_ICONS})
@@ -66,7 +68,7 @@ if(NOT AEROTRACE_KEY_CERT_SHA256 STREQUAL "")
 endif()
 target_compile_definitions(aerotrace_desktop PRIVATE AEROTRACE_KEY_CERT_SHA256="${AEROTRACE_KEY_CERT_SHA256}")
 if(WIN32)
-  target_link_libraries(aerotrace_desktop PRIVATE crypt32 ncrypt bcrypt setupapi cfgmgr32 version)
+  target_link_libraries(aerotrace_desktop PRIVATE crypt32 ncrypt bcrypt setupapi cfgmgr32 version shell32 advapi32)
 endif()
 add_executable(aerotrace_key_gate_tests tests/key_gate_tests.cpp services/key_gate.cpp)
 target_include_directories(aerotrace_key_gate_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
@@ -110,13 +112,20 @@ set_tests_properties(gui_operator_workflow PROPERTIES ENVIRONMENT "QT_QPA_PLATFO
 add_test(NAME gui_demo_icd_live COMMAND aerotrace_desktop --demo-workflow-test ${CMAKE_BINARY_DIR}/test-results/demo ${PROJECT_SOURCE_DIR}/examples/demo-icd/AeroTrace-Demo-ICD.pdf)
 set_tests_properties(gui_demo_icd_live PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 150)
 
-add_executable(aerotrace_session_tests tests/session_tests.cpp services/session_store.cpp services/ddc_discovery.cpp)
+add_executable(aerotrace_session_tests tests/session_tests.cpp services/session_store.cpp services/ddc_discovery.cpp services/card_manager.cpp)
 target_include_directories(aerotrace_session_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(aerotrace_session_tests PRIVATE Qt6::Core aerotrace_application aerotrace_diagnostics)
 if(WIN32)
-  target_link_libraries(aerotrace_session_tests PRIVATE setupapi cfgmgr32 version advapi32)
+  target_link_libraries(aerotrace_session_tests PRIVATE setupapi cfgmgr32 version advapi32 shell32)
 endif()
 add_test(NAME full_session_export_indexed_replay COMMAND aerotrace_session_tests)
+add_executable(aerotrace_card_manager_tests tests/card_manager_tests.cpp services/card_manager.cpp)
+target_include_directories(aerotrace_card_manager_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(aerotrace_card_manager_tests PRIVATE Qt6::Core)
+if(WIN32)
+  target_link_libraries(aerotrace_card_manager_tests PRIVATE shell32 advapi32)
+endif()
+add_test(NAME card_manager_discovery COMMAND aerotrace_card_manager_tests)
 add_executable(aerotrace_session_export_cli tests/session_export_cli.cpp services/session_store.cpp)
 target_include_directories(aerotrace_session_export_cli PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(aerotrace_session_export_cli PRIVATE Qt6::Core aerotrace_application aerotrace_diagnostics)

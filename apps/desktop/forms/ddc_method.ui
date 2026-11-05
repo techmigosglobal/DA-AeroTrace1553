@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>DdcMethod</class>
+ <widget class="QWidget" name="DdcMethod">
+  <layout class="QFormLayout" name="methodLayout">
+   <property name="leftMargin"><number>0</number></property><property name="topMargin"><number>0</number></property><property name="rightMargin"><number>0</number></property><property name="bottomMargin"><number>0</number></property>
+   <item row="0" column="0"><widget class="QLabel" name="backendLabel"><property name="text"><string>Connection method</string></property><property name="buddy"><cstring>ddcBackend</cstring></property></widget></item>
+   <item row="0" column="1"><widget class="QComboBox" name="ddcBackend"><property name="accessibleName"><string>Connection method</string></property><item><property name="text"><string>Native x64 provider</string></property></item><item><property name="text"><string>32-bit compatibility helper</string></property></item></widget></item>
+   <item row="1" column="0"><widget class="QLabel" name="modeLabel"><property name="text"><string>Receive mode</string></property><property name="buddy"><cstring>ddcReceiveMode</cstring></property></widget></item>
+   <item row="1" column="1"><widget class="QComboBox" name="ddcReceiveMode"><property name="accessibleName"><string>Receive mode</string></property><item><property name="text"><string>Automatic MTI / MT by device capability</string></property></item><item><property name="text"><string>MTI / Chapter 10</string></property></item><item><property name="text"><string>Classic MT compatibility</string></property></item></widget></item>
+   <item row="2" column="0"><widget class="QLabel" name="helperLabel"><property name="text"><string>32-bit helper pack</string></property><property name="buddy"><cstring>ddcHelperPack</cstring></property></widget></item>
+   <item row="2" column="1"><widget class="QComboBox" name="ddcHelperPack"><property name="accessibleName"><string>32-bit helper pack</string></property></widget></item>
+   <item row="3" column="1"><widget class="QPushButton" name="chooseHelper"><property name="text"><string>Choose helper pack manifest…</string></property></widget></item>
+   <item row="4" column="0" colspan="2"><widget class="QLabel" name="methodNote"><property name="wordWrap"><bool>true</bool></property><property name="text"><string>Change methods manually after disconnecting. RTPro 3.6.13.1 pack unavailable until matching SDK, compatibility and redistribution rights are verified. Physical qualification: NOT RUN.</string></property></widget></item>
+  </layout>
+ </widget>
+ <resources/><connections/>
+</ui>

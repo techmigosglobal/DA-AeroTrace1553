@@ -1,0 +1,75 @@
+{
+  "files": [
+    {
+      "path": "C:\\Users\\Vinay\\Downloads\\aero trace\\AeroTrace1553-0.5.5-Source\\AeroTrace1553-0.5.5-Source\\RTPRO_4.1.1_28102026\\DDC SDK\\BU-69092S0_4_9_5.zip",
+      "size": 106984526,
+      "sha256": "4882f42997b1dca6f67e499e006ebe892c701578293361dd655f2e16a209b920"
+    },
+    {
+      "path": "C:\\Users\\Vinay\\Downloads\\aero trace\\AeroTrace1553-0.5.5-Source\\AeroTrace1553-0.5.5-Source\\RTPRO_4.1.1_28102026\\DDC SDK\\DD-42992S0_4_9_5.zip",
+      "size": 76996854,
+      "sha256": "61468b31b15fc33f2c40e2edc49b2e61aec1d405ed84c69df9e24f5bea8ad509"
+    },
+    {
+      "path": "C:\\Users\\Vinay\\Downloads\\aero trace\\AeroTrace1553-0.5.5-Source\\AeroTrace1553-0.5.5-Source\\DDC_4.0.3.1\\BU-69092S0_3_6_15\\setup.exe",
+      "size": 78615928,
+      "sha256": "943b107b43a2e3689272d48fd028c8378efb01bd14a9702b9b143f1a5f4942d7"
+    },
+    {
+      "path": "C:\\DDC\\aceXtremeSDKv3.6.15\\Include\\stdemace.h",
+      "size": 3087,
+      "sha256": "806c40697dbe6494bc4402823d69c62524e33942efe2230f5d6fddcd2d7349cd"
+    },
+    {
+      "path": "C:\\DDC\\aceXtremeSDKv3.6.15\\Include\\mti.h",
+      "size": 7182,
+      "sha256": "e85ea251f258f9ee7e3a27e908257839038b4ceecda6bc194b593050996ab6b9"
+    },
+    {
+      "path": "C:\\DDC\\aceXtremeSDKv3.6.15\\Include\\mtop.h",
+      "size": 13505,
+      "sha256": "fb5fa6c06d19a7e92aaaf78d314ce93c0fd5de4ab613fa1b90e15110a54c2ec9"
+    },
+    {
+      "path": "C:\\DDC\\aceXtremeSDKv3.6.15\\Include\\mtiop.h",
+      "size": 13939,
+      "sha256": "9ec9b490eb6d3a55303da89577ade323c19bf0779b592625df787a5309618c0c"
+    },
+    {
+      "path": "C:\\DDC\\aceXtremeSDKv3.6.15\\Include\\mtix.h",
+      "size": 5443,
+      "sha256": "498ae04d7cfe47612f14a4cf80b1b6b523e2500f09d971283eab86bc13314eea"
+    },
+    {
+      "path": "C:\\DDC\\aceXtremeSDKv3.6.15\\Include\\ddccommon.h",
+      "size": 46757,
+      "sha256": "35a5c9c608af9b07da689c65232b49643701f9e952baab2c5e06ca20225c2cbd"
+    },
+    {
+      "path": "C:\\DDC\\aceXtremeSDKv3.6.15\\Include\\configx.h",
+      "size": 7441,
+      "sha256": "a89bb91a782b6a2a1105070a28c3b07dfd5941e5deb4302d4418f1482504d5c5"
+    },
+    {
+      "path": "C:\\DDC\\aceXtremeSDKv3.6.15\\Include\\configop.h",
+      "size": 13770,
+      "sha256": "1757c22015cc7783859002a6ea1adf2ba1a9c326bb3967c25ca29815f70cc20d"
+    },
+    {
+      "path": "C:\\DDC\\aceXtremeSDKv3.6.15\\Include\\msgop.h",
+      "size": 4333,
+      "sha256": "a5524056f3ded3c411d0eaee4cccfe7b1ab98b1f85eee8be8422913621e3b069"
+    },
+    {
+      "path": "C:\\DDC\\aceXtremeSDKv3.6.15\\Lib\\x64\\Release\\emacepl.dll",
+      "size": 654528,
+      "sha256": "71033e145faa0e3d0303565cf15b2c274b4428ce91f53f3cf393c3a023511231"
+    },
+    {
+      "path": "C:\\DDC\\aceXtremeSDKv3.6.15\\Lib\\Win32\\Release\\emacepl.dll",
+      "size": 622272,
+      "sha256": "9a97ccb6fa8f7f865c4345951d6f9bfe0b7a679fcbe95f8cadb9d835f94dd647"
+    }
+  ],
+  "claims": "Read-only package/declaration observations; no hardware execution"
+}

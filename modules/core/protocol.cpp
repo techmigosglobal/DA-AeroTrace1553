@@ -69,6 +69,31 @@ ProtocolInfo interpret(const Record &r) {
   }
   p.valid=true;p.payloadEligible=p.expectedWords!=0;p.reason=p.payloadEligible?"Eligible":"No data payload";return p;
 }
+ProtocolIssues protocolIssues(const Record &r,const ProtocolInfo &p) {
+  ProtocolIssues issues;
+  // source 1/2 denotes the admitted DDC MTI/MT normalized block-status format.
+  issues.noResponseAvailable=r.source==1||r.source==2;
+  issues.noResponse=issues.noResponseAvailable&&p.commandPresent&&
+    (!p.first.broadcast||p.rtToRt)&&(r.vendorStatus&0x0200)!=0;
+  if(p.commandPresent&&p.first.mode&&!p.rtToRt) {
+    const Mode *selected=nullptr;
+    for(const auto &m:modes)if(m.code==p.first.count){selected=&m;break;}
+    issues.illegalMode=!selected || p.first.transmit!=selected->transmit ||
+      (p.first.broadcast&&!selected->broadcast);
+  }
+  if(p.commandPresent) {
+    if(p.statuses[0].present) {
+      const auto expected=p.rtToRt&&p.command2Present?p.second.rt:p.first.rt;
+      issues.wrongTadr=p.statuses[0].rt!=expected || (p.first.broadcast&&!p.rtToRt);
+    }
+    if(p.statuses[1].present)issues.wrongTadr|=!p.rtToRt||!p.command2Present||
+      p.first.broadcast||p.statuses[1].rt!=p.first.rt;
+  }
+  // interpret() also rejects Record::flags, including the provider-normalized
+  // generic monitor errors. Do not guess narrower categories from vendor bits.
+  issues.invalid=!p.valid||issues.noResponse||issues.illegalMode||issues.wrongTadr;
+  return issues;
+}
 std::string statusDescription(const ProtocolInfo &p) {
   std::string out;
   constexpr std::pair<unsigned,std::string_view> bits[]={{0x400,"Message error"},{0x200,"Instrumentation"},{0x100,"Service request"},

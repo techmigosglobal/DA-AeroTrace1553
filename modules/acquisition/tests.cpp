@@ -43,6 +43,17 @@ public:
   void close() override {++counts->closes;}
 };
 
+class PartialConnection final : public aero::CaptureSource {
+public:
+  std::string open(const aero::CaptureConfig &c) override {
+    c.deviceState(0,aero::DevicePhase::Ready,"Configured fixture");
+    c.deviceState(1,aero::DevicePhase::Failed,"Fixture logical channel open failed");
+    return "Fixture channel failure";
+  }
+  std::string poll(aero::SourceBatch &,std::stop_token) override{return {};}
+  void close() override{}
+};
+
 int main() {
   const auto directory = std::filesystem::temp_directory_path() /
       ("aerotrace-acquisition-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
@@ -96,6 +107,16 @@ int main() {
     acquisition.stop();if(acquisition.connected() || lifecycle->closes!=1)throw std::runtime_error("Disconnect did not release connection");
     lifecycle=std::make_shared<LifecycleCounts>();lifecycle->failOpen=true;
     if(acquisition.connectConfigured(hardware,std::make_unique<LifecycleSource>(lifecycle)) || acquisition.connected())throw std::runtime_error("Failed connection marked connected");
+    if(acquisition.metrics().devices[0].phase!=aero::DevicePhase::Stopped || acquisition.metrics().devices[0].message.find("Not checked")==std::string::npos)
+      throw std::runtime_error("Shared prerequisite failure fabricated a channel-open failure");
+    auto both=hardware;both.enabled={true,true,true,true};
+    if(acquisition.connectConfigured(both,std::make_unique<PartialConnection>()))throw std::runtime_error("Partial connection incorrectly succeeded");
+    const auto partial=acquisition.metrics();
+    if(partial.devices[0].phase!=aero::DevicePhase::Stopped||partial.devices[0].message.find("rolled back")==std::string::npos||
+       partial.devices[1].phase!=aero::DevicePhase::Failed||partial.devices[1].message!="Fixture logical channel open failed")
+      throw std::runtime_error("Per-channel failure/rollback evidence was overwritten");
+    acquisition.stop();if(acquisition.metrics().devices[0].message.find("rolled back")==std::string::npos)
+      throw std::runtime_error("Connection cleanup erased channel rollback evidence");
     lifecycle=std::make_shared<LifecycleCounts>();lifecycle->failPoll=true;
     if(!acquisition.connectConfigured(hardware,std::make_unique<LifecycleSource>(lifecycle)))throw std::runtime_error("Fault fixture connect failed");
     if(!acquisition.startConfigured(directory/"lifecycle-error.atd",hardware))throw std::runtime_error("Fault fixture record failed");

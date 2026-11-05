@@ -16,10 +16,19 @@ int main(int argc,char **argv){QApplication app(argc,argv);try{
   source.busFilter.clear();source.refresh();shared.refresh();QPersistentModelIndex selected(source.index(source.rowCount()-1,0));const auto id=source.at(selected.row())->id;
   source.append({aero::synthetic(10000)});shared.syncAppend();CHECK(selected.isValid()&&source.at(selected.row())->id==id);
   CHECK(!source.data(QModelIndex(),Qt::DisplayRole).isValid());CHECK(!source.index(-1,0).isValid());CHECK(!source.index(0,49).isValid());
-  RtRecordModel rt;QAbstractItemModelTester c(&rt,QAbstractItemModelTester::FailureReportingMode::Fatal);aero::RtMonitorFrame frame;frame.session="one";
+  RtRecordModel rt;rt.setMode(RtRecordModel::Mode::Routes);QAbstractItemModelTester c(&rt,QAbstractItemModelTester::FailureReportingMode::Fatal);aero::RtMonitorFrame frame;frame.session="one";
   for(unsigned ch=1;ch<=2;++ch)for(unsigned bus=0;bus<2;++bus)for(unsigned address:{3u,2u}){auto r=aero::synthetic(1);r.channel=ch;r.bus=bus;r.commandWord=(address<<11)|(2<<5)|8;r.statusWord=address<<11;frame.consume(r);}
   rt.update(frame,0);CHECK(rt.rowCount()==2);QPersistentModelIndex stable(rt.index(1,0));
   for(unsigned i=0;i<20;++i){auto r=aero::synthetic(i);r.commandWord=(3<<11)|(2<<5)|8;r.statusWord=3<<11;frame.consume(r);rt.update(frame,0,i%2?"A":"");CHECK(stable.isValid()&&stable.row()==1&&rt.recordFor(stable));}
   frame.session="two";rt.update(frame,1);CHECK(!stable.isValid());CHECK(rt.rowCount()==2);CHECK(!rt.recordFor(QModelIndex()));
+  rt.setMode(RtRecordModel::Mode::Statistics);rt.update(frame,0);CHECK(rt.rowCount()==4&&rt.columnCount()==10);
+  CHECK(rt.item(0,0)->text()=="RT 02"&&rt.item(0,1)->text()=="A"&&rt.item(1,1)->text()=="B");
+  for(int column:{4,5,6,8})CHECK(rt.item(0,column)->text()=="—"&&rt.item(0,column)->toolTip().contains("Unavailable"));
+  CHECK(rt.item(0,2)->text()=="—");QPersistentModelIndex statisticsSelection(rt.index(2,0));
+  auto hardware=aero::synthetic(0);hardware.source=1;hardware.validity=5;hardware.commandWord=(3<<11)|(2<<5)|8;hardware.statusWord=3<<11;
+  auto &summary=frame.channels[0].at(3).buses[0];summary.count=(std::uint64_t(1)<<32)+5;summary.noResponseKnown=true;
+  frame.consume(hardware);rt.update(frame,0,"A");CHECK(statisticsSelection.isValid()&&statisticsSelection.row()==2);
+  CHECK(rt.item(2,9)->text()=="4294967302"&&rt.item(2,2)->text()=="0"&&rt.recordFor(statisticsSelection)->commandWord==hardware.commandWord);
+  CHECK(rt.rowCount()==4);rt.update(frame,0,"B");CHECK(rt.rowCount()==4&&statisticsSelection.isValid());
   std::cout<<"PASS: source/shared/RT model contracts, append/eviction/filter/reset/persistent indexes\n";return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

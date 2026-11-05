@@ -51,8 +51,7 @@ class QWT_EXPORT QwtPoint3D
     double m_z;
 };
 
-Q_DECLARE_TYPEINFO( QwtPoint3D, Q_MOVABLE_TYPE );
-Q_DECLARE_METATYPE( QwtPoint3D )
+
 
 #ifndef QT_NO_DEBUG_STREAM
 QWT_EXPORT QDebug operator<<( QDebug, const QwtPoint3D& );
@@ -172,5 +171,9 @@ inline bool QwtPoint3D::operator!=( const QwtPoint3D& other ) const
 {
     return !operator==( other );
 }
+
+// Register value types after their inline constructors are defined (MinGW DLL import).
+Q_DECLARE_TYPEINFO( QwtPoint3D, Q_MOVABLE_TYPE );
+Q_DECLARE_METATYPE( QwtPoint3D )
 
 #endif

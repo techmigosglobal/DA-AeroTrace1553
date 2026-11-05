@@ -1,0 +1,25 @@
+{
+  "head": "9955af7fc66b5ba3ebb8e9c76c34528a7bf1838c",
+  "graph_generation": "2026-11-02T15:33:00Z",
+  "evidence": "current source reads; source graph stale/partial with source fallback",
+  "files": {
+    "modules/acquisition/acquisition.cpp": "f68774c861da31cf3d17441c77c740d07409dceef79bbe09aaadfe61d31ad51f",
+    "modules/acquisition/acquisition.hpp": "9f12cf3c82ee1f1fbff00f376dc0473353729bba95cf0cc46c9bf0e2c6ee30af",
+    "modules/acquisition/source.hpp": "0134269ca8ff3e80204f36818722262a2131c14a2c884ed9a046f89b1e9d07f7",
+    "modules/acquisition/ddc_source.cpp": "30fb4e9d3ed9e42acf9f7c3288f26c43f02cef5ca2c7461465a38fecb50f3225",
+    "modules/acquisition/ddc_runtime.cpp": "8468c2aaead9e9c50e8c0485e93b79199440a11dbdc22eb239244d478a123540",
+    "modules/acquisition/providers/ddc_vendor_source.cpp": "7e3d59bca8876968da839cd227bfb56e824cc9bc46af1bbe700fafb9e1ec8f79",
+    "modules/acquisition/providers/provider.cpp": "be18d283f1efb5bf57e2bfc48c3daffdf759fc640d483968c81981f4129c39a2",
+    "modules/acquisition/providers/provider_abi.h": "f3c5d2fef974f71efd67f604b5df3b19702d7454c55972ef501c02dbb027caba",
+    "modules/acquisition/providers/families.json": "f8c9d3f82541f163bc0bd700dadef19a190cf7fc1d21f3edf1957e80bc44e919",
+    "modules/acquisition/CMakeLists.txt": "dd5c6e6fdb9ac66c7e0e0532a99f190c0797eb26680707351c64f10cc341e605",
+    "modules/acquisition/ddc_tests.cpp": "f5ba55e586fbb511012c797f737ab8d6ff4baec6c238291843e92fc12d60d76c",
+    "modules/acquisition/rt_monitor.hpp": "42facff5182cbe08979a51313d7e1f36d1f6ecc595ed1e5808677734a4b4c30c",
+    "modules/acquisition/live_decoder.cpp": "0ae30ae78b21a18605407da6640f577393094283051ae4a4a9634faf12a7711b",
+    "apps/desktop/main_window.cpp": "e0475011f0fea0bca82fc00b81df863816beb9e9853f47d2eb9f3d2ceb272806",
+    "scripts/build-provider.ps1": "60973e8ccd02c7c12f5b87ad003b80aea0762517f772df9ce18a0e4fb26cc3e0",
+    "docs/provider-contract.md": "2d103e2672f62bb1091399762113cc130debcac6a338ba18a40dd7d78bbbb601",
+    "docs/current-status.md": "5b76fd4344e6479b2ce5d09b360700211522026a879988e56d98b103b034600f",
+    "docs/Release-0.6.0.md": "3b9d8de6d30bc16497c9e71d505735b1b0f1575e8b376b0d7d540bee0e893e8a"
+  }
+}

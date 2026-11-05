@@ -21,6 +21,12 @@ struct ProtocolInfo {
   std::string_view transaction{"Unsupported"}, direction{"Unsupported"}, modeName{}, reason{"Unsupported message type"};
 };
 ProtocolInfo interpret(const Record &);
+// Independent typed observations: one early interpret() rejection must not hide
+// another issue on the same command. Unsupported SDK details stay unavailable.
+struct ProtocolIssues {
+  bool noResponseAvailable{}, noResponse{}, illegalMode{}, wrongTadr{}, invalid{};
+};
+ProtocolIssues protocolIssues(const Record &,const ProtocolInfo &);
 std::optional<double> decodePayload(const Record &,const Signal &,const ProtocolInfo &);
 std::string statusDescription(const ProtocolInfo &);
 std::string protocolDiagnostics(const Record &, const ProtocolInfo &);

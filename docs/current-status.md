@@ -1,6 +1,18 @@
-# Current behavior and evidence — V0.6.0
+# Current development: 0.6.3
 
-Updated 4 November 2026. This page and the current Operator Guide describe operation. Dated validation notes describe the machine and build tested then; they are not live device inventory.
+The connection recovery work originally planned for 0.6.2 is delivered under 0.6.3. See [release record](Release-0.6.3.md). Hardware acceptance remains NOT RUN; earlier status below describes the 0.6.1 baseline.
+
+# Current behavior and evidence — V0.6.1
+
+Updated 5 November 2026. The [0.6.1 delivery record](Release-0.6.1.md) records current implementation and verification. Dated validation notes below describe the machine and build tested then; they are not live device inventory.
+
+## 0.6.1 implementation
+
+Dynamic discovery retains runtime identity and provider rejection reasons, and selects exact runtime/provider pairs. Extensible private packs carry qualification matrices; version strings alone never authorize an ABI. SDK probes are isolated in a bounded child process and excluded while a provider connection exists. Card Manager lookup includes `C:/DDC/ddccm.exe`, registered/custom locations and an approved private fallback. Untested channels remain Not checked.
+
+The default live monitor has ten-column RT/Bus statistics, per-channel unique totals and alternate Message routes/Chronological views. RT-to-RT contributes to both participant rows; RT0, broadcast and Unclassified remain distinct. Unsupported error categories show a dash. Replay statistics use the complete recording; filtering, pause and display eviction do not change recorded totals.
+
+Offline packaging validates private SDK/provider payloads and prerequisite receipts. Review installation preserves shared vendor drivers and Card Manager. Complete production distribution is blocked until vendor redistribution and physical qualification evidence is supplied. Neither an SDK build nor a software fixture qualifies BU-67113U capture.
 
 The [V0.6.0 release report](Release-0.6.0.md) records the completed software gates and their exact scope. The 600-second four-stream fixture passed at 50,043 messages/s with exact raw/CSV/replay reconciliation and p95 GUI heartbeat 90 ms. Its 984 ms worst heartbeat does not support a zero-lag guarantee. Physical qualification remains NOT RUN.
 

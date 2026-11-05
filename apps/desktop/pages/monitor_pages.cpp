@@ -51,8 +51,8 @@ QString Window::fileSize(QString p){
 
 
 void Window::liveMonitor() {
-  backend.replaySource=false;
-  if(!settings.contains("monitorRowMode")){settings.setValue("monitorRowMode","rt");settings.setValue("monitorLayout","windows");}
+  if(!viewingReplayStatistics)backend.replaySource=false;
+  if(!settings.contains("monitorRowMode")){settings.setValue("monitorRowMode","statistics");settings.setValue("monitorLayout","windows");}
   auto form = showForm<Ui::MonitorPage>();
   deviceTabs=form.deviceTabs;selectedSummary=form.selectedSummary;monitorCsv=form.csvButton;
   deviceTitles={form.deviceTitle0,form.deviceTitle1};deviceStatuses={form.deviceStatus0,form.deviceStatus1};
@@ -72,6 +72,7 @@ void Window::liveMonitor() {
   recordButton=new QPushButton("Start recording");recordButton->setObjectName("startRecordingButton");
   form.bodyLayout->insertWidget(0,recordButton);connect(recordButton,&QPushButton::clicked,this,[this]{if(backend.acquisition.active())stopAndSave();else startCapture();});
   form.bodyLayout->insertWidget(0,saveControls());
+  form.bodyLayout->insertWidget(0,connectionResultPanel());
   connect(form.inspectButton, &QPushButton::clicked, this, [this] { inspectSelection(); });
   const QList<QPushButton *> buses = {form.allBusButton,form.busAButton,form.busBButton};
   for (int i=0;i<buses.size();++i) connect(buses[i], &QPushButton::clicked, this, [this,i] {

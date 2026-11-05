@@ -9,6 +9,7 @@
 #include "services/profile_io.hpp"
 #include "services/session_store.hpp"
 #include "services/workspace_style.hpp"
+#include "services/ddc_discovery.hpp"
 
 namespace desktop {
 namespace {std::array<aero::TimingHistogram,8> updateStages;}
@@ -36,6 +37,13 @@ Window::Window()
     backend.captureConfig.logicalDevices={settings.value("logicalChannel1",0).toInt(),settings.value("logicalChannel2",1).toInt()};
     backend.captureConfig.simulatorRate=settings.value("simulatorRate",12).toUInt();
     backend.captureConfig.runtime=std::filesystem::path(settings.value("ddcRuntime").toString().toStdWString());
+    backend.captureConfig.backend=settings.value("ddcBackend","native").toString()=="helper"?aero::DdcBackend::HelperX86:aero::DdcBackend::NativeX64;
+    backend.captureConfig.receiveMode=static_cast<aero::DdcReceiveMode>(qBound(0,settings.value("ddcReceiveMode",0).toInt(),2));
+    backend.captureConfig.connectionPolicy=settings.value("ddcCompatibility",false).toBool()?aero::DdcConnectionPolicy::Compatibility:aero::DdcConnectionPolicy::QualifiedAutomatic;
+    backend.captureConfig.helperPack=std::filesystem::path(settings.value("ddcHelperPack").toString().toStdWString());
+    QFile previousConnections(desktop::dataDirectory()+"/connection-latest.json");if(previousConnections.open(QIODevice::ReadOnly)){
+      const auto previous=QJsonDocument::fromJson(previousConnections.readAll()).object();connectionAttempts=previous.value("attempts").toArray();connectionAttempt=previous.value("latest_attempt").toObject();
+    }
     QFile savedProfile(QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation)+"/active-profile.json");
     if(savedProfile.open(QIODevice::ReadOnly)) {
       std::vector<aero::Signal> mappings;
@@ -308,15 +316,38 @@ void Window::connectDevices(){
   if(!unlocked)return;
   if(connecting||savingSession||closingCapture||backend.acquisition.active())return;
   if(discoveryRunning){toast("Wait for the DDC scan to finish");return;}
-  if(!settings.contains("logicalChannel1")&&!settings.contains("logicalChannel2")) {
-    const auto assignments=hardwareDiscovery.value("suggested_logical_devices").toArray();
-    if(assignments.size()==2){for(int i=0;i<2;++i){backend.captureConfig.logicalDevices[i]=assignments[i].toInt();settings.setValue(QString("logicalChannel%1").arg(i+1),backend.captureConfig.logicalDevices[i]);}}
-    else {toast("Choose and verify the DDC logical channels in Device Setup");navigate(2);return;}
-  }
+  if(backend.acquisition.metrics(false).cleanupBlocked){toast("Previous SDK cleanup failed. Review connection details before reconnecting.");return;}
   for(int ch=1;ch<=2;++ch)for(int b=0;b<2;++b)backend.captureConfig.enabled[(ch-1)*2+b]=settings.value(QString("channel%1Bus %2").arg(ch).arg(b?"B":"A"),true).toBool();
+  if(!connectionAssignmentsFresh) {
+    if(!connectionAttempt.isEmpty()){connectionAttempts.append(connectionAttempt);while(connectionAttempts.size()>32)connectionAttempts.removeAt(0);}
+    QJsonArray requested;for(bool on:backend.captureConfig.enabled)requested.append(on);
+    connectionAttempt={{"attempt_id",QUuid::createUuid().toString(QUuid::Id128)},{"started_utc",QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)},
+      {"state","checking_assignments"},{"requested_streams",requested},{"backend",backend.captureConfig.backend==aero::DdcBackend::NativeX64?"native_x64":"helper_x86"},
+      {"receive_mode",int(backend.captureConfig.receiveMode)},{"connection_policy",backend.captureConfig.connectionPolicy==aero::DdcConnectionPolicy::Compatibility?"compatibility":"qualified_automatic"},
+      {"helper_manifest",QString::fromStdWString(backend.captureConfig.helperPack.wstring())},{"api_events",QJsonArray{}}};
+    connectAfterDiscovery=true;saveConnectionEvidence();rescanDdc();return;
+  }
+  connectionAssignmentsFresh=false;
+  const auto resolved=desktop::resolveDdcAssignments(hardwareDiscovery,backend.captureConfig.enabled,backend.captureConfig.logicalDevices,
+    {settings.contains("logicalChannel1"),settings.contains("logicalChannel2")},settings.value("ddcAssignmentMode","card_manager").toString()=="manual");
+  connectionAttempt["assignment_resolution"]=resolved;
+  if(!resolved.value("valid").toBool()){finishConnectionEvidence(false,resolved.value("error").toString());navigate(2);return;}
+  const auto ids=resolved.value("logical_devices").toArray();
+  for(int i=0;i<2;++i)if(backend.captureConfig.enabled[i*2]||backend.captureConfig.enabled[i*2+1]){backend.captureConfig.logicalDevices[i]=ids[i].toInt();settings.setValue(QString("logicalChannel%1").arg(i+1),ids[i].toInt());}
+  connectionAttempt["runtime_path"]=hardwareDiscovery.value("runtime_path");connectionAttempt["runtime_sha256"]=hardwareDiscovery.value("runtime_sha256");
+  connectionAttempt["provider_id"]=hardwareDiscovery.value("provider_id");connectionAttempt["provider_path"]=hardwareDiscovery.value("provider_path");
+  connectionAttempt["helper_sha256"]=hardwareDiscovery.value("helper_sha256");connectionAttempt["header_sha256"]=hardwareDiscovery.value("header_sha256");
+  connectionAttempt["qualification"]=hardwareDiscovery.value("qualification");connectionAttempt["state"]="connecting";saveConnectionEvidence();
   automaticHeld=false;connectionIsRecording=false;connecting=true;
   applicationEvent("devices_connect_requested");
-  backend.captureConfig.diagnostic=[](const std::string &operation,int result,const std::string &detail){applicationEvent("ddc_connection_api",QString::fromStdString(operation),{{"result",result},{"detail",QString::fromStdString(detail)}},result?QtWarningMsg:QtInfoMsg);};
+  const auto attemptId=connectionAttempt.value("attempt_id").toString();QPointer<Window> receiver(this);
+  backend.captureConfig.diagnostic=[receiver,attemptId](const std::string &operation,int result,const std::string &detail){
+    const auto op=QString::fromStdString(operation),text=QString::fromStdString(detail);applicationEvent("ddc_connection_api",op,{{"result",result},{"detail",text},{"attempt_id",attemptId}},result?QtWarningMsg:QtInfoMsg);
+    if(receiver)QMetaObject::invokeMethod(receiver,[receiver,attemptId,op,result,text]{if(!receiver||receiver->connectionAttempt.value("attempt_id")!=attemptId)return;
+      auto events=receiver->connectionAttempt.value("api_events").toArray();events.append(QJsonObject{{"operation",op},{"result",result},{"detail",text},{"utc",QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)}});while(events.size()>256)events.removeAt(0);receiver->connectionAttempt["api_events"]=events;
+      if(op=="runtime_loaded")receiver->connectionAttempt["loaded_runtime_detail"]=text;
+    },Qt::QueuedConnection);
+  };
   connectionFuture=backend.acquisition.beginConnection(backend.captureConfig);
   refreshOperatorState();
 }
@@ -367,6 +398,7 @@ void Window::startCapture(){
     applicationEvent("capture_file","",{{"path",currentFile},{"hardware",backend.captureConfig.hardware},{"device_1",backend.captureConfig.logicalDevices[0]},{"device_2",backend.captureConfig.logicalDevices[1]}});
     if(!backend.captureConfig.simulatorProfile.empty())backend.captureConfig.simulatorProfile=backend.mappings();
     if(!backend.captureConfig.hardware)if(auto error=aero::validateSimulation(backend.captureConfig);!error.empty()){toast(QString::fromStdString(error));return;}
+      viewingReplayStatistics=false;rtDisplayPaused=false;
     if(backend.captureConfig.hardware) {
       backend.captureConfig.enabled=enabled;
       if(const auto error=backend.acquisition.setProfile(backend.mappings());!error.empty()) {toast(QString::fromStdString(error));return;}
@@ -380,6 +412,7 @@ void Window::startCapture(){
       return;
     }
     if(auto error=desktop::describeSession(currentFile,backend.captureConfig);!error.isEmpty())toast(error);
+    preserveSessionConnection(currentFile);
     model.records.clear();
     model.refresh();
     captureClock.restart();

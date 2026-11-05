@@ -1,5 +1,7 @@
 #include "main_window.hpp"
+#include "services/runtime_paths.hpp"
 void Window::collectDiagnostics() {
+  saveConnectionEvidence();
   for(auto process:findChildren<QProcess *>())if(process->property("supportCollector").toBool() && process->state()!=QProcess::NotRunning){toast("Support collection is already running");return;}
   QString script=QCoreApplication::applicationDirPath()+"/scripts/collect-diagnostics.ps1";
   if(!QFileInfo::exists(script))script=QString::fromUtf8(AEROTRACE_DIAGNOSTIC_COLLECTOR);
@@ -13,7 +15,9 @@ void Window::collectDiagnostics() {
   const auto shell=qEnvironmentVariable("WINDIR","C:/Windows")+"/System32/WindowsPowerShell/v1.0/powershell.exe";
   QStringList arguments={"-NoProfile","-NonInteractive","-ExecutionPolicy","Bypass","-File",script,"-ApplicationDirectory",QCoreApplication::applicationDirPath(),"-OutputDirectory",output,"-DataDirectory",QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation),"-SessionDirectory",sessionDir,"-PreferencesPath",settings.fileName()};
   if(!currentFile.isEmpty())arguments<<"-CapturePath"<<currentFile;
-  if(!backend.captureConfig.runtime.empty())arguments<<"-RuntimePath"<<QString::fromStdWString(backend.captureConfig.runtime.wstring());
+  arguments<<"-ConnectionReportPath"<<desktop::dataDirectory()+"/connection-latest.json";
+  const auto resolved=connectionAttempt.value("runtime_path").toString(hardwareDiscovery.value("runtime_path").toString());
+  if(!resolved.isEmpty())arguments<<"-RuntimePath"<<resolved;
   process->start(shell,arguments);
   toast("Collecting logs, capture sidecars and driver inventory…");
 }

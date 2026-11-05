@@ -11,6 +11,7 @@
 #define AT_EXPORT
 #endif
 #define AT_PROVIDER_ABI 1u
+#define AT_PROVIDER_ABI_V2 2u
 #define AT_PROVIDER_FIXTURE 1u
 #define AT_PROVIDER_MAX_RECORDS 262144u
 #define AT_PROVIDER_MAX_PACKETS 512u
@@ -54,6 +55,28 @@ typedef struct AtProviderApi {
   void (AT_CALL *release_batch)(void *,void *);
   int32_t (AT_CALL *close)(void *,AtError *);
 } AtProviderApi;
+
+/* ABI v2 is a separate table; the v1 table and all its structure sizes remain
+ * unchanged. These structures are process-local x64 C ABI, never an IPC format. */
+typedef struct AtErrorV2 {
+  uint32_t size,category;
+  int32_t code,channel,logical_device;
+  uint32_t windows_code,supplementary_windows,cleanup_failed;
+  char stage[64],operation[64],detail[4096],recovery[2048];
+} AtErrorV2;
+typedef struct AtConfigV2 {
+  uint32_t size,receive_mode; /* 0 Auto, 1 MTI, 2 classic MT */
+  AtConfig config;
+} AtConfigV2;
+typedef struct AtProviderApiV2 {
+  uint32_t size,abi;
+  const AtProviderApi *v1;
+  int32_t (AT_CALL *open)(const AtConfigV2 *,void **,AtErrorV2 *);
+  int32_t (AT_CALL *stop)(void *,AtErrorV2 *);
+  int32_t (AT_CALL *drain_next)(void *,AtBatch *,uint32_t *,AtErrorV2 *);
+  int32_t (AT_CALL *last_error)(void *,AtErrorV2 *);
+  int32_t (AT_CALL *close)(void *,AtErrorV2 *);
+} AtProviderApiV2;
 typedef const AtProviderApi *(AT_CALL *AtGetProviderApi)(uint32_t,uint32_t);
 AT_EXPORT const AtProviderApi *AT_CALL aerotrace_provider_get_api(uint32_t abi,uint32_t host_size);
 #ifdef __cplusplus
