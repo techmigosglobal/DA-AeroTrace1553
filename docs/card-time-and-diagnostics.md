@@ -8,7 +8,7 @@ The adapter explicitly configures relative Chapter 10 time and preserves the har
 
 Engineering fields in one message share its original DDC message time tag. No separate word-level acquisition times are invented.
 
-Recognized 48-bit rollover extends the presentation/recording timeline while retaining the original tick and packet bytes. Unexpected backward movement remains a diagnostic event; it is not clamped, smoothed or replaced. Source-specific plot histories restart at a backward discontinuity. Unsupported absolute/secondary packet time formats fail explicitly with the original packet preserved.
+Recognized 48-bit rollover extends the presentation/recording timeline while retaining the original tick and packet bytes. Unexpected backward movement remains a diagnostic event; it is not clamped, smoothed or replaced. Source-specific plot histories retain bounded separate segments at a backward discontinuity; 0.6.11 adds explicit plot markers without rewriting the stored clock. Unsupported absolute/secondary packet time formats fail explicitly with the original packet preserved.
 
 Engineering and signal plots select one channel/bus stream. They do not combine independent device clocks into an apparently synchronized timeline. Actual bus idle periods, capture losses, resets or an unsynchronized external clock cannot be removed by software. Recorded intervals and backward/repeated timestamps are reported. The largest interval is not proof of a lost message: the protocol/ICD must specify an expected rate before that conclusion is valid. Physical synchronization and timebase accuracy remain part of the user's hardware test.
 

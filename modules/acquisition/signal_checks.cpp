@@ -18,7 +18,8 @@ std::string validateChecks(const std::vector<CheckRule> &rules,const std::vector
   }
   return {};
 }
-void SignalChecks::configure(const std::vector<Signal> &profile,const std::vector<CheckRule> &value) {
+void SignalChecks::configure(const std::vector<Signal> &profile,const std::vector<CheckRule> &value, bool example) {
+  exampleContext=example;
   if(auto error=validateChecks(value,profile);!error.empty())throw std::invalid_argument(error);
   rules=value;mappings.clear();states.assign(rules.size(),{});streams={};pending.clear();
   for(const auto &r:rules) {
@@ -49,7 +50,7 @@ void SignalChecks::consume(const Record &r) {
   for(std::size_t i=0;i<rules.size();++i) {
     const auto &signal=mappings[i];if((signal.channel && signal.channel!=r.channel) || (signal.bus>=0 && signal.bus!=r.bus)) continue;
     const auto c=interpretation.payloadCommand;if(c.rt!=signal.rt || c.sa!=signal.sa || c.transmit!=signal.transmit) continue;
-    const auto v=decode(r,signal);if(!v) continue;
+    const auto v=decode(r,signal,exampleContext);if(!v) continue;
     auto &s=states[i][k];const auto &rule=rules[i];
     if(s.missing) event(r.timestampNs,k,&r,signal.id,"recovered","Signal received again");
     s.last=r.timestampNs;s.seen=true;s.missing=false;

@@ -106,3 +106,21 @@ QWidget[workspacePolish="true"] QSpinBox::up-button {subcontrol-origin:border;su
 QWidget[workspacePolish="true"] QSpinBox::down-button {subcontrol-origin:border;subcontrol-position:bottom right;width:24px;border-left:1px solid #b5c6d8;background:#edf3f9;}
 QWidget[workspacePolish="true"] QSpinBox::up-arrow {image:url(:/icons/chevron-up.svg);width:12px;height:12px;}
 QWidget[workspacePolish="true"] QSpinBox::down-arrow {image:url(:/icons/chevron-down.svg);width:12px;height:12px;}
+
+QPushButton[rtSelector="true"]:hover {background:#eaf3fa;}
+QPushButton[rtSelector="true"]:focus {border:2px solid #245fa8;}
+
+/* Subsystem Workspace: shared context, restrained evidence and action surfaces. */
+QFrame#subsystemPanel {background:#e8efe9;border:1px solid #d2ddd3;border-radius:7px;}
+QLabel#workspaceTitle {font-size:18px;font-weight:600;color:#214d3b;}
+QLabel#workspaceScope {color:#526a5c;padding:5px 0;}
+QLabel#workspaceRoute {padding:10px;background:#f6f9f4;border-radius:4px;color:#405f4c;}
+QTreeWidget#subsystemList {background:transparent;border:0;outline:none;}
+QTreeWidget#subsystemList::item {padding:12px 5px;margin:3px 0;border:1px solid #d6e0d5;border-radius:5px;background:#f9fbf8;}
+QTreeWidget#subsystemList::item:selected {background:#d8e9dc;border-color:#83ac8d;color:#1c4d35;}
+QDockWidget#icdAssistantDock {font-size:15px;}
+QDockWidget#icdAssistantDock::title {background:#e8efe9;padding:10px;font-weight:600;}
+QTextBrowser#answer {background:#fbfdfb;border:1px solid #d5dfd5;border-radius:6px;padding:10px;}
+QToolButton {padding:7px;border:1px solid transparent;border-radius:4px;color:#28553f;}
+QToolButton:hover {background:#e5eee4;border-color:#adbfaa;}
+QToolButton:focus {border:2px solid #346449;}

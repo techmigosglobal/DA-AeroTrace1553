@@ -1049,6 +1049,14 @@
     </widget>
    </item>
    <item>
+    <widget class="QWidget" name="expectedCountRow">
+     <layout class="QHBoxLayout" name="expectedCountLayout">
+      <item><widget class="QLabel" name="expectedCountLabel"><property name="text"><string>Expected data words (0 = unspecified)</string></property><property name="buddy"><cstring>expectedWordCount</cstring></property></widget></item>
+      <item><widget class="QSpinBox" name="expectedWordCount"><property name="accessibleName"><string>Expected data word count; zero means unspecified</string></property><property name="maximum"><number>32</number></property></widget></item>
+     </layout>
+    </widget>
+   </item>
+   <item>
     <widget class="QWidget" name="numericOptions">
      <layout class="QHBoxLayout" name="numericOptionsLayout">
       <item>

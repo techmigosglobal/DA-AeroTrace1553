@@ -1,4 +1,5 @@
 #include "main_window.hpp"
+#include "services/csv_conversion.hpp"
 #include "services/profile_io.hpp"
 #include "services/session_store.hpp"
 #include "services/runtime_paths.hpp"
@@ -25,7 +26,7 @@ void Window::setupOperatorShell() {
   findChild<QLabel *>("brandText")->setStyleSheet("font-size:16px;font-weight:700;");
   findChild<QLabel *>("platformCaption")->hide();licenseBadge->hide();footerBadge->hide();
   auto preferences=findChild<QPushButton *>("preferencesButton");
-  auto chat=findChild<QPushButton *>("icdChatButton");chat->setIcon(QIcon(":/icons/file.svg"));chat->setToolTip("ICD Assistant · Ctrl+J");
+  auto chat=findChild<QPushButton *>("icdChatButton");chat->setIcon(QIcon(":/icons/file.svg"));chat->setToolTip("AeroTrace Assistant · Ctrl+J");
   connect(chat,&QPushButton::clicked,this,[this]{if(unlocked) documentCenter();});
   shortcut(QKeySequence("Ctrl+J"),[this]{if(unlocked) documentCenter();});
   preferences->setIcon(QIcon(":/icons/settings.svg"));preferences->setAccessibleName("Preferences");preferences->setToolTip("Preferences");
@@ -34,15 +35,13 @@ void Window::setupOperatorShell() {
   auto more=findChild<QPushButton *>("moreTools");more->setIcon(QIcon(":/icons/more.svg"));more->setToolTip("All tools");more->setAccessibleName("More tools");
   connect(more,&QPushButton::clicked,this,[this,more] {
     QMenu menu(this);
-    auto tasks=menu.addAction("Tasks and automation…");connect(tasks,&QAction::triggered,this,[this]{if(unlocked)taskCenter();});menu.addSeparator();
-    for(int i: {5,8,9,11,13,14,15,17,0,16}) {
-      auto action=menu.addAction(nav[i]->icon(),names[i]);
+    for(int i: {5,11,13,14,15,17,0,16}) {
+      auto action=menu.addAction(nav[i]->icon(),i==5?"Bus Analysis":names[i]);
       connect(action,&QAction::triggered,this,[this,i]{navigate(i);});
     }
     menu.exec(more->mapToGlobal(QPoint(more->width(),0)));
   });
-  shortcut(QKeySequence("Ctrl+Shift+T"),[this]{if(unlocked)taskCenter();});
-  for(int i: {5,8,9,11,13,14,15,17,0,16}) nav[i]->hide();
+  for(int i: {5,6,7,8,9,11,13,14,15,17,0,16}) nav[i]->hide();
   connect(captureButton,&QPushButton::clicked,this,[this] {
     if(connecting) {automaticHeld=true;backend.acquisition.requestStop();}
     else if(backend.acquisition.connected() || backend.acquisition.active()) disconnectDevices();
@@ -55,6 +54,7 @@ void Window::setupOperatorShell() {
   shortcut(QKeySequence("Ctrl+2"),[this]{navigate(6);});
   shortcut(QKeySequence("Ctrl+3"),[this]{navigate(7);});
   shortcut(QKeySequence("Ctrl+I"),[this]{if(unlocked) importIcd();});
+  nav[12]->setText(sidebarCollapsed?QString():QString("ICD && Analysis"));nav[12]->setProperty("fullText","ICD && Analysis");nav[12]->setAccessibleName("ICD & Analysis");
   nav[12]->setToolTip("ICD library · Ctrl+I imports a PDF or profile. You can also drop the file onto the workspace.");
   if(!QStandardPaths::isTestModeEnabled() && settings.value("operatorWorkflowVersion",0).toInt()<2) {
     for(int ch=1;ch<=2;++ch) for(const auto &bus:{"A","B"}) settings.setValue(QString("channel%1Bus %2").arg(ch).arg(bus),true);
@@ -81,7 +81,7 @@ QString Window::recordingDisabledReason() const {
   if(savingSession)return "Saving recording — wait for finalization.";
   if(closingCapture)return "Application cleanup in progress.";
   const auto m=backend.acquisition.metrics(false);
-  if(m.cleanupBlocked)return "SDK cleanup failed — review connection details before reconnecting.";
+  if(m.cleanupBlocked)return m.error.empty()?QString("SDK ownership release is unconfirmed. Collect diagnostics."):QString("Connection blocked · %1").arg(QString::fromStdString(m.error));
   if(backend.captureConfig.hardware&&!backend.acquisition.connected()) {
     const auto cause=connectionAttempt.value("error").toString();
     return cause.isEmpty()?QString("Connect devices before starting a recording."):"Connect failed: "+cause;
@@ -186,12 +186,12 @@ void Window::dragEnterEvent(QDragEnterEvent *event) {
   if(!unlocked || !event->mimeData()->hasUrls() || event->mimeData()->urls().size()!=1) return;
   const auto url=event->mimeData()->urls().front();
   const auto suffix=QFileInfo(url.toLocalFile()).suffix().toLower();
-  if(url.isLocalFile() && (suffix=="pdf" || suffix=="json")) event->acceptProposedAction();
+  if(url.isLocalFile() && (suffix=="pdf" || suffix=="json" || suffix=="csv")) event->acceptProposedAction();
 }
 void Window::dropEvent(QDropEvent *event) {
   if(!unlocked || !event->mimeData()->hasUrls() || event->mimeData()->urls().size()!=1) return;
   const auto url=event->mimeData()->urls().front();const auto suffix=QFileInfo(url.toLocalFile()).suffix().toLower();
-  if(!url.isLocalFile() || (suffix!="pdf" && suffix!="json")) return;
+  if(!url.isLocalFile() || (suffix!="pdf" && suffix!="json" && suffix!="csv")) return;
   event->acceptProposedAction();importIcdPath(url.toLocalFile());
 }
 
@@ -204,7 +204,7 @@ void Window::finishConnection() {
       viewingReplayStatistics=false;rtDisplayPaused=false;
       if(auto error=desktop::describeSession(currentFile,backend.captureConfig);!error.isEmpty())toast(error);
       preserveSessionConnection(currentFile);
-      backend.archive.clear();backend.replaySource=false;backend.replayPlaying=false;backend.selected={};
+      backend.archive.clear();backend.archiveExample=!backend.captureConfig.hardware;backend.replaySource=false;backend.replayPlaying=false;backend.selected={};
       model.records.clear();selectedMonitorId=0;paneSelection={};model.refresh();refreshMonitorPanes();captureClock.restart();
       eventText="Recording started";
     } else {eventText="Devices connected — press Start recording";navigate(4);}
@@ -221,8 +221,9 @@ void Window::refreshOperatorState() {
   if(!captureButton) return;
   const auto metrics=backend.acquisition.metrics(false);
   captureButton->setVisible(true);
-  captureButton->setEnabled(!savingSession&&!closingCapture);
-  captureButton->setText(savingSession ? "Saving…" : connectAfterDiscovery ? "Checking assignments…" : connecting ? "Cancel connection" : backend.acquisition.connected() || backend.acquisition.active() ? "Disconnect devices" : !backend.captureConfig.hardware ? "Start simulator" : metrics.failed ? "Retry connection" : "Connect devices");
+  captureButton->setEnabled(!savingSession&&!closingCapture&&!metrics.cleanupBlocked);
+  captureButton->setToolTip(metrics.cleanupBlocked ? QString::fromStdString(metrics.error) : QString());
+  captureButton->setText(metrics.cleanupBlocked ? "Connection blocked" : savingSession ? "Saving…" : connectAfterDiscovery ? "Checking assignments…" : connecting ? "Cancel connection" : backend.acquisition.connected() || backend.acquisition.active() ? "Disconnect devices" : !backend.captureConfig.hardware ? "Start simulator" : metrics.failed ? "Retry connection" : "Connect devices");
   stateBadge->setText(connecting||connectAfterDiscovery ? "Checking devices" : backend.acquisition.active() ? "● Recording" : metrics.failed ? "● Connection failed" : backend.acquisition.connected() ? "Connected" : "Disconnected");
   const auto color=metrics.failed ? "#b33a32" : backend.acquisition.active() && backend.captureConfig.hardware ? "#28624d" : "#62685f";
   const auto badgeStyle=QString("color:%1;font-size:14px;padding:6px;").arg(color);
@@ -230,10 +231,13 @@ void Window::refreshOperatorState() {
   for(unsigned i=0;i<2;++i) if(deviceStatuses[i]) {
     if(deviceTitles[i]) deviceTitles[i]->setText(QString("Device %1  /  %2").arg(backend.captureConfig.logicalDevices[i]).arg(i ? "Internal" : "External"));
     const auto &device=metrics.devices[i];QString status,ink="#62685f";
+    const auto lastTraffic=std::max(metrics.lastTrafficNs[i*2],metrics.lastTrafficNs[i*2+1]);
+    const auto nowNs=std::uint64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(
+      std::chrono::steady_clock::now().time_since_epoch()).count());
     switch(device.phase) {
       case aero::DevicePhase::Checking: status="Checking configuration…";break;
       case aero::DevicePhase::Ready: status="Connected · ready to record";break;
-      case aero::DevicePhase::Monitoring: status="Monitoring";ink="#28624d";break;
+      case aero::DevicePhase::Monitoring: status=lastTraffic && nowNs-lastTraffic<2000000000ull?"Monitoring":"Monitoring · waiting for bus traffic";ink="#28624d";break;
       case aero::DevicePhase::Simulating: status="Simulator · hardware not connected";ink="#8a611f";break;
       case aero::DevicePhase::Failed: status="Not ready · check device setup";ink="#b33a32";break;
       case aero::DevicePhase::Disabled: status="Disabled";break;
@@ -286,7 +290,7 @@ void Window::exportMonitorCsv() {
   });
   const auto bus=model.busFilter,search=model.search;const auto channel=model.channelFilter,rt=model.rtFilter;
   toast("Exporting selected channel and display filters…");
-  watcher->setFuture(QtConcurrent::run([records=analysisData(),mappings=backend.mappings(),path,bus,search,channel,rt] {
+  watcher->setFuture(QtConcurrent::run([records=analysisData(),mappings=backend.mappings(),path,bus,search,channel,rt,options=desktop::csvOptions(settings)] {
     aero::Workbench job;job.profile=mappings;
     for(const auto &record:records) {
       const auto command=aero::command(record.commandWord);
@@ -296,15 +300,17 @@ void Window::exportMonitorCsv() {
       if(!search.isEmpty() && !words(record).contains(search,Qt::CaseInsensitive) && !hexword(record.commandWord).contains(search,Qt::CaseInsensitive)) continue;
       job.archive.push_back(record);
     }
-    auto result=job.exportData(aero::ExportFormat::RawCsv,0,UINT64_MAX);
-    if(!result.error.empty()) return result;
-    const auto bytes=QByteArray::fromStdString(result.text);
+    aero::ExportResult result;result.count=job.archive.size();
+    QByteArray bytes=QByteArray::fromHex("efbbbf")+QByteArray::fromStdString(aero::sessionCsvHeader(options));std::array<std::optional<std::uint64_t>,2> previous;
+    for(const auto &r:job.archive){bytes+=QByteArray::fromStdString(aero::sessionCsvRecord(r,previous[r.channel-1],options));previous[r.channel-1]=r.timestampNs;}
     QSaveFile output(path);
     if(!output.open(QIODevice::WriteOnly) || output.write(bytes)!=bytes.size() || !output.commit()) {result.error="CSV export failed";return result;}
     QSaveFile checksum(path+".sha256");const auto digest=QCryptographicHash::hash(bytes,QCryptographicHash::Sha256).toHex();
     if(!checksum.open(QIODevice::WriteOnly) || checksum.write(digest)!=digest.size() || !checksum.commit()) result.error="CSV saved; checksum could not be saved";
     QSaveFile profile(path+".profile.json");const auto json=QJsonDocument(desktop::profileToJson(mappings)).toJson();
     if(!profile.open(QIODevice::WriteOnly) || profile.write(json)!=json.size() || !profile.commit()) result.error="CSV saved; profile could not be saved";
+    QSaveFile manifest(path+".export.json");const auto metadata=QJsonDocument(QJsonObject{{"schema","aerotrace.filtered-csv.v1"},{"layout",options.layout==aero::CsvLayout::Compact11?"compact11":"legacy42"},{"radix",int(options.radix)},{"scope","Retained records after selected display filters"},{"rows",double(result.count)},{"time_origin","Relative card time; zero-based elapsed days"}}).toJson();
+    if(!manifest.open(QIODevice::WriteOnly)||manifest.write(metadata)!=metadata.size()||!manifest.commit())result.error="CSV saved; export options could not be saved";
     result.text.clear();return result;
   }));
 }

@@ -30,6 +30,14 @@ int main() {
     auto r = aero::synthetic(0);
     aero::Signal s{"TEMP", "degC"};
     CHECK(aero::decode(r, s).value() == 10.0);
+    s.expectedWordCount=32;CHECK(!aero::decode(r,s));
+    auto full=r;full.commandWord=(3<<11)|(2<<5);full.words.resize(32);CHECK(aero::decode(full,s).value()==10.0);
+    full.commandWord|=31;CHECK(!aero::decode(full,s));s.expectedWordCount=0;
+    {auto value=full;value.commandWord=(3<<11)|(2<<5);value.words.assign(32,0);value.words[0]=0x3f80;value.words[1]=0;
+      aero::Signal f{"FLOAT","m/s"};f.sa=2;f.word=0;f.width=32;f.numericType="float32";f.scale=1;f.expectedWordCount=32;
+      CHECK(aero::decode(value,f).value()==1.0);std::swap(value.words[0],value.words[1]);f.leastSignificantWordFirst=true;CHECK(aero::decode(value,f).value()==1.0);
+      f.leastSignificantWordFirst=false;f.width=64;f.numericType="float64";value.words[0]=0x3ff0;value.words[1]=value.words[2]=value.words[3]=0;CHECK(aero::decode(value,f).value()==1.0);
+      value.words[0]=0x7ff0;CHECK(!aero::decode(value,f));}
     r.words[0] = 0xffff;
     s.signedValue = true;
     s.scale = 1;

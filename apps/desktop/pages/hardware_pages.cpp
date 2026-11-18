@@ -1,10 +1,12 @@
 #include "main_window.hpp"
+#include "services/csv_conversion.hpp"
 #include "services/ddc_discovery.hpp"
 #include "services/card_manager.hpp"
 #include "services/session_store.hpp"
 #include "services/runtime_paths.hpp"
 #include "helper_packs.hpp"
 #include "ui_rt_channel_body.h"
+#include "widgets/startup_splash.hpp"
 #ifdef Q_OS_WIN
 #include <windows.h>
 #include <shellapi.h>
@@ -50,17 +52,55 @@ void Window::openCardManager() {
   });
   toast("Card Manager opened. Verify logical assignments there, then return to AeroTrace; devices remain disconnected.");
 }
-void Window::stopAndSave(QString recording) {
+void Window::beginSaveProgress() {
+  const auto generation=++saveProgressGeneration;
+  QTimer::singleShot(300,this,[this,generation]{
+    if(!savingSession||generation!=saveProgressGeneration)return;
+    auto panel=new QDialog(this,Qt::Dialog|Qt::CustomizeWindowHint|Qt::WindowTitleHint);
+    panel->setObjectName("saveProgressPanel");panel->setWindowTitle("Saving recording");panel->setModal(false);panel->setMinimumWidth(360);
+    auto body=new QVBoxLayout(panel);saveProgressLabel=new QLabel(sessionSaveState,panel);body->addWidget(saveProgressLabel);
+    if(desktop::startupMotionEnabled()){auto indicator=new QProgressBar(panel);indicator->setRange(0,0);indicator->setTextVisible(false);body->addWidget(indicator);}
+    auto note=new QLabel("The raw recording is retained for replay.",panel);note->setWordWrap(true);body->addWidget(note);
+    saveProgress=panel;panel->setAttribute(Qt::WA_DeleteOnClose);panel->show();
+  });
+}
+void Window::finishSaveProgress() {
+  ++saveProgressGeneration;
+  if(saveProgress)saveProgress->close();
+  saveProgress.clear();saveProgressLabel.clear();
+}
+void Window::findUnsavedRecordings() {
+  auto roots=settings.value("legacySessionRoots").toStringList();roots<<sessionDir<<desktop::dataDirectory()+"/Sessions";roots.removeDuplicates();
+  auto watcher=new QFutureWatcher<QStringList>(this);
+  connect(watcher,&QFutureWatcher<QStringList>::finished,this,[this,watcher]{
+    auto files=watcher->result();watcher->deleteLater();files.removeAll(currentFile);
+    if(files.isEmpty()||closingCapture)return;
+    auto dialog=new QDialog(this);dialog->setAttribute(Qt::WA_DeleteOnClose);dialog->setObjectName("unsavedRecordings");dialog->setWindowTitle("Recordings awaiting CSV export");dialog->resize(620,360);
+    auto body=new QVBoxLayout(dialog);auto note=new QLabel("These recordings are already on disk. Select one to save its CSVs, or return to it later.",dialog);note->setWordWrap(true);body->addWidget(note);
+    auto list=new QListWidget(dialog);body->addWidget(list,1);
+    for(const auto &file:files){auto item=new QListWidgetItem(desktop::sessionDisplayName(file)+" · "+QFileInfo(file).lastModified().toString("dd MMM yyyy HH:mm"),list);item->setData(Qt::UserRole,file);item->setToolTip(file);}
+    list->setCurrentRow(0);
+    auto buttons=new QDialogButtonBox(dialog);auto save=buttons->addButton("Save CSVs",QDialogButtonBox::AcceptRole);auto review=buttons->addButton("Review in Sessions",QDialogButtonBox::ActionRole);auto later=buttons->addButton("Later",QDialogButtonBox::RejectRole);body->addWidget(buttons);
+    connect(save,&QPushButton::clicked,dialog,[this,dialog,list]{if(!list->currentItem()||!unlocked){toast("Unlock AeroTrace and review the recording in Sessions.");return;}if(backend.acquisition.active()||savingSession||connecting){toast("Finish the active operation before exporting recovered data.");return;}const auto file=list->currentItem()->data(Qt::UserRole).toString();dialog->close();stopAndSave(file,true);});
+    connect(review,&QPushButton::clicked,dialog,[this,dialog,list]{const auto file=list->currentItem()?list->currentItem()->data(Qt::UserRole).toString():QString();dialog->close();navigate(10);const auto row=sessionPaths.indexOf(file);if(page==10&&sessionTable&&row>=0)sessionTable->selectRow(row);});
+    connect(later,&QPushButton::clicked,dialog,&QDialog::close);dialog->show();
+  });
+  watcher->setFuture(QtConcurrent::run([roots]{return desktop::recoverableSessions(roots);}));
+}
+void Window::stopAndSave(QString recording,bool retry) {
   if(savingSession){toast("Stop & save is already running");return;}
   if(connecting){toast("Wait for connection to finish or cancel it before saving");return;}
   const auto path=!recording.isEmpty()?recording:(backend.acquisition.active()?currentFile:(((page==11||viewingReplayStatistics)&&backend.replaySource&&!currentReplay.isEmpty())?currentReplay:currentFile));
   if(!recording.isEmpty()&&recording!=currentFile&&backend.acquisition.active()){toast("Stop the active capture before exporting another session");return;}
   if(path.isEmpty()||!QFileInfo::exists(path)){toast("No recording to save. The DDC connection must succeed first.");return;}
-  automaticHeld=true;configurationRetry.stop();savingSession=true;sessionSaveState="Stopping and draining";
+  const bool wasRecording=backend.acquisition.active();
+  automaticHeld=true;configurationRetry.stop();savingSession=true;sessionSaveState=wasRecording?"Stopping capture…":"Preparing CSV export…";
+  beginSaveProgress();
   applicationEvent("session_save_requested",path);statusBar()->showMessage("Stopping acquisition and draining pending hardware buffers…");
   auto stopped=new QFutureWatcher<QString>(this);
-  connect(stopped,&QFutureWatcher<QString>::finished,this,[this,stopped,path]{const auto error=stopped->result();stopped->deleteLater();
-    if(!error.isEmpty()){disconnectAfterSave=false;savingSession=false;toast(error);refreshOperatorState();return;}
+  connect(stopped,&QFutureWatcher<QString>::finished,this,[this,stopped,path,retry,wasRecording]{const auto error=stopped->result();stopped->deleteLater();
+    if(!error.isEmpty()){disconnectAfterSave=false;savingSession=false;finishSaveProgress();toast(error);refreshOperatorState();return;}
+    finishSaveProgress();
     sessionSaveState="Finalized — awaiting export destination";
     QFile descriptor(path+".session.json");if(descriptor.open(QIODevice::ReadOnly)){const auto o=QJsonDocument::fromJson(descriptor.readAll()).object();if(!o.value("export_directory").toString().isEmpty()){
       settings.setValue("exportFolder",o.value("export_directory").toString());settings.setValue("nextRunName",o.value("run_name").toString("run"+o.value("run_number").toString()));
@@ -68,15 +108,22 @@ void Window::stopAndSave(QString recording) {
     descriptor.close();
     const auto dir=settings.value("exportFolder").toString().trimmed(),name=settings.value("nextRunName").toString().trimmed();
     if((dir.isEmpty()||!desktop::validateRunName(name).isEmpty())&&!chooseSaveDestination()){savingSession=false;if(disconnectAfterSave){disconnectAfterSave=false;backend.acquisition.stop();applicationEvent("devices_disconnected");}sessionSaveState="Recording retained — CSV save cancelled";toast(sessionSaveState);refreshOperatorState();return;}
-    exportFinalizedSession(path);
+    exportFinalizedSession(path,retry||wasRecording);
   });
-  stopped->setFuture(QtConcurrent::run([this]{try{backend.acquisition.stopRecording();return QString();}catch(const std::exception &e){return QString::fromUtf8(e.what());}}));refreshOperatorState();
+  stopped->setFuture(QtConcurrent::run([this,wasRecording]{try{if(wasRecording)backend.acquisition.stopRecording();return QString();}catch(const std::exception &e){return QString::fromUtf8(e.what());}}));refreshOperatorState();
 }
-void Window::exportFinalizedSession(const QString &path) {
+void Window::exportFinalizedSession(const QString &path,bool retry) {
   const auto dir=settings.value("exportFolder").toString().trimmed(),name=settings.value("nextRunName").toString().trimmed();
-  sessionSaveState="Exporting complete recording";statusBar()->showMessage(sessionSaveState);if(csvFolderEdit)csvFolderEdit->setEnabled(false);if(runNameEdit)runNameEdit->setEnabled(false);
+  const auto options=desktop::csvOptions(settings);
+  const auto intent=retry?desktop::SessionExportIntent::Retry:desktop::SessionExportIntent::SelectedFormat;
+  const auto target=desktop::sessionExportTarget(path,dir,name,options,intent);
+  const auto outputs=target.name+"_EXT.csv\n"+target.name+"_INT.csv";
+  if(target.descriptor!=path+".session.json" && QMessageBox::question(this,"Save another CSV format",outputs+"\n\nFolder: "+target.directory+"\nExisting CSVs will be kept.",QMessageBox::Save|QMessageBox::Cancel,QMessageBox::Save)!=QMessageBox::Save){
+    savingSession=false;sessionSaveState="Recording retained";refreshOperatorState();return;
+  }
+  sessionSaveState="Writing CSVs…";statusBar()->showMessage(outputs.simplified());beginSaveProgress();if(csvFolderEdit)csvFolderEdit->setEnabled(false);if(runNameEdit)runNameEdit->setEnabled(false);
   auto watcher=new QFutureWatcher<desktop::SessionSaveResult>(this);
-  connect(watcher,&QFutureWatcher<desktop::SessionSaveResult>::finished,this,[this,watcher,dir]{const auto result=watcher->result();savingSession=false;sessionSaveState=result.error.isEmpty()?"Complete":"Save failed";
+  connect(watcher,&QFutureWatcher<desktop::SessionSaveResult>::finished,this,[this,watcher,dir=target.directory]{const auto result=watcher->result();savingSession=false;finishSaveProgress();sessionSaveState=result.error.isEmpty()?"Complete":"Save failed";
     if(csvFolderEdit)csvFolderEdit->setEnabled(true);if(runNameEdit)runNameEdit->setEnabled(true);
     toast(result.error.isEmpty()?QString("%1%2 saved: %3 Internal, %4 External records. CSVs: %5. Replay recording retained.%6")
       .arg(result.incomplete?"INCOMPLETE / recovered: ":"").arg(result.runName).arg(result.internal).arg(result.external).arg(dir).arg(!result.internal||!result.external?" Empty channels have header-only CSVs.":""):result.error+" — recording retained; retry save.");
@@ -84,7 +131,9 @@ void Window::exportFinalizedSession(const QString &path) {
     if(disconnectAfterSave){disconnectAfterSave=false;backend.acquisition.stop();applicationEvent("devices_disconnected");}
     refreshOperatorState();watcher->deleteLater();
   });
-  watcher->setFuture(QtConcurrent::run([path,dir,name]{try{return desktop::exportSession(path,dir,{},name);}catch(const std::exception &e){desktop::SessionSaveResult r;r.error=QString::fromUtf8(e.what());return r;}}));refreshOperatorState();
+  const auto generation=saveProgressGeneration;
+  const auto progress=[this,generation](desktop::SessionSavePhase phase){QMetaObject::invokeMethod(this,[this,generation,phase]{if(!savingSession||saveProgressGeneration!=generation)return;sessionSaveState=phase==desktop::SessionSavePhase::Writing?"Writing CSVs…":"Verifying files…";if(saveProgressLabel)saveProgressLabel->setText(sessionSaveState);statusBar()->showMessage(sessionSaveState);},Qt::QueuedConnection);};
+  watcher->setFuture(QtConcurrent::run([path,dir,name,options,intent,target,progress]{try{return desktop::exportSession(path,dir,{},name,options,intent,progress,target.name);}catch(const std::exception &e){desktop::SessionSaveResult r;r.error=QString::fromUtf8(e.what());return r;}}));refreshOperatorState();
 }
 const aero::Record *Window::selectedMonitorRecord() const {
   if(page==4&&rtGrouped&&monitorWorkspace&&monitorWorkspace->isVisible()) {

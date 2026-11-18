@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>SignalReview</class>
+ <widget class="QDialog" name="SignalReview">
+  <property name="windowTitle"><string>Review signals</string></property>
+  <layout class="QVBoxLayout" name="layout">
+   <item><widget class="QLabel" name="instructions"><property name="text"><string>Complete signal fields before publishing. Data words start at 1. LSB starts at 0. Use “unitless” for a dimensionless value.</string></property><property name="wordWrap"><bool>true</bool></property></widget></item>
+   <item><layout class="QHBoxLayout" name="inputActions">
+    <item><widget class="QPushButton" name="addRow"><property name="text"><string>Add signal</string></property></widget></item>
+    <item><widget class="QPushButton" name="removeRow"><property name="text"><string>Remove selected row</string></property></widget></item>
+    <item><widget class="QPushButton" name="pasteCsv"><property name="text"><string>Paste CSV</string></property></widget></item>
+    <item><widget class="QPushButton" name="copyTemplate"><property name="text"><string>Copy CSV header</string></property></widget></item>
+    <item><widget class="QPushButton" name="demoAssumptions"><property name="text"><string>Use demo assumptions</string></property></widget></item>
+    <item><widget class="QPushButton" name="tableSettings"><property name="text"><string>Set table conversion…</string></property></widget></item>
+    <item><widget class="QPushButton" name="demoBits"><property name="text"><string>Add demo bits</string></property></widget></item>
+   </layout></item>
+   <item><widget class="QTableWidget" name="signalGrid"><property name="accessibleName"><string>Signal review rows</string></property><property name="alternatingRowColors"><bool>true</bool></property></widget></item>
+   <item><widget class="QPlainTextEdit" name="sourceEvidence"><property name="accessibleName"><string>Selected signal source evidence</string></property><property name="readOnly"><bool>true</bool></property><property name="maximumHeight"><number>90</number></property></widget></item>
+   <item><layout class="QHBoxLayout" name="previewActions">
+    <item><widget class="QPushButton" name="openEvidence"><property name="text"><string>Open source page</string></property></widget></item>
+    <item><widget class="QLineEdit" name="hexWords"><property name="accessibleName"><string>Selected field hexadecimal data words</string></property><property name="placeholderText"><string>Field words in wire order, e.g. 3F80 0000</string></property></widget></item>
+    <item><widget class="QPushButton" name="previewHex"><property name="text"><string>Preview hex</string></property></widget></item>
+    <item><widget class="QPushButton" name="previewRecord"><property name="text"><string>Preview selected record</string></property></widget></item>
+   </layout></item>
+   <item><widget class="QLabel" name="reviewStatus"><property name="wordWrap"><bool>true</bool></property><property name="textInteractionFlags"><set>Qt::TextSelectableByMouse|Qt::TextSelectableByKeyboard</set></property></widget></item>
+   <item><layout class="QHBoxLayout" name="publishActions">
+    <item><widget class="QCheckBox" name="reviewOverlap"><property name="text"><string>I reviewed overlapping fields</string></property></widget></item>
+    <item><widget class="QPushButton" name="saveDraft"><property name="text"><string>Save draft…</string></property></widget></item>
+    <item><widget class="QPushButton" name="publish"><property name="text"><string>Publish profile</string></property></widget></item>
+    <item><widget class="QPushButton" name="closeReview"><property name="text"><string>Close</string></property></widget></item>
+   </layout></item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

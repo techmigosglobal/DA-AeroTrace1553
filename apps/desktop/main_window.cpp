@@ -1,3 +1,4 @@
+#include <QTabBar>
 #include "main_window.hpp"
 #include "services/key_gate.hpp"
 #include "services/runtime_paths.hpp"
@@ -33,7 +34,7 @@ Window::Window()
     }
     sessionDir=settings.value("recordFolder",desktop::defaultSessionDirectory()).toString();
     QDir().mkpath(sessionDir);
-    backend.captureConfig.hardware=settings.value("captureSource","DDC").toString()=="DDC";
+    restoreCaptureSource();
     backend.captureConfig.logicalDevices={settings.value("logicalChannel1",0).toInt(),settings.value("logicalChannel2",1).toInt()};
     backend.captureConfig.simulatorRate=settings.value("simulatorRate",12).toUInt();
     backend.captureConfig.runtime=std::filesystem::path(settings.value("ddcRuntime").toString().toStdWString());
@@ -45,9 +46,11 @@ Window::Window()
       const auto previous=QJsonDocument::fromJson(previousConnections.readAll()).object();connectionAttempts=previous.value("attempts").toArray();connectionAttempt=previous.value("latest_attempt").toObject();
     }
     QFile savedProfile(QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation)+"/active-profile.json");
+    restoreIcdDocument();
     if(savedProfile.open(QIODevice::ReadOnly)) {
       std::vector<aero::Signal> mappings;
-      if(desktop::profileFromJson(QJsonDocument::fromJson(savedProfile.readAll()).object(),mappings).isEmpty()) backend.applyProfile(std::move(mappings));
+      if(auto error=desktop::profileFromJson(QJsonDocument::fromJson(savedProfile.readAll()).object(),mappings);error.isEmpty()) backend.applyProfile(std::move(mappings));
+      else qWarning().noquote()<<"Active ICD profile rejected:"<<savedProfile.fileName()<<error;
     }
     model.refresh();
     Ui::MainWindow form;
@@ -155,8 +158,18 @@ void Window::navigate(int n){
       toast("Open the local workspace first.");
       return;
     }
+    if(scroll)settings.setValue(QString("pageScroll/%1").arg(page),scroll->verticalScrollBar()->value());
     persistMonitorWorkspace();
+    const auto workspacePage=[](int number){return number==6 || number==7 || number==12;};
     page = n;
+    if(n==6 || n==7 || n==12){
+      const auto scope=backend.replaySource?"replay/"+currentFile:QString("live");
+      if(scope!=workspaceScopeKey){
+        workspaceScopeKey=scope;workspaceSubsystem=settings.value("workspace/"+scope+"/subsystem").toString();
+        const auto mappings=backend.mappings();const auto selected=std::find_if(mappings.begin(),mappings.end(),[this](const auto &signal){return inWorkspace(signal);});
+        if(selected!=mappings.end()){preferredSignalIndex=unsigned(selected-mappings.begin());if(selected->channel)analysisChannel=selected->channel;}
+      }
+    }
     plots.clear();
     paneViews={};paneCounts={};monitorSplitter=nullptr;monitorWorkspace=nullptr;channelWindows={};tabMonitor=nullptr;rtLights={};rtDetail=nullptr;rtLegend=nullptr;runNameEdit=nullptr;csvFolderEdit=nullptr;outputPreview=nullptr;
     monitor = nullptr;
@@ -165,6 +178,7 @@ void Window::navigate(int n){
     totalMetric = nullptr;
     engineeringLabels.clear();
     qualityTable = nullptr;
+    engineeringDetails=nullptr;
     replayTable = nullptr;
     busAMetric = nullptr;
     busBMetric = nullptr;
@@ -176,10 +190,11 @@ void Window::navigate(int n){
     monitorStatus = nullptr;
     deviceTabs=nullptr;deviceTitles={};deviceStatuses={};selectedSummary=nullptr;monitorCsv=nullptr;
     sessionTable = nullptr;
-    headerTitle->setText(names[n]);
+    const bool busAnalysis=n==5 || n==8 || n==9;
+    headerTitle->setText(workspacePage(n)?"ICD & Analysis":busAnalysis?"Bus Analysis":names[n]);
     for (int i = 0; i < nav.size(); ++i)
-      {nav[i]->setChecked(i == n);
-       const auto original=nav[i]->property("navigationIcon").value<QIcon>();if(!original.isNull()){auto pixmap=original.pixmap(22,22);if(i==n){QPainter painter(&pixmap);painter.setCompositionMode(QPainter::CompositionMode_SourceIn);painter.fillRect(pixmap.rect(),Qt::white);}nav[i]->setIcon(QIcon(pixmap));}}
+      {nav[i]->setChecked(i == (workspacePage(n)?12:n));
+       const auto original=nav[i]->property("navigationIcon").value<QIcon>();if(!original.isNull()){auto pixmap=original.pixmap(22,22);if(i==(workspacePage(n)?12:n)){QPainter painter(&pixmap);painter.setCompositionMode(QPainter::CompositionMode_SourceIn);painter.fillRect(pixmap.rect(),Qt::white);}nav[i]->setIcon(QIcon(pixmap));}}
 
     auto old = scroll->takeWidget();
     if (old)
@@ -202,6 +217,24 @@ void Window::navigate(int n){
     if(n==4) heading->hide();
     titleActions = headingForm.pageActionsLayout;
     pageLayout->addWidget(heading);
+    if(busAnalysis) {
+      auto tabs=new QTabBar(content);
+      tabs->setObjectName("busAnalysisTabs");
+      tabs->setAccessibleName("Bus Analysis");
+      tabs->addTab("Inspector");
+      tabs->addTab("Topology");
+      tabs->addTab("Alerts");
+      tabs->setCurrentIndex(n==5?0:n==8?1:2);
+      pageLayout->addWidget(tabs);
+      connect(tabs,&QTabBar::currentChanged,this,[this,activeTabs=QPointer<QTabBar>(tabs)](int index){
+        constexpr int pages[]{5,8,9};
+        if(!activeTabs || !content->isAncestorOf(activeTabs) || index<0 || index>=3) return;
+        const auto focused=activeTabs->hasFocus();
+        navigate(pages[index]);
+        if(focused) if(auto next=content->findChild<QTabBar *>("busAnalysisTabs")) next->setFocus(Qt::TabFocusReason);
+      },Qt::QueuedConnection);
+    }
+
     switch (n) {
     case 1:
       welcome();
@@ -259,7 +292,7 @@ void Window::navigate(int n){
     Ui::PageFooter footerForm;
     footerForm.setupUi(footer);
     footer->hide();
-    if(n!=4) pageLayout->addStretch();
+    if(n!=4 && n!=6 && n!=7) pageLayout->addStretch();
     refreshDataViews();
     refreshOperatorState();
     finishPage();
@@ -269,9 +302,10 @@ void Window::finishPage(){
     if(page>=1&&page<=3)desktop::polishWorkspace(content);
     observeUiActions(content);
     pageLayout->activate();
-    scroll->setWidget(content);
+    scroll->setWidget(page==6 || page==7 || page==12?attachIcdWorkspace():content);
     content->show();
-    scroll->verticalScrollBar()->setValue(0);
+    updateEngineeringDetails();
+    scroll->verticalScrollBar()->setValue(settings.value(QString("pageScroll/%1").arg(page),0).toInt());
   }
 
 QString Window::subtitle(int n){
@@ -396,12 +430,11 @@ void Window::startCapture(){
     backend.captureConfig.enabled=enabled;
     backend.captureConfig.runId=applicationRunId().toStdString();
     applicationEvent("capture_file","",{{"path",currentFile},{"hardware",backend.captureConfig.hardware},{"device_1",backend.captureConfig.logicalDevices[0]},{"device_2",backend.captureConfig.logicalDevices[1]}});
-    if(!backend.captureConfig.simulatorProfile.empty())backend.captureConfig.simulatorProfile=backend.mappings();
     if(!backend.captureConfig.hardware)if(auto error=aero::validateSimulation(backend.captureConfig);!error.empty()){toast(QString::fromStdString(error));return;}
       viewingReplayStatistics=false;rtDisplayPaused=false;
     if(backend.captureConfig.hardware) {
       backend.captureConfig.enabled=enabled;
-      if(const auto error=backend.acquisition.setProfile(backend.mappings());!error.empty()) {toast(QString::fromStdString(error));return;}
+      if(const auto error=backend.acquisition.setProfile(backend.captureMappings());!error.empty()) {toast(QString::fromStdString(error));return;}
       connectionIsRecording=true;connecting=true;
       connectionFuture=backend.acquisition.beginConfigured(std::filesystem::path(currentFile.toStdWString()),backend.captureConfig);
       refreshOperatorState();return;
@@ -430,6 +463,7 @@ void Window::toggleCapture(){
   }
 
 void Window::updateLive(){
+    if(backend.acquisition.active())inference.pauseForCapture();
     QElapsedTimer updateElapsed;updateElapsed.start();
     const unsigned viewStage=page==4?(rtGrouped?0:1):page==7?2:3;
     struct ObserveUpdate {aero::TimingHistogram &h;QElapsedTimer &t;unsigned mode;~ObserveUpdate(){const auto ns=t.nsecsElapsed();h.observe(ns);desktop::updateStages[mode].observe(ns);}} observeUpdate{guiUpdateTiming,updateElapsed,viewStage};
@@ -439,22 +473,25 @@ void Window::updateLive(){
     if(!applicationLogError().isEmpty())statusBar()->showMessage(applicationLogError());
     finishConnection();
     auto incoming = backend.acquisition.drain();
-    if (!incoming.empty()) {
+    const auto incomingCount=incoming.size();
+    if (incomingCount) {
       if(!backend.selected.id) backend.selected=incoming.front();
+      const auto modelsBegan=updateElapsed.nsecsElapsed();
+      if(!displayPaused)model.append(incoming);
+      const auto modelAppendTime=updateElapsed.nsecsElapsed()-modelsBegan;
       const auto cacheBegan=updateElapsed.nsecsElapsed();
-      if (backend.accept(incoming)) {
+      if (backend.accept(std::move(incoming))) {
         eventText = "In-memory analysis window trimmed; raw recording retained";
       }
       desktop::updateStages[4].observe(updateElapsed.nsecsElapsed()-cacheBegan);
       if (!displayPaused) {
-        const auto modelsBegan=updateElapsed.nsecsElapsed();
-        model.append(incoming);
+        const auto panesBegan=updateElapsed.nsecsElapsed();
         if(monitor && (!monitorWorkspace || !monitorWorkspace->isVisible()) && selectedMonitorId) for(int row=0;row<model.rowCount();++row)
           if(model.at(row)->id==selectedMonitorId) {monitor->selectionModel()->setCurrentIndex(model.index(row,selectedMonitorColumn),QItemSelectionModel::ClearAndSelect|QItemSelectionModel::Rows);break;}
         refreshMonitorPanes(true);
         if (monitor && (!monitorWorkspace || !monitorWorkspace->isVisible()) && settings.value("autoscroll", true).toBool())
           monitor->scrollToBottom();
-        desktop::updateStages[5].observe(updateElapsed.nsecsElapsed()-modelsBegan);
+        desktop::updateStages[5].observe(modelAppendTime+updateElapsed.nsecsElapsed()-panesBegan);
       }
     }
     const auto chromeBegan=updateElapsed.nsecsElapsed();
@@ -480,7 +517,7 @@ void Window::updateLive(){
     refreshOperatorState();
     refreshRtDashboard();
     desktop::updateStages[6].observe(updateElapsed.nsecsElapsed()-chromeBegan);
-    if (!incoming.empty()) {
+    if (incomingCount) {
       const auto dataBegan=updateElapsed.nsecsElapsed();
       refreshDataViews();
       desktop::updateStages[7].observe(updateElapsed.nsecsElapsed()-dataBegan);
@@ -492,11 +529,12 @@ void Window::updateLive(){
       if(next!=backend.replayIndex)seekReplay(next);if(!replaySeekPending)backend.replayPositionNs=target;
       if(next+1>=backend.replayCount())backend.replayPlaying=false;
     }
-    if(updateElapsed.elapsed()>100)applicationEvent("ui_update_slow","",{{"duration_ms",updateElapsed.elapsed()},{"page",page},{"incoming",qint64(incoming.size())},{"recording",currentFile}});
+    if(updateElapsed.elapsed()>100)applicationEvent("ui_update_slow","",{{"duration_ms",updateElapsed.elapsed()},{"page",page},{"incoming",qint64(incomingCount)},{"recording",currentFile}});
   }
 
 void Window::closeEvent(QCloseEvent *e){
     applicationEvent("workspace_closing","",{{"capture",currentFile},{"active",backend.acquisition.active()}});
+    if(scroll)settings.setValue(QString("pageScroll/%1").arg(page),scroll->verticalScrollBar()->value());
     persistMonitorWorkspace();
     automaticHeld=true;
     if(savingSession){toast("Wait for Stop & save to finish before closing.");e->ignore();return;}
@@ -505,7 +543,7 @@ void Window::closeEvent(QCloseEvent *e){
       auto watcher=new QFutureWatcher<void>(this);connect(watcher,&QFutureWatcher<void>::finished,this,[this,watcher]{if(connectionFuture.valid())connectionFuture.get();connecting=false;closingCapture=false;watcher->deleteLater();QTimer::singleShot(0,this,&QWidget::close);});watcher->setFuture(QtConcurrent::run([this]{backend.acquisition.stop();}));return;
     }
     if(closingCapture){e->ignore();return;}
-    if(documentDialog)documentDialog->close();if(taskDialog)taskDialog->close();
+    if(documentDialog)documentDialog->close();
     applicationEvent("workspace_closed","",{{"capture",currentFile},{"recorded",double(backend.acquisition.metrics(false).recorded)},{"capture_error",QString::fromStdString(backend.acquisition.metrics(false).error)}});
     settings.sync();
     e->accept();

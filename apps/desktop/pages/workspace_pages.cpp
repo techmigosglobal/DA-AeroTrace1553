@@ -1,4 +1,5 @@
 #include "main_window.hpp"
+#include "services/csv_conversion.hpp"
 #include "services/session_store.hpp"
 #include "services/runtime_paths.hpp"
 #include "services/ddc_discovery.hpp"
@@ -6,6 +7,16 @@
 #include "helper_packs.hpp"
 #include "ui_ddc_method.h"
 namespace {
+class RtCard : public QFrame {
+public:
+  QPushButton *selector{};
+protected:
+  void mouseReleaseEvent(QMouseEvent *event) override {
+    if(selector && event->button()==Qt::LeftButton && rect().contains(event->position().toPoint()))
+      selector->click();
+    QFrame::mouseReleaseEvent(event);
+  }
+};
 class RtGrid : public QFrame {
 public:
   QGridLayout *grid=new QGridLayout(this);QList<QWidget *> cards;int columns{8};
@@ -27,14 +38,18 @@ QWidget *Window::saveControls(bool compact) {
   auto browse=new QPushButton("Browse…");browse->setObjectName("browseCsvFolder");
   if(compact){name->setMaximumWidth(QWIDGETSIZE_MAX);row->addWidget(new QLabel("Run name:"));row->addWidget(name,1);auto folderRow=new QHBoxLayout;layout->addLayout(folderRow);folderRow->addWidget(new QLabel("CSV folder:"));folderRow->addWidget(folder,1);folderRow->addWidget(browse);}
   else {row->addWidget(new QLabel("CSV folder:"));row->addWidget(folder,2);row->addWidget(browse);row->addWidget(new QLabel("Run name:"));row->addWidget(name,1);}
+  auto format=new QComboBox(frame);format->setObjectName("sessionCsvLayout");format->addItem("Compact 11-column CSV","compact11");format->addItem("Legacy 42-column CSV","legacy42");format->setCurrentIndex(settings.value("csvLayout","compact11")=="legacy42"?1:0);
+  auto base=new QComboBox(frame);base->setObjectName("sessionCsvBase");base->addItem("Hexadecimal words",16);base->addItem("Decimal words",10);base->addItem("Binary words",2);base->addItem("Octal words",8);base->setCurrentIndex(qMax(0,base->findData(settings.value("csvRadix",16))));
+  auto formatRow=new QHBoxLayout;formatRow->addWidget(format);formatRow->addWidget(base);formatRow->addStretch();if(compact)layout->addLayout(formatRow);
+  connect(format,&QComboBox::currentIndexChanged,frame,[this,format](int){settings.setValue("csvLayout",format->currentData());});connect(base,&QComboBox::currentIndexChanged,frame,[this,base](int){settings.setValue("csvRadix",base->currentData());});
   auto preview=new QLabel;preview->setWordWrap(true);preview->setProperty("tone","muted");outputPreview=preview;layout->addWidget(preview);
-  const auto refresh=[this,folder,name,preview]{settings.setValue("exportFolder",folder->text().trimmed());settings.setValue("nextRunName",name->text().trimmed());preview->setProperty("outputText","Outputs (complete session, match by record #): "+name->text()+"_EXT.csv + "+name->text()+"_INT.csv   |   Replay sessions: "+sessionDir);preview->setText(preview->property("outputText").toString());};
+  const auto refresh=[this,folder,name,preview]{settings.setValue("exportFolder",folder->text().trimmed());settings.setValue("nextRunName",name->text().trimmed());preview->setProperty("outputText","Outputs (complete session, original ordering): "+name->text()+"_EXT.csv + "+name->text()+"_INT.csv   |   Replay sessions: "+sessionDir);preview->setText(preview->property("outputText").toString());};
   connect(folder,&QLineEdit::textChanged,frame,refresh);connect(name,&QLineEdit::textChanged,frame,refresh);
   connect(browse,&QPushButton::clicked,frame,[this,folder]{const auto dir=QFileDialog::getExistingDirectory(this,"CSV output folder",folder->text());if(!dir.isEmpty())folder->setText(dir);});refresh();
-  const auto lockInputs=[this,folder,name,browse,preview]{const bool enabled=!(savingSession&&sessionSaveState.startsWith("Exporting"));folder->setEnabled(enabled);name->setEnabled(enabled);browse->setEnabled(enabled);preview->setText(preview->property("outputText").toString()+(currentFile.isEmpty()?QString():"\nLive capture ID: "+QFileInfo(currentFile).baseName())+(sessionSaveState.isEmpty()?QString():"   |   Save: "+sessionSaveState));preview->setStyleSheet(sessionSaveState=="Save failed"?"color:#a73d32;":"");};lockInputs();connect(&tick,&QTimer::timeout,frame,lockInputs);
+  const auto lockInputs=[this,folder,name,browse,preview,format,base]{const bool enabled=!savingSession;for(auto widget:{static_cast<QWidget *>(folder),static_cast<QWidget *>(name),static_cast<QWidget *>(browse),static_cast<QWidget *>(format),static_cast<QWidget *>(base)})widget->setEnabled(enabled);preview->setText(preview->property("outputText").toString()+(currentFile.isEmpty()?QString():"\nLive capture ID: "+QFileInfo(currentFile).baseName())+(sessionSaveState.isEmpty()?QString():"   |   Save: "+sessionSaveState));preview->setStyleSheet(sessionSaveState=="Save failed"?"color:#a73d32;":"");};lockInputs();connect(&tick,&QTimer::timeout,frame,lockInputs);
   if(!compact) {
     auto save=new QPushButton("Stop && save");save->setObjectName("stopSaveButton");save->setProperty("primary",true);row->addWidget(save);monitorCsv=save;connect(save,&QPushButton::clicked,this,[this]{stopAndSave();});
-    auto actions=new QHBoxLayout;actions->addStretch();layout->addLayout(actions);
+    auto actions=new QHBoxLayout;actions->addLayout(formatRow,1);layout->addLayout(actions);
     auto mode=new QComboBox;mode->setObjectName("workspaceLayout");mode->addItem("Movable windows","windows");mode->addItem("Tabs","tabs");mode->setCurrentIndex(settings.value("monitorLayout","windows").toString()=="tabs"?1:0);
     actions->addWidget(new QLabel("Layout:"));actions->addWidget(mode);
     auto tile=new QPushButton("Tile");auto cascade=new QPushButton("Cascade");actions->addWidget(tile);actions->addWidget(cascade);
@@ -69,7 +84,7 @@ void Window::welcome() {
 void Window::dashboard() {
   auto legend=new QLabel;rtLegend=legend;legend->setWordWrap(true);legend->setProperty("tone","notice");pageLayout->addWidget(legend);
   auto gridSurface=new RtGrid;gridSurface->setProperty("card",true);pageLayout->addWidget(gridSurface);auto grid=gridSurface->grid;grid->setSpacing(8);
-  for(int rt=0;rt<32;++rt){auto card=new QFrame;card->setProperty("card",true);card->setProperty("rtIndex",rt);card->setMinimumHeight(125);auto body=new QVBoxLayout(card);body->setContentsMargins(12,12,12,12);body->setSpacing(8);auto select=new QPushButton(rt==31?"31 · Broadcast":QString("RT %1").arg(rt,2,10,QChar('0')));select->setProperty("rtSelector",true);select->setFlat(true);body->addWidget(select);connect(select,&QPushButton::clicked,this,[this,rt]{selectedRt=rt;refreshRtDashboard();});
+  for(int rt=0;rt<32;++rt){auto card=new RtCard;card->setProperty("card",true);card->setProperty("rtIndex",rt);card->setMinimumHeight(125);auto body=new QVBoxLayout(card);body->setContentsMargins(12,12,12,12);body->setSpacing(8);auto select=new QPushButton(rt==31?"31 · Broadcast":QString("RT %1").arg(rt,2,10,QChar('0')));card->selector=select;select->setProperty("rtSelector",true);select->setFlat(true);body->addWidget(select);connect(select,&QPushButton::clicked,this,[this,rt]{selectedRt=rt;refreshRtDashboard();});
     for(int ch=0;ch<2;++ch){auto l=new QLabel;body->addWidget(l);if(rt<31)rtLights[ch][rt]=l;else l->setText(ch?"CH2 · Broadcast commands":"CH1 · Broadcast commands");}gridSurface->cards<<card;grid->addWidget(card,rt/8,rt%8);}
   rtDetail=new QLabel;rtDetail->setWordWrap(true);rtDetail->setProperty("tone","notice");pageLayout->addWidget(rtDetail);auto note=new QLabel("Passive observation reports responses seen during this run. Silent terminals cannot be identified as physically connected.");note->setWordWrap(true);note->setProperty("tone","muted");pageLayout->addWidget(note);refreshRtDashboard();
 }
@@ -78,12 +93,13 @@ void Window::refreshRtDashboard() {
   rtLegend->setText(QString("%1 · %2   |   ● Green: valid response observed this run   ○ Grey: not observed").arg(backend.replaySource?"Replay":backend.captureConfig.hardware?"Passive hardware monitoring":"SIMULATION").arg(backend.acquisition.active()?"Recording":metrics.failed?"Capture error — inspect diagnostics":"Stopped / recorded observations"));
   for(int ch=0;ch<2;++ch)for(int rt=0;rt<31;++rt)if(auto label=rtLights[ch][rt]){const auto &v=activity.channels[ch][rt];label->setText(QString("<span style='font-size:22px;color:%1'>●</span> <span style='font-size:12px'>CH%2 %3</span>").arg(v.responses?"#15803d":"#778797").arg(ch+1).arg(ch?"Internal":"External"));label->setProperty("responseObserved",v.responses>0);label->setAccessibleName(QString("RT %1, channel %2: %3").arg(rt).arg(ch+1).arg(v.responses?"valid response observed":"no response observed"));label->setToolTip(v.responses?QString("%1 valid responses · Bus %2 · last device time %3").arg(v.responses).arg(v.buses==3?"A + B":v.buses==1?"A":"B").arg(stamp(v.lastNs)):"No valid response observed during this run");}
   for(auto card:content->findChildren<QFrame *>())if(card->property("rtIndex").isValid()) {const int rt=card->property("rtIndex").toInt();desktop::workspaceState(card,"selectedRt",rt==selectedRt);desktop::workspaceState(card,"observedRt",rt<31&&(activity.channels[0][rt].responses||activity.channels[1][rt].responses));}
+  if(selectedRt<0){rtDetail->setText("Select a remote terminal or Broadcast to see observations.");return;}
   if(selectedRt==31){rtDetail->setText(QString("Broadcast commands: CH1 %1 · CH2 %2. Broadcast address 31 does not return a terminal response.").arg(activity.broadcasts[0]).arg(activity.broadcasts[1]));return;}
   QStringList detail;for(int ch=0;ch<2;++ch){const auto &v=activity.channels[ch][selectedRt];detail<<QString("CH%1 %2: %3").arg(ch+1).arg(ch?"Internal":"External").arg(v.responses?QString("%1 responses · last device time %2 · Bus %3").arg(v.responses).arg(stamp(v.lastNs)).arg(v.buses==3?"A + B":v.buses==1?"A":"B"):"No response observed");}rtDetail->setText(QString("RT %1\n").arg(selectedRt,2,10,QChar('0'))+detail.join("\n"));
 }
 void Window::device() {
   auto sourceCard=surface(pageLayout);auto sourceRow=new QHBoxLayout(sourceCard);heading("Source",sourceRow);
-  auto source=new QComboBox;source->setObjectName("sourceMode");source->addItems({"DDC hardware · passive monitoring","Offline simulation · generated test traffic"});source->setCurrentIndex(backend.captureConfig.hardware?0:1);sourceRow->addWidget(source,1);
+  auto source=new QComboBox;source->setObjectName("sourceMode");source->addItems({"DDC hardware · passive monitoring","Offline simulation · RT 03 and RT 08"});source->setCurrentIndex(backend.captureConfig.hardware?0:1);sourceRow->addWidget(source,1);
   auto scan=new QPushButton("Rescan DDC");scan->setObjectName("scanButton");sourceRow->addWidget(scan);
   auto mainRow=new QHBoxLayout;pageLayout->addLayout(mainRow);auto deviceCard=surface(mainRow);auto devices=new QVBoxLayout(deviceCard);heading("Windows devices",devices);
   auto table=new QTableWidget;table->setObjectName("discoveredDdcDevices");table->setColumnCount(4);table->setHorizontalHeaderLabels({"Device","Hardware ID","Driver","PnP status"});table->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);table->verticalHeader()->hide();table->setEditTriggers(QAbstractItemView::NoEditTriggers);table->setMinimumHeight(170);devices->addWidget(table,1);
@@ -104,7 +120,7 @@ void Window::device() {
     };updateChoices();connect(&tick,&QTimer::timeout,group,updateChoices);connect(assignmentMode,&QComboBox::currentIndexChanged,group,[updateChoices](int){updateChoices();});
     connect(logical,&QSpinBox::valueChanged,group,[this,ch](int value){backend.captureConfig.logicalDevices[ch]=value;settings.setValue(QString("logicalChannel%1").arg(ch+1),value);configurationChanged();});
     for(int bus=0;bus<2;++bus){auto check=new QCheckBox(bus?"Bus B":"Bus A");const auto key=QString("channel%1Bus %2").arg(ch+1).arg(bus?"B":"A");check->setObjectName(QString("channel%1Bus%2").arg(ch+1).arg(bus?"B":"A"));check->setChecked(settings.value(key,true).toBool());body->addWidget(check);controls<<check;connect(check,&QCheckBox::toggled,group,[this,key](bool on){settings.setValue(key,on);configurationChanged();});}body->addStretch();}
-  auto simulationRow=new QHBoxLayout;channelBody->addLayout(simulationRow);simulationRow->addWidget(new QLabel("Simulation events/s"));auto rate=new QSpinBox;rate->setObjectName("simulatorRate");rate->setRange(1,100000);rate->setValue(backend.captureConfig.simulatorRate);simulationRow->addWidget(rate);controls<<rate;connect(rate,&QSpinBox::valueChanged,this,[this](int value){backend.captureConfig.simulatorRate=value;settings.setValue("simulatorRate",value);});
+  auto simulationOptions=new QWidget;channelBody->addWidget(simulationOptions);auto simulationRow=new QHBoxLayout(simulationOptions);auto rateLabel=new QLabel("Simulated messages per second");simulationRow->addWidget(rateLabel);auto rate=new QSpinBox;rate->setObjectName("simulatorRate");rate->setRange(1,100000);rate->setValue(backend.captureConfig.simulatorRate);simulationRow->addWidget(rate);rateLabel->setBuddy(rate);rate->setAccessibleName(rateLabel->text());rate->setToolTip("Total simulated messages across all enabled channels and buses.");controls<<rate;connect(rate,&QSpinBox::valueChanged,this,[this](int value){backend.captureConfig.simulatorRate=value;settings.setValue("simulatorRate",value);});
   auto methodWidget=new QWidget; Ui::DdcMethod methodForm; methodForm.setupUi(methodWidget); channelBody->addWidget(methodWidget);
   auto backendEdit=methodForm.ddcBackend; auto mode=methodForm.ddcReceiveMode; auto helper=methodForm.ddcHelperPack; auto chooseHelper=methodForm.chooseHelper; auto helperLabel=methodForm.helperLabel;
   backendEdit->setCurrentIndex(backend.captureConfig.backend==aero::DdcBackend::HelperX86?1:0); mode->setCurrentIndex(int(backend.captureConfig.receiveMode)); controls<<backendEdit<<mode<<helper<<chooseHelper;
@@ -130,13 +146,44 @@ void Window::device() {
   connect(managerPath,&QLineEdit::textChanged,this,[this](const QString &path){settings.setValue("ddcCardManagerPath",path);});
   connect(chooseManager,&QPushButton::clicked,managerPath,[this,managerPath]{const auto file=QFileDialog::getOpenFileName(this,"Select DDC Card Manager","C:/DDC","Windows application (*.exe)");if(!file.isEmpty())managerPath->setText(file);});
   connect(runtime,&QLineEdit::textChanged,this,[this](const QString &path){backend.captureConfig.runtime=std::filesystem::path(path.toStdWString());settings.setValue("ddcRuntime",path);backend.captureConfig.connectionPolicy=path.trimmed().isEmpty()?aero::DdcConnectionPolicy::QualifiedAutomatic:aero::DdcConnectionPolicy::Compatibility;settings.setValue("ddcCompatibility",!path.trimmed().isEmpty());configurationChanged();});
-  connect(source,&QComboBox::currentIndexChanged,this,[this](int index){backend.captureConfig.hardware=index==0;settings.setValue("captureSource",index==0?"DDC":"SIMULATOR");configurationChanged();refreshOperatorState();});
+  simulationOptions->setVisible(!backend.captureConfig.hardware);
+  connect(source,&QComboBox::currentIndexChanged,this,[this,source,simulationOptions](int index){
+    selectCaptureSource(index);
+    const QSignalBlocker block(source);
+    source->setCurrentIndex(backend.captureConfig.hardware?0:1);
+    simulationOptions->setVisible(!backend.captureConfig.hardware);
+  });
   connect(scan,&QPushButton::clicked,this,[this,evidence]{rescanDdc(evidence);});
-  auto previous=std::make_shared<QJsonObject>();const auto refresh=[this,table,summary,evidence,arm,scan,manager,controls,previous]{
+  auto previous=std::make_shared<QJsonObject>();const auto refresh=[this,table,summary,evidence,arm,scan,manager,controls,previous,mode,helper]{
     const auto metrics=backend.acquisition.metrics(false);const bool owned=backend.acquisition.connected()||backend.acquisition.active()||connecting||connectAfterDiscovery||savingSession||closingCapture||metrics.cleanupBlocked;for(auto control:controls)control->setEnabled(!owned);manager->setEnabled(!owned);scan->setEnabled(!discoveryRunning);arm->setEnabled(!owned);arm->setText(connecting?"Checking devices…":backend.acquisition.connected()?"Devices connected":backend.captureConfig.hardware?"Connect devices":"Start offline simulation");
     if(*previous!=hardwareDiscovery){*previous=hardwareDiscovery;const auto rows=hardwareDiscovery.value("devices").toArray();table->setRowCount(rows.size());for(int i=0;i<rows.size();++i){const auto o=rows[i].toObject();const QStringList values{o.value("name").toString(),o.value("hardware_ids").toString(),o.value("driver_service").toString()+" / "+o.value("driver_version").toString(),o.value("pnp_status").toString()+" / problem "+QString::number(o.value("pnp_problem").toInt())};for(int col=0;col<4;++col){auto cell=new QTableWidgetItem(values[col]);cell->setToolTip(values[col]);table->setItem(i,col,cell);}}evidence->setText(desktop::discoverySummary(hardwareDiscovery));}
     const auto states=[&](int c){const auto &d=metrics.devices[c];const auto count=metrics.sourceCounts[c*2]+metrics.sourceCounts[c*2+1];switch(d.phase){case aero::DevicePhase::Monitoring:return count?QString("Receiving %1 records").arg(count):QString("Initialized — no traffic yet");case aero::DevicePhase::Simulating:return QString("Simulation — %1 records").arg(count);case aero::DevicePhase::Failed:return "Failed: "+QString::fromStdString(d.message);case aero::DevicePhase::Checking:return QString("Checking logical channel");case aero::DevicePhase::Ready:return QString("Configured");case aero::DevicePhase::Disabled:return QString("Disabled");default:return d.message.empty()?QString("Not checked"):QString::fromStdString(d.message);}};
     QStringList drivers;for(auto item:hardwareDiscovery.value("devices").toArray()){auto d=item.toObject();drivers<<d.value("driver_service").toString()+" "+d.value("driver_version").toString()+" / "+d.value("pnp_status").toString();}
     summary->setText(QString("Windows device: %1\nDriver binding: %2\nSDK runtime: %3\nLogical assignment: CH1 = %4, CH2 = %5 (vendor mapping required)\nMonitor CH1: %6\nMonitor CH2: %7").arg(discoveryRunning?"Scanning…":hardwareDiscovery.isEmpty()?"Not scanned":hardwareDiscovery.value("physical_presence").toString()=="unknown"?QString("Unknown — enumeration incomplete"):QString::number(hardwareDiscovery.value("detected_devices").toInt())+" detected").arg(drivers.isEmpty()?"Not confirmed":drivers.join("; ")).arg(desktop::runtimeReadiness(hardwareDiscovery)).arg(backend.captureConfig.logicalDevices[0]).arg(backend.captureConfig.logicalDevices[1]).arg(states(0),states(1)));
+    if(backend.captureConfig.hardware) {
+      const auto selectedPack=backend.captureConfig.backend==aero::DdcBackend::HelperX86?
+        helper->currentText():hardwareDiscovery.value("provider_id").toString("No matching native provider selected");
+      const auto detectedRuntime=hardwareDiscovery.value("runtime_path").toString("Not resolved");
+      summary->setText(summary->text()+QString("\nDetected runtime: %1\nSelected pack: %2\nReceive mode: %3")
+        .arg(detectedRuntime,selectedPack,mode->currentText()));
+    }
   };refresh();connect(&tick,&QTimer::timeout,summary,refresh);if(hardwareDiscovery.isEmpty()&&!discoveryRunning)QTimer::singleShot(0,evidence,[this,evidence]{rescanDdc(evidence);});
+}
+
+void Window::selectCaptureSource(int mode) {
+  if(connecting || savingSession || backend.acquisition.active() || backend.acquisition.connected()) {
+    toast("Stop and disconnect before changing the capture source.");
+    return;
+  }
+  backend.captureConfig.hardware=mode==0;
+  settings.setValue("captureSource",mode==0?"DDC":"SIMULATOR");
+  settings.sync();
+  configurationChanged();
+  refreshOperatorState();
+}
+
+void Window::restoreCaptureSource() {
+  const auto mode=settings.value("captureSource","DDC").toString();
+  backend.captureConfig.hardware=mode=="DDC";
+  if(mode=="EXAMPLE" || mode=="MAPPED_ICD") settings.setValue("captureSource","SIMULATOR");
 }

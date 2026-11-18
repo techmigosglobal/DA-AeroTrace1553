@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>IcdWorkspace</class>
+ <widget class="QWidget" name="IcdWorkspace">
+  <layout class="QHBoxLayout" name="workspaceLayout">
+   <property name="leftMargin"><number>0</number></property>
+   <property name="topMargin"><number>0</number></property>
+   <property name="rightMargin"><number>0</number></property>
+   <property name="bottomMargin"><number>0</number></property>
+   <item><widget class="QFrame" name="subsystemPanel">
+    <property name="minimumWidth"><number>200</number></property>
+    <property name="maximumWidth"><number>250</number></property>
+    <property name="card" stdset="0"><bool>true</bool></property>
+    <layout class="QVBoxLayout" name="subsystemLayout">
+     <item><widget class="QLabel" name="workspaceTitle"><property name="text"><string>ICD Workspace</string></property><property name="tone" stdset="0"><string>title</string></property></widget></item>
+     <item><widget class="QLabel" name="workspaceDocument"><property name="wordWrap"><bool>true</bool></property></widget></item>
+     <item><widget class="QTreeWidget" name="subsystemList"><property name="headerHidden"><bool>true</bool></property><property name="rootIsDecorated"><bool>false</bool></property><property name="accessibleName"><string>ICD subsystems and publication status</string></property><column><property name="text"><string>Subsystem</string></property></column></widget></item>
+     <item><widget class="QLabel" name="workspaceRoute"><property name="wordWrap"><bool>true</bool></property><property name="textInteractionFlags"><set>Qt::TextSelectableByMouse</set></property></widget></item>
+     <item><widget class="QPushButton" name="workspaceImport"><property name="text"><string>Import ICD…</string></property></widget></item>
+     <item><widget class="QPushButton" name="workspaceChat"><property name="text"><string>Ask AeroTrace Assistant</string></property></widget></item>
+    </layout>
+   </widget></item>
+   <item><widget class="QWidget" name="workspaceBody">
+    <layout class="QVBoxLayout" name="workspaceBodyLayout">
+     <item><widget class="QTabBar" name="workspaceTabs"><property name="accessibleName"><string>ICD workspace tools</string></property></widget></item>
+     <item><widget class="QLabel" name="workspaceScope"><property name="wordWrap"><bool>true</bool></property></widget></item>
+    </layout>
+   </widget></item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

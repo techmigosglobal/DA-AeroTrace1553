@@ -24,6 +24,13 @@ ProtocolInfo interpret(const Record &r) {
   p.rtToRt=p.command2Present || (r.source && (r.messageType==2 || r.messageType==10));
   p.statuses={StatusInfo{bool((!r.source && (r.statusWord || p.first.rt==0)) || (r.validity&4)),unsigned(r.statusWord>>11),std::uint16_t(r.statusWord&0x7ff)},
               StatusInfo{bool(r.validity&8),unsigned(r.statusWord2>>11),std::uint16_t(r.statusWord2&0x7ff)}};
+  p.sdkEvidenceAvailable=r.source==1 || r.source==2;
+  for(const auto &status:p.statuses)if(status.present){
+    p.terminalBusy|=status.busy();
+    p.terminalFault|=(status.bits&0x005)!=0;
+    p.terminalMessageError|=(status.bits&0x400)!=0;
+    p.reservedStatusBits|=(status.bits&0x0e0)!=0;
+  }
   // Simulator/ATD1 records do not carry SDK message-type evidence. Hardware does.
   if(r.source && !knownType(r.messageType))return p;
   p.supported=true;
@@ -58,8 +65,7 @@ ProtocolInfo interpret(const Record &r) {
   for(const auto &s:p.statuses)if(s.present) {
     if(s.rt==31 || (s.rt!=p.first.rt && (!p.rtToRt || s.rt!=p.second.rt)) || (p.broadcast && s.rt==p.first.rt))
       return reject("Unexpected responding RT address");
-    if(s.fault())return reject("RT status reports fault or reserved bits");
-    if(s.busy())return reject("RT reports busy; payload not usable");
+    if(s.bits&0x0e0)return reject("Reserved status bits set");
   }
   if(r.flags)return reject("Capture protocol error");
   if(p.actualWords!=p.expectedWords)return reject("Captured payload count differs from command");
@@ -67,7 +73,11 @@ ProtocolInfo interpret(const Record &r) {
     auto hasStatus=[&](unsigned rt){for(const auto &s:p.statuses)if(s.present&&s.rt==rt)return true;return false;};
     if((!p.broadcast&&!hasStatus(p.first.rt)) || (p.rtToRt&&!hasStatus(p.second.rt)))return reject("Expected status response absent");
   }
-  p.valid=true;p.payloadEligible=p.expectedWords!=0;p.reason=p.payloadEligible?"Eligible":"No data payload";return p;
+  p.valid=true;
+  if(p.terminalMessageError){p.reason="RT reports message error; payload not usable";return p;}
+  if(p.terminalBusy){p.reason="RT reports busy; payload not usable";return p;}
+  if(p.terminalFault){p.reason="RT reports subsystem or terminal fault; payload not usable";return p;}
+  p.payloadEligible=p.expectedWords!=0;p.reason=p.payloadEligible?"Eligible":"No data payload";return p;
 }
 ProtocolIssues protocolIssues(const Record &r,const ProtocolInfo &p) {
   ProtocolIssues issues;
@@ -116,6 +126,7 @@ std::string_view protocolQuality(const Record &r,const ProtocolInfo &p,bool back
   if(backwards)return "CLOCK BACKWARD";
   if(!p.supported)return "UNSUPPORTED";
   if(!p.valid)return "WARN";
+  if(p.terminalMessageError||p.terminalBusy||p.terminalFault)return "RT STATUS";
   if(r.validity&0x100)return "LEGACY TIME";
   return "OK";
 }

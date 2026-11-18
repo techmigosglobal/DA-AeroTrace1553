@@ -10,21 +10,36 @@ namespace aero {std::unique_ptr<CaptureSource> makeVendorDdcSource();}
 using namespace aero;
 using namespace aero::helper;
 namespace {
+std::string fixtureScenario() {
+  char scenario[64]{};
+  GetEnvironmentVariableA("AEROTRACE_HELPER_FIXTURE_SCENARIO",scenario,sizeof(scenario));
+  return scenario;
+}
 class FixtureSource final:public CaptureSource {
   std::thread::id owner;CaptureConfig config;bool active{};unsigned position{};
+  std::chrono::steady_clock::time_point startedAt;
+  std::string scenario;
   void check(){if(owner!=std::this_thread::get_id())throw std::runtime_error("Fixture SDK lifecycle changed threads");}
 public:
-  std::string open(const CaptureConfig &value)override{owner=std::this_thread::get_id();config=value;for(unsigned c=0;c<2;++c)if(config.enabled[c*2]||config.enabled[c*2+1]){if(config.logicalDevices[c]==31)return "Fixture assignment unavailable";if(config.deviceState)config.deviceState(c,DevicePhase::Ready,"SDK fixture only; no physical card");}return {};}
-  std::string startMonitoring()override{check();active=true;position=0;return {};}
+  std::string open(const CaptureConfig &value)override{owner=std::this_thread::get_id();config=value;scenario=fixtureScenario();for(unsigned c=0;c<2;++c)if(config.enabled[c*2]||config.enabled[c*2+1]){if(config.logicalDevices[c]==31)return "Fixture assignment unavailable";if(config.deviceState)config.deviceState(c,DevicePhase::Ready,"SDK fixture only; no physical card");}return {};}
+  std::string startMonitoring()override{check();active=true;position=0;startedAt=std::chrono::steady_clock::now();return {};}
   std::string poll(SourceBatch &batch,std::stop_token)override{check();if(!active){Sleep(1);return {};}
-    char scenario[64]{};GetEnvironmentVariableA("AEROTRACE_HELPER_FIXTURE_SCENARIO",scenario,sizeof(scenario));if(std::string(scenario)=="crash")ExitProcess(88);if(std::string(scenario)=="hang")Sleep(60000);
-    if(position>=10000&&std::string(scenario)!="queue"){Sleep(1);return {};} const auto count=std::string(scenario)=="queue"?4096u:std::min(4096u,10000-position);
+    if(scenario=="crash")ExitProcess(88);
+    if(scenario=="hang")Sleep(60000);
+    if(scenario=="quiet-cycle") {
+      const auto elapsed=std::chrono::steady_clock::now()-startedAt;
+      if(elapsed<std::chrono::seconds(12) || (position==4096 && elapsed<std::chrono::seconds(24))) {
+        Sleep(2);return {};
+      }
+    }
+    if(position>=10000&&scenario!="queue"){Sleep(1);return {};} const auto count=scenario=="queue"?4096u:std::min(4096u,10000-position);
     for(unsigned n=0;n<count;++n){auto index=position++;unsigned stream=index%4;if(!config.enabled[stream])continue;Record r;r.id=index+1;r.channel=1+stream/2;r.bus=stream%2;r.source=config.receiveMode==DdcReceiveMode::LegacyMT?2:1;r.timestampNs=(index+100)*2000ull;r.deviceTicks=index+100;r.tickResolutionNs=2000;r.hostMonotonicNs=index*1000ull;r.commandWord=0x1842;r.statusWord=0x1800;r.commandWord2=0x2842;r.statusWord2=0x2800;r.flags=index%7;r.vendorStatus=index%13;r.validity=15;r.messageType=index%5;r.words={std::uint16_t(index),std::uint16_t(index>>16)};batch.records.push_back(std::move(r));}
     for(unsigned c=0;c<2;++c)if(config.enabled[c*2]||config.enabled[c*2+1]){SourceBatch::Packet p;p.channel=c+1;p.chapter10=config.receiveMode!=DdcReceiveMode::LegacyMT;p.bytes.resize(72);for(unsigned i=0;i<p.bytes.size();++i)p.bytes[i]=std::uint8_t(position+c+i);batch.packets.push_back(std::move(p));}return {};
   }
   std::string stopMonitoring()override{check();active=false;return {};}
   std::string drainNext(SourceBatch &,bool &more)override{check();more=false;return {};}
   void close()override{if(owner!=std::thread::id{})check();active=false;}
+  std::string closeError()const override{return scenario=="cleanup-failure"?"Fixture SDK cleanup failed":std::string();}
 };
 struct Server {
   DdcHelperPack pack;Handle control,data;std::string secret;std::unique_ptr<CaptureSource> source;
@@ -38,12 +53,12 @@ struct Server {
   void queue(Type type,std::vector<std::uint8_t> payload){std::lock_guard lock(dataMutex);if(transportFailed)throw std::runtime_error(transportError);auto size=payload.size()+HeaderBytes;if(size>MaxQueuedBytes-queued)throw std::runtime_error("Helper outbound queue exhausted; recording is incomplete");queued+=size;dataQueue.push_back({type,0,++dataSequence,std::move(payload)});dataChanged.notify_one();}
   void publish(const SourceBatch &batch){finalMetrics.hardwareLost=batch.hardwareLost;finalMetrics.hardwareOverflows=batch.hardwareOverflows;finalMetrics.channelLost=batch.channelLost;finalMetrics.channelOverflows=batch.channelOverflows;finalMetrics.pollNs=batch.pollNs;finalMetrics.packetProcessingNs=batch.packetProcessingNs;
     if(batch.records.empty()&&batch.packets.empty())return;
-    chunks(batch,[&](SourceBatch part){records+=part.records.size();packets+=part.packets.size();queue(Type::Data,helper::batch(part));});++lastProgress;
+    chunks(batch,[&](SourceBatch part){records+=part.records.size();packets+=part.packets.size();queue(Type::Data,helper::batch(part));});
   }
   void readCommands(){try{std::uint64_t sequence{};while(!closing){auto frame=readFrame(control.value,sequence,24*60*60*1000u,&closing);if(frame.payload.size()>16384)throw std::runtime_error("Helper command exceeds control bound");if(frame.type==Type::Cancel)cancelled=true;std::lock_guard lock(commandMutex);if(commands.size()>=32)throw std::runtime_error("Helper control queue exhausted");commands.push_back(std::move(frame));commandChanged.notify_one();}}catch(const std::exception &e){if(!closing){std::lock_guard lock(dataMutex);transportError=e.what();transportFailed=true;cancelled=true;commandChanged.notify_all();}}}
   void writeData(){try{while(!closing){Frame frame;{std::unique_lock lock(dataMutex);dataChanged.wait_for(lock,std::chrono::milliseconds(100),[&]{return closing||!dataQueue.empty();});if(closing)break;if(dataQueue.empty())continue;frame=std::move(dataQueue.front());dataQueue.pop_front();queued-=frame.payload.size()+HeaderBytes;}writeFrame(data.value,frame,5000,&closing);}}catch(const std::exception &e){if(!closing){std::lock_guard lock(dataMutex);transportError=e.what();transportFailed=true;cancelled=true;commandChanged.notify_all();}}}
-  void health(){try{while(!closing){for(unsigned i=0;i<10&&!closing;++i)Sleep(100);if(closing)break;Writer w;{std::lock_guard lock(operationMutex);w.text(currentOperation);}w.number<std::uint64_t>(lastProgress.load());controlSend(Type::Health,0,std::move(w.bytes));}}catch(...){if(!closing){transportFailed=true;cancelled=true;}}}
-  std::string stop(){if(!active)return {};operation("stop_and_drain");auto error=source->stopMonitoring();bool more=true;for(unsigned i=0;more&&i<257;++i){SourceBatch tail;auto message=source->drainNext(tail,more);publish(tail);if(!message.empty()){if(error.empty())error=message;break;}if(i==256&&more&&error.empty())error="Helper drain exceeds bounded SDK pool";}active=false;Writer end;helper::metrics(end,finalMetrics);end.number(records);end.number(packets);queue(Type::End,std::move(end.bytes));return error;}
+  void health(){try{while(!closing){for(unsigned i=0;i<10&&!closing;++i)Sleep(100);if(closing)break;if(pack.fixture && fixtureScenario()=="no-heartbeat")continue;Writer w;{std::lock_guard lock(operationMutex);w.text(currentOperation);}w.number<std::uint64_t>(lastProgress.load());controlSend(Type::Health,0,std::move(w.bytes));}}catch(...){if(!closing){transportFailed=true;cancelled=true;}}}
+  std::string stop(){if(!active)return {};operation("stop_and_drain");auto error=source->stopMonitoring();bool more=true;for(unsigned i=0;more&&i<257;++i){SourceBatch tail;auto message=source->drainNext(tail,more);publish(tail);if(!message.empty()){if(error.empty())error=message;break;}if(i==256&&more&&error.empty())error="Helper drain exceeds bounded SDK pool";}active=false;Writer end;helper::metrics(end,finalMetrics);end.number(records);end.number(packets);if(!pack.fixture || fixtureScenario()!="missing-end")queue(Type::End,std::move(end.bytes));return error;}
   int run(){
     reader=std::jthread([&]{readCommands();});writer=std::jthread([&]{writeData();});heartbeat=std::jthread([&]{health();});bool quit=false,authenticated=false;
     try{while(!quit&&!transportFailed){Frame request;bool have=false;{std::unique_lock lock(commandMutex);if(commands.empty()&&!active)commandChanged.wait_for(lock,std::chrono::milliseconds(100));if(!commands.empty()){request=std::move(commands.front());commands.pop_front();have=true;}}
@@ -58,7 +73,7 @@ struct Server {
           default:throw std::runtime_error("Unsupported helper command");
         }}
       }
-      if(active){operation("poll");SourceBatch batch;auto error=source->poll(batch,{});publish(batch);if(!error.empty())throw std::runtime_error(error);if(batch.hardwareLost||batch.hardwareOverflows)throw std::runtime_error("DDC helper reported raw loss/overflow; recording is incomplete");}
+      if(active){operation("poll");SourceBatch batch;auto error=source->poll(batch,{});if(error.empty())++lastProgress;publish(batch);if(!error.empty())throw std::runtime_error(error);if(batch.hardwareLost||batch.hardwareOverflows)throw std::runtime_error("DDC helper reported raw loss/overflow; recording is incomplete");}
       operation(active?"poll":"idle");
     }
     if(transportFailed)throw std::runtime_error(transportError.empty()?"Helper transport failed":transportError);

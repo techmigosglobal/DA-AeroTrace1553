@@ -1,4 +1,5 @@
 #include "protocol.hpp"
+#include "sequence_analysis.hpp"
 #include <iostream>
 #include <stdexcept>
 #define CHECK(x) do{if(!(x))throw std::runtime_error(#x);}while(false)
@@ -17,6 +18,8 @@ int main(){try{
   r=hw();r.messageType=1;CHECK(!interpret(r).valid);
   r=hw();r.statusWord|=0x100;CHECK(interpret(r).payloadEligible);CHECK(statusDescription(interpret(r)).find("Service request")!=std::string::npos);
   for(auto bits:{0x400,0x008,0x004,0x001,0x020}){r=hw();r.statusWord|=bits;CHECK(!interpret(r).payloadEligible && !decode(r,signal));}
+  for(auto bits:{0x400,0x008,0x004,0x001}){r=hw();r.statusWord|=bits;const auto status=interpret(r);CHECK(status.valid && !status.payloadEligible && protocolQuality(r,status)=="RT STATUS");CHECK(!protocolIssues(r,status).invalid);}
+  r=hw();r.statusWord|=0x020;CHECK(!interpret(r).valid && interpret(r).reservedStatusBits);
   for(auto bits:{0x200,0x100,0x010,0x002}){r=hw();r.statusWord|=bits;CHECK(interpret(r).payloadEligible);}
   r=hw();r.flags=8;r.vendorStatus=8;CHECK(protocolDiagnostics(r,interpret(r)).find("parity/Manchester detail unavailable")!=std::string::npos);
   r=hw();r.words.pop_back();CHECK(!interpret(r).valid);
@@ -42,6 +45,14 @@ int main(){try{
   }
   r=hw();r.commandWord=(3<<11)|(1<<10)|9;r.messageType=5;r.words.clear();CHECK(!interpret(r).valid);
   r=hw();r.validity=4;CHECK(!interpret(r).valid);
+  SequenceAnalysis sequences;
+  r=hw();r.commandWord=(31<<11)|(2<<5)|2;r.messageType=8;r.validity=1;r.id=10;r.timestampNs=100;
+  CHECK(sequences.consume(r).size()==1);
+  r=hw();r.id=11;r.timestampNs=200;r.statusWord|=0x10;auto observed=sequences.consume(r);
+  CHECK(observed.size()==1 && observed[0].priorRecordId==10);
+  r.bus=1;r.id=12;observed=sequences.consume(r);CHECK(observed.size()==1 && observed[0].priorRecordId==0);
+  r.bus=0;r.timestampNs=50;observed=sequences.consume(r);CHECK(observed.size()==1 && observed[0].priorRecordId==0);
+  sequences.invalidate();r.id=12;r.timestampNs=300;observed=sequences.consume(r);CHECK(observed.size()==1 && observed[0].priorRecordId==0);
   CHECK(protocolQuality(r,interpret(r),true)=="CLOCK BACKWARD");
   std::cout<<"PASS: all defined message/mode types, status meanings, RT0, RT-to-RT routing, broadcasts, invalid payload rejection\n";
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

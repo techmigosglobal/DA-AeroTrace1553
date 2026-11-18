@@ -39,8 +39,17 @@ struct Signal {
   std::string sourceDocument, sourceHash;
   unsigned sourcePage{};
   std::string operatorNote;
+  unsigned expectedWordCount{}; // 0 means unspecified; otherwise decoded count 1–32
+  bool simulationOnly{};
+  std::string subsystem, messageId, sourceSignalId;
+  std::string icdSetId, icdRevision;
 };
-std::optional<double> decode(const Record &, const Signal &);
+inline bool matchesSignalRoute(const Record &record,const Signal &signal,const Command &command) {
+  return command.rt==signal.rt && command.sa==signal.sa && command.transmit==signal.transmit &&
+    (!signal.channel || signal.channel==record.channel) &&
+    (signal.bus<0 || signal.bus==record.bus);
+}
+std::optional<double> decode(const Record &, const Signal &, bool exampleContext=false);
 std::string validate(const Signal &);
 std::string serializeProfile(const std::vector<Signal> &);
 Record synthetic(std::uint64_t index);

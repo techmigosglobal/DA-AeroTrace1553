@@ -40,12 +40,6 @@ struct CaptureConfig {
   // Set by the verified native provider or helper after pack identity validation.
   std::string runtimeSha256,runtimeArchitecture{"x64"};
   unsigned simulatorRate{12};
-  // Empty profile preserves the original demo generator.
-  std::vector<Signal> simulatorProfile;
-  std::string simulatorWave{"sine"};
-  double simulatorAmplitude{10},simulatorOffset{},simulatorFrequency{1};
-  std::uint64_t simulatorSeed{1};
-  unsigned simulatorDropEvery{},simulatorFlagEvery{};
   std::vector<CheckRule> checkRules;
   std::size_t displayCapacity{8192};
   std::function<void(unsigned,DevicePhase,const std::string &)> deviceState;

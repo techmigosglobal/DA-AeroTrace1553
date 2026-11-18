@@ -1,6 +1,7 @@
 #include "live_decoder.hpp"
 #include "protocol.hpp"
 #include <set>
+#include <limits>
 #include <stdexcept>
 namespace aero {
 std::string validateProfile(const std::vector<Signal> &profile) {
@@ -14,7 +15,8 @@ std::string validateProfile(const std::vector<Signal> &profile) {
   // mappings; conflicting duplicate IDs above must be resolved before activation.
   return {};
 }
-void LiveDecoder::configure(std::vector<Signal> mappings,std::uint64_t version) {
+void LiveDecoder::configure(std::vector<Signal> mappings,std::uint64_t version,bool example) {
+  exampleContext=example;
   if(auto error=validateProfile(mappings);!error.empty()) throw std::invalid_argument(error);
   profile=std::move(mappings);revision=version;count=decodedValues=invalidValues=0;
   for(auto &route:routes) route.clear();
@@ -48,13 +50,13 @@ void LiveDecoder::consume(std::span<const Record> records) {
     for(const auto index:routes[(command.rt<<6)|(command.transmit<<5)|command.sa]) {
       const auto &signal=profile[index];
       if((signal.channel && signal.channel!=record.channel) || (signal.bus>=0 && signal.bus!=record.bus)) continue;
-      auto &latest=values[index];latest=decodeValue(record,signal,protocol);
-      ++decodedValues;if(!latest.value) ++invalidValues;
+      auto &latest=values[index];latest=decodeValue(record,signal,protocol,exampleContext);
+      if(latest.value) ++decodedValues;else ++invalidValues;
       const auto stream=(record.channel-1)*2+record.bus;
       if(record.channel>=1 && record.channel<=2 && record.bus<2) sourceValues[stream][index]=latest;
       const auto slot=traceSlots[index];
-      if(latest.value && slot>=0) {
-        auto append=[&](auto &samples) {const auto seconds=record.timestampNs/1e9;if(!samples.empty() && seconds<samples.back().first) samples.clear();samples.emplace_back(seconds,*latest.value);if(samples.size()>8192) samples.pop_front();};
+      if(slot>=0) {
+        auto append=[&](auto &samples) {const auto seconds=record.timestampNs/1e9;if(!samples.empty() && seconds<samples.back().first) samples.emplace_back(seconds,std::numeric_limits<double>::quiet_NaN());samples.emplace_back(seconds,latest.value.value_or(std::numeric_limits<double>::quiet_NaN()));while(samples.size()>8192) samples.pop_front();};
         append(history[slot]);
         if(record.channel>=1 && record.channel<=2 && record.bus<2) append(sourceHistory[stream][slot]);
       }
@@ -68,7 +70,7 @@ LiveFrame LiveDecoder::snapshot(std::size_t displayPoints) const {
   frame.decodedValues=decodedValues;frame.invalidValues=invalidValues;
   for(unsigned index=0;index<std::min<std::size_t>(8,history.size());++index)
     frame.traces.push_back(downsample({history[index].begin(),history[index].end()},displayPoints));
-  for(unsigned stream=0;stream<4;++stream) for(const auto &samples:sourceHistory[stream]) frame.sourceTraces[stream].push_back(downsample({samples.begin(),samples.end()},displayPoints));
+  for(unsigned stream=0;stream<4;++stream) for(const auto &samples:sourceHistory[stream]) frame.sourceTraces[stream].emplace_back(samples.begin(),samples.end());
   return frame;
 }
 }

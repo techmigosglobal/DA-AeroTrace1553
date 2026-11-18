@@ -1,3 +1,4 @@
+#include "example_simulation.hpp"
 #include "acquisition.hpp"
 #include <algorithm>
 #include <chrono>
@@ -165,14 +166,14 @@ std::future<bool> Acquisition::beginConfigured(const std::filesystem::path &path
       profileTimeline.open(timelinePath,std::ios::trunc);
       if(!profileTimeline) throw std::runtime_error("Cannot create ICD revision timeline");
       {std::lock_guard lock(mutex);activeMappings=requestedProfile;decoderRevision=profileRevision;}
-      decoder.configure(activeMappings,decoderRevision);
+      decoder.configure(activeMappings,decoderRevision,!config.hardware);
       if(auto problem=validateChecks(config.checkRules,activeMappings);!problem.empty()) throw std::runtime_error(problem);
       if(!checkLog) throw std::runtime_error("Cannot create signal check log");
-      checks.configure(activeMappings,config.checkRules);
+      checks.configure(activeMappings,config.checkRules,!config.hardware);
       {
         auto configurationPath=path;configurationPath+=".configuration.json";std::ofstream configuration(configurationPath);
         configuration.imbue(std::locale::classic());configuration<<std::setprecision(17);
-        configuration<<"{\"schema\":\"aerotrace.capture-config.v1\",\"run_id\":"<<jsonString(config.runId)<<",\"hardware\":"<<(config.hardware?"true":"false")<<",\"profile\":"<<serializeProfile(activeMappings)<<",\"simulator\":{\"rate\":"<<config.simulatorRate<<",\"wave\":"<<jsonString(config.simulatorWave)<<",\"amplitude\":"<<config.simulatorAmplitude<<",\"offset\":"<<config.simulatorOffset<<",\"frequency\":"<<config.simulatorFrequency<<",\"seed\":\""<<config.simulatorSeed<<"\",\"drop_every\":"<<config.simulatorDropEvery<<",\"flag_every\":"<<config.simulatorFlagEvery<<"},\"checks\":[";
+        configuration<<"{\"schema\":\"aerotrace.capture-config.v1\",\"run_id\":"<<jsonString(config.runId)<<",\"hardware\":"<<(config.hardware?"true":"false")<<",\"profile\":"<<serializeProfile(activeMappings)<<",\"simulator\":{\"fixture_id\":"<<jsonString(config.hardware?"":offlineFixtureId)<<",\"rate\":"<<config.simulatorRate<<"},\"checks\":[";
         for(std::size_t i=0;i<config.checkRules.size();++i){const auto &r=config.checkRules[i];if(i)configuration<<',';configuration<<"{\"signal\":"<<jsonString(r.signalId)<<",\"missing_ns\":\""<<r.missingNs<<"\",\"hysteresis\":"<<r.hysteresis;if(r.minimum)configuration<<",\"minimum\":"<<*r.minimum;if(r.maximum)configuration<<",\"maximum\":"<<*r.maximum;configuration<<'}';}
         configuration<<"],\"ddc\":{\"backend\":"<<jsonString(config.backend==DdcBackend::HelperX86?"helper_x86":"native_x64")
           <<",\"receive_mode\":"<<jsonString(config.receiveMode==DdcReceiveMode::MTI?"MTI":config.receiveMode==DdcReceiveMode::LegacyMT?"LegacyMT":"Auto")
@@ -199,9 +200,9 @@ std::future<bool> Acquisition::beginConfigured(const std::filesystem::path &path
           if(decoderRevision!=profileRevision) {replacement=requestedProfile;decoderRevision=profileRevision;replace=true;}
           if(replace || decoderTraceRevision!=traceRevision) {traces=requestedTraces;decoderTraceRevision=traceRevision;changeTraces=true;}
         }
-        if(replace) {activeMappings=replacement;decoder.configure(std::move(replacement),decoderRevision);revisionPending=true;
+        if(replace) {activeMappings=replacement;decoder.configure(std::move(replacement),decoderRevision,!config.hardware);revisionPending=true;
           if(auto problem=validateChecks(config.checkRules,activeMappings);!problem.empty()) {config.checkRules.clear();emit("checks_reset","\"reason\":"+jsonString(problem));}
-          checks.configure(activeMappings,config.checkRules);lastHost={};
+          checks.configure(activeMappings,config.checkRules,!config.hardware);lastHost={};
           emit("profile_activated","\"revision\":"+std::to_string(decoderRevision)+",\"signals\":"+std::to_string(activeMappings.size()));}
         if(changeTraces) {decoder.selectTraces(traces);std::string indices;for(auto index:traces) {if(!indices.empty()) indices+=',';indices+=std::to_string(index);}emit("trace_selection","\"signal_indices\":["+indices+"]");}
         SourceBatch batch;
@@ -269,7 +270,7 @@ std::future<bool> Acquisition::beginConfigured(const std::filesystem::path &path
           state.channelLost=batch.channelLost;state.channelOverflows=batch.channelOverflows;
           for(auto &record:batch.records) {
             state.rtActivity.observe(record);
-            if(record.channel>=1 && record.channel<=2 && record.bus<2) {const auto stream=(record.channel-1)*2+record.bus;++state.sourceCounts[stream];state.clocks[stream].observe(record.timestampNs);}
+            if(record.channel>=1 && record.channel<=2 && record.bus<2) {const auto stream=(record.channel-1)*2+record.bus;++state.sourceCounts[stream];state.lastTrafficNs[stream]=duration_cast<nanoseconds>(now.time_since_epoch()).count();state.clocks[stream].observe(record.timestampNs);}
             if(pending.size()==config.displayCapacity) { pending.pop_front();++state.displayDrops; }
             pending.push_back(std::move(record));
           }
@@ -306,6 +307,7 @@ std::future<bool> Acquisition::beginConfigured(const std::filesystem::path &path
       }
       if(!writer.appendBatch(tail.records)) fail("Final recording batch failed");
       try {for(const auto &record:tail.records) {checks.consume(record);publishChecks();}} catch(const std::exception &e) {fail(e.what());}
+      const auto tailReceived=steady_clock::now();
       decoder.consume(tail.records);
       for(const auto &r:tail.records)rtMonitor.consume(r);
       {
@@ -313,7 +315,7 @@ std::future<bool> Acquisition::beginConfigured(const std::filesystem::path &path
         state.decodedValues=decoder.conversions();state.invalidValues=decoder.invalidConversions();
         for(auto &record:tail.records) {
           state.rtActivity.observe(record);
-          if(record.channel>=1 && record.channel<=2 && record.bus<2) {const auto stream=(record.channel-1)*2+record.bus;++state.sourceCounts[stream];state.clocks[stream].observe(record.timestampNs);}
+          if(record.channel>=1 && record.channel<=2 && record.bus<2) {const auto stream=(record.channel-1)*2+record.bus;++state.sourceCounts[stream];state.lastTrafficNs[stream]=duration_cast<nanoseconds>(tailReceived.time_since_epoch()).count();state.clocks[stream].observe(record.timestampNs);}
           if(pending.size()==config.displayCapacity) {pending.pop_front();++state.displayDrops;}
           pending.push_back(std::move(record));
         }
@@ -387,7 +389,7 @@ bool Acquisition::error() const { std::lock_guard lock(mutex);return state.faile
 std::uint64_t Acquisition::displayDrops() const { std::lock_guard lock(mutex);return state.displayDrops; }
 CaptureMetrics Acquisition::metrics(bool includeEvents) const { std::lock_guard lock(mutex);
   if(includeEvents)return state;
-  CaptureMetrics result;result.recorded=state.recorded;result.displayDrops=state.displayDrops;result.hardwareLost=state.hardwareLost;result.hardwareOverflows=state.hardwareOverflows;result.batches=state.batches;result.queueDepth=state.queueDepth;result.queueHighWater=state.queueHighWater;result.maxBatchMilliseconds=state.maxBatchMilliseconds;result.timings=state.timings;result.decodedValues=state.decodedValues;result.invalidValues=state.invalidValues;result.sourceCounts=state.sourceCounts;result.channelLost=state.channelLost;result.channelOverflows=state.channelOverflows;result.devices=state.devices;result.configuredChannels=state.configuredChannels;result.clocks=state.clocks;result.rtActivity=state.rtActivity;result.hardware=state.hardware;result.failed=state.failed;result.error=state.error;result.failure=state.failure;result.identity=state.identity;result.cleanupBlocked=state.cleanupBlocked;result.checkCount=state.checkCount;return result;
+  CaptureMetrics result;result.recorded=state.recorded;result.displayDrops=state.displayDrops;result.hardwareLost=state.hardwareLost;result.hardwareOverflows=state.hardwareOverflows;result.batches=state.batches;result.queueDepth=state.queueDepth;result.queueHighWater=state.queueHighWater;result.maxBatchMilliseconds=state.maxBatchMilliseconds;result.timings=state.timings;result.decodedValues=state.decodedValues;result.invalidValues=state.invalidValues;result.sourceCounts=state.sourceCounts;result.lastTrafficNs=state.lastTrafficNs;result.channelLost=state.channelLost;result.channelOverflows=state.channelOverflows;result.devices=state.devices;result.configuredChannels=state.configuredChannels;result.clocks=state.clocks;result.rtActivity=state.rtActivity;result.hardware=state.hardware;result.failed=state.failed;result.error=state.error;result.failure=state.failure;result.identity=state.identity;result.cleanupBlocked=state.cleanupBlocked;result.checkCount=state.checkCount;return result;
 }
 std::string Acquisition::setProfile(std::vector<Signal> profile) {
   if(auto error=validateProfile(profile);!error.empty()) return error;

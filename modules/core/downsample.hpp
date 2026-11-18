@@ -1,5 +1,6 @@
 #pragma once
 #include <algorithm>
+#include <cmath>
 #include <utility>
 #include <vector>
 namespace aero {
@@ -15,6 +16,8 @@ inline std::vector<Sample> downsample(const std::vector<Sample> &input,std::size
     const auto begin=1+(input.size()-2)*bucket/buckets;
     const auto end=1+(input.size()-2)*(bucket+1)/buckets;
     if(begin>=end) continue;
+    const auto gap=std::find_if(input.begin()+begin,input.begin()+end,[](const Sample &sample){return !std::isfinite(sample.second);});
+    if(gap!=input.begin()+end){output.push_back(*gap);continue;}
     auto low=begin,high=begin;
     for(auto index=begin+1;index<end;++index) {
       if(input[index].second<input[low].second) low=index;

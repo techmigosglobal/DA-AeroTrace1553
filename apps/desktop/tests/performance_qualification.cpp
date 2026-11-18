@@ -18,14 +18,14 @@ QJsonObject timingJson(const aero::TimingHistogram &h){return {{"samples",double
 bool Window::performanceTest(const QString &directory){
   QMap<QString,QVariant> saved;for(const auto &k:settings.allKeys())saved[k]=settings.value(k);const auto oldSession=sessionDir;
   QDir().mkpath(directory);const auto dataRoot=qEnvironmentVariable("AEROTRACE_SOAK_ROOT",QDir::tempPath());QDir().mkpath(dataRoot);QTemporaryDir temporary(QDir(dataRoot).filePath("aerotrace-soak-XXXXXX"));temporary.setAutoRemove(!qEnvironmentVariableIsSet("AEROTRACE_KEEP_SOAK"));
-  if(!temporary.isValid())return false;const int duration=qBound(3,qEnvironmentVariableIntValue("AEROTRACE_SOAK_SECONDS")?qEnvironmentVariableIntValue("AEROTRACE_SOAK_SECONDS"):3,86400);
+  if(!temporary.isValid())return false;const int duration=qBound(3,qEnvironmentVariableIntValue("AEROTRACE_SOAK_SECONDS")?qEnvironmentVariableIntValue("AEROTRACE_SOAK_SECONDS"):10,86400);
   const bool contention=qEnvironmentVariableIsSet("AEROTRACE_SOAK_CONTENTION");
   if(QStorageInfo(temporary.path()).bytesAvailable()<qint64(duration)*50000*1200)return false;
   unlocked=true;backend.stopRecording();backend.captureConfig.hardware=false;backend.profile.clear();backend.applyProfile(aero::Workbench::demoSignals());
   backend.captureConfig.enabled={true,true,true,true};backend.captureConfig.simulatorRate=50000;backend.captureConfig.runId=applicationRunId().toStdString();
   sessionDir=temporary.path();currentFile=temporary.path()+"/performance.atd";const auto path=std::filesystem::path(currentFile.toStdWString());
   for(int c=0;c<2;++c){settings.setValue(QString("pane%1Bus").arg(c),"");settings.setValue(QString("pane%1Rt").arg(c),-1);settings.setValue(QString("pane%1Search").arg(c),"");}settings.setValue("monitorRowMode","rt");settings.setValue("monitorLayout","windows");
-  auto generated=std::make_shared<std::atomic<std::uint64_t>>(0);bool passed=backend.acquisition.startConfigured(path,backend.captureConfig,std::make_unique<aero::QualificationSource>(50000,generated));
+  auto generated=std::make_shared<aero::QualificationCounter>();bool passed=backend.acquisition.startConfigured(path,backend.captureConfig,std::make_unique<aero::QualificationSource>(50000,generated));
   tick.setInterval(50);resize(1700,1000);navigate(4);
   guiUpdateTiming={};desktop::resetGuiUpdateStages();
   PaintObserver observer;observer.displayedHost=[&]()->std::uint64_t{if(page!=4)return 0;if(rtGrouped){const auto *r=rtModels[0].recordFor(rtModels[0].index(0,0));return r?r->hostMonotonicNs:0;}const auto *r=paneModels[0].at(paneModels[0].rowCount()-1);return r?r->hostMonotonicNs:0;};
@@ -42,11 +42,17 @@ bool Window::performanceTest(const QString &directory){
   QTimer layouts;layouts.setInterval(100);connect(&layouts,&QTimer::timeout,this,[&]{const auto next=std::min(2,int(clock.elapsed()/(duration*1000./3)));if(next==stage)return;stage=next;if(stage==1){if(auto mode=content->findChild<QComboBox *>("monitorRowMode"))mode->setCurrentIndex(2);watchPaint();}else {analysisChannel=1;analysisBus=0;preferredSignalIndex=0;plotRawColumn=-1;navigate(7);}});layouts.start();
   QString documentHash;
   if(contention){const auto worker=QFileInfo(QStringLiteral(AEROTRACE_DOCUMENT_WORKER)).absolutePath();const auto pdf=QDir(worker).filePath("../../examples/demo-icd/AeroTrace-Demo-ICD.pdf");QFile input(pdf);if(input.open(QIODevice::ReadOnly))documentHash=QString::fromLatin1(QCryptographicHash::hash(input.readAll(),QCryptographicHash::Sha256).toHex());documentCenter(pdf);}
-  QEventLoop wait;QTimer::singleShot(duration*1000,&wait,&QEventLoop::quit);wait.exec();heartbeat.stop();memory.stop();layouts.stop();sampleMemory();const auto elapsed=clock.elapsed();
-  auto importedDocument=[&]{return !documentHash.isEmpty()&&backend.profile.size()==9&&std::all_of(backend.profile.begin(),backend.profile.end(),[&](const auto &signal){return QString::fromStdString(signal.sourceHash)==documentHash;});};
+  const auto [rateStart,generatedStart]=generated->snapshot();
+  QEventLoop wait;QTimer::singleShot(duration*1000,&wait,&QEventLoop::quit);wait.exec();const auto [rateEnd,generatedEnd]=generated->snapshot();
+  heartbeat.stop();memory.stop();layouts.stop();sampleMemory();
+  const double seconds=std::chrono::duration<double>(rateEnd-rateStart).count();
+  auto importedDocument=[&]{return !documentHash.isEmpty() && documentDialog &&
+    documentDialog->property("indexedDocumentHash").toString()==documentHash;};
   const bool documentCompletedDuringCapture=contention&&importedDocument();
   std::uint64_t plotSamples=0;for(auto plot:plots)plotSamples+=plot->pointCount();
-  backend.stopRecording();const auto metrics=backend.acquisition.metrics(false);const auto live=backend.acquisition.liveFrame();const auto total=generated->load();
+  backend.stopRecording();
+  const auto total=generated->snapshot().second;
+  const auto metrics=backend.acquisition.metrics(false);const auto live=backend.acquisition.liveFrame();
   // Completion may follow the bounded contention window. Keep capture/heartbeat
   // timing fixed and require evidence from the newly imported document, rather
   // than accepting the preloaded demo profile's identical signal count.
@@ -58,13 +64,14 @@ bool Window::performanceTest(const QString &directory){
   bool counts=recorded.count==total&&metrics.recorded==total&&rtFrame&&rtFrame->revision==total;for(unsigned k=0;k<4;++k)counts&=observed[k]==(total+3-k)/4&&observed[k]==metrics.sourceCounts[k];
   std::sort(gaps.begin(),gaps.end());const auto p95=gaps.empty()?0:gaps[gaps.size()*95/100];const auto p99=gaps.empty()?0:gaps[gaps.size()*99/100];
   qint64 warm=0,peak=0;for(auto entry:memorySamples){const auto o=entry.toObject();if(o["elapsed_ms"].toInteger()>=60000){const auto bytes=o["private_bytes"].toInteger();if(!warm)warm=bytes;peak=qMax(peak,bytes);}}
-  const auto effective=total*1000./qMax<qint64>(1,elapsed);bool bounded=true;if(live)for(const auto &trace:live->traces)bounded&=trace.size()<=1024;
-  passed&=counts&&contents&&!metrics.failed&&!recorded.recovered&&recorded.error.empty()&&!metrics.hardwareLost&&!metrics.hardwareOverflows&&metrics.queueHighWater<=8192&&bounded&&p95<100&&effective>=49000&&(!warm||peak-warm<128ll*1024*1024)&&documentComplete&&(duration<65||warm>0)&&plotSamples>0;
+  const auto effective=seconds>0?(generatedEnd-generatedStart)/seconds:0;
+  const bool rateWithinTolerance=effective>=49000 && effective<=51000;bool bounded=true;if(live)for(const auto &trace:live->traces)bounded&=trace.size()<=1024;
+  passed&=counts&&contents&&!metrics.failed&&!recorded.recovered&&recorded.error.empty()&&!metrics.hardwareLost&&!metrics.hardwareOverflows&&metrics.queueHighWater<=8192&&bounded&&p95<100&&rateWithinTolerance&&(!warm||peak-warm<128ll*1024*1024)&&documentComplete&&(duration<65||warm>0)&&plotSamples>0;
   QJsonObject stages;for(unsigned k=0;k<aero::TimingStageCount;++k)stages[aero::timingNames[k]]=timingJson(metrics.timings[k]);
   stages["gui_update"]=timingJson(guiUpdateTiming);
   const auto guiStages=desktop::guiUpdateStages();const char *guiNames[]={"gui_rt_grouped","gui_chronological","gui_plots","gui_other_pages","gui_analysis_cache","gui_record_models","gui_operator_controls","gui_data_views"};for(unsigned k=0;k<guiStages.size();++k)stages[guiNames[k]]=timingJson(guiStages[k]);
   stages["capture_ingress_to_viewport_paint"]=timingJson(observer.latency);
-  QJsonObject result{{"schema","aerotrace.software-qualification.v2"},{"status",passed?"PASS":"FAIL"},{"source","deterministic software fixture; no physical hardware"},{"physical_qualification","NOT RUN"},{"requested_events_per_second",50000},{"generated",double(total)},{"recorded",double(metrics.recorded)},{"exact_record_contents",contents},{"exact_stream_counts",counts},{"seconds",elapsed/1000.},{"effective_records_per_second",effective},{"p95_gui_heartbeat_ms",p95},{"p99_gui_heartbeat_ms",p99},{"max_gui_heartbeat_gap_ms",maxGap},{"capture_to_paint_scope","Host ingress to Paint event for an applied External RT/raw row; excludes plot-only interval and physical wire latency"},{"stage_timings",stages},{"display_skips",double(metrics.displayDrops)},{"queue_high_water",double(metrics.queueHighWater)},{"hardware_lost",double(metrics.hardwareLost)},{"hardware_overflows",double(metrics.hardwareOverflows)},{"memory_samples",memorySamples},{"memory_gate_measured",warm>0},{"post_warmup_growth_bytes",peak-warm},{"plots_exercised",plotSamples>0},{"plot_samples",double(plotSamples)},{"trace_bounds",bounded},{"document_contention",contention},{"document_import_complete",documentComplete},{"recording",currentFile},{"application_log",applicationLogPath()},{"build_qt",qVersion()}};
+  QJsonObject result{{"schema","aerotrace.software-qualification.v2"},{"status",passed?"PASS":"FAIL"},{"source","deterministic software fixture; no physical hardware"},{"physical_qualification","NOT RUN"},{"requested_events_per_second",50000},{"generated",double(total)},{"recorded",double(metrics.recorded)},{"exact_record_contents",contents},{"exact_stream_counts",counts},{"seconds",seconds},{"generated_in_rate_window",double(generatedEnd-generatedStart)},{"effective_records_per_second",effective},{"p95_gui_heartbeat_ms",p95},{"p99_gui_heartbeat_ms",p99},{"max_gui_heartbeat_gap_ms",maxGap},{"capture_to_paint_scope","Host ingress to Paint event for an applied External RT/raw row; excludes plot-only interval and physical wire latency"},{"stage_timings",stages},{"display_skips",double(metrics.displayDrops)},{"queue_high_water",double(metrics.queueHighWater)},{"hardware_lost",double(metrics.hardwareLost)},{"hardware_overflows",double(metrics.hardwareOverflows)},{"memory_samples",memorySamples},{"memory_gate_measured",warm>0},{"post_warmup_growth_bytes",peak-warm},{"plots_exercised",plotSamples>0},{"plot_samples",double(plotSamples)},{"trace_bounds",bounded},{"document_contention",contention},{"document_import_complete",documentComplete},{"recording",currentFile},{"application_log",applicationLogPath()},{"build_qt",qVersion()}};
   result["document_worker_observed_during_capture"]=documentWorkerObserved;result["document_completed_during_capture"]=documentCompletedDuringCapture;result["document_sha256"]=documentHash;
   result["rt_capture_records"]=double(rtFrame?rtFrame->revision:0);result["engineering_revision_records"]=double(live?live->records:0);
   QJsonArray streamCounts;for(unsigned k=0;k<4;++k)streamCounts.append(QJsonObject{{"channel",int(k/2+1)},{"bus",k%2?"B":"A"},{"expected",double((total+3-k)/4)},{"recorded",double(observed[k])},{"acquisition",double(metrics.sourceCounts[k])}});result["stream_counts"]=streamCounts;
@@ -83,7 +90,7 @@ bool Window::performanceTest(const QString &directory){
       return QJsonObject{{"exact_csv_contents",exact},{"csv_rows_compared",double(csvCount)},{"indexed_replay_contents",replay},{"indexed_scan_records",double(ordinal)},{"random_seek_checks",double(checks)},{"export_error",saved.error}};
     }));finished.exec();const auto checked=job.result();for(auto it=checked.begin();it!=checked.end();++it)result[it.key()]=it.value();passed&=checked["exact_csv_contents"].toBool()&&checked["indexed_replay_contents"].toBool();
   }else {result["full_export_replay_status"]="NOT RUN: quick stress profile; full comparison requires duration >=30 seconds";}
-  result["raw_crc_valid"]=!recorded.recovered&&recorded.error.empty();result["bounded_private_memory"]=!warm||peak-warm<128ll*1024*1024;result["rate_within_two_percent"]=effective>=49000&&effective<=51000;result["max_worker_batch_ms"]=metrics.maxBatchMilliseconds;result["plots"]=int(plots.size());result["max_points_per_trace"]=1024;
+  result["raw_crc_valid"]=!recorded.recovered&&recorded.error.empty();result["bounded_private_memory"]=!warm||peak-warm<128ll*1024*1024;result["rate_within_two_percent"]=rateWithinTolerance;result["max_worker_batch_ms"]=metrics.maxBatchMilliseconds;result["plots"]=int(plots.size());result["max_points_per_trace"]=1024;
   result["passed"]=passed;result["status"]=passed?"PASS":"FAIL";result["capture_error"]=QString::fromStdString(metrics.error);
   QSaveFile report(directory+"/performance.json");if(!report.open(QIODevice::WriteOnly))passed=false;else {report.write(QJsonDocument(result).toJson());passed&=report.commit();}
   settings.clear();for(auto it=saved.begin();it!=saved.end();++it)settings.setValue(it.key(),it.value());settings.sync();sessionDir=oldSession;return passed;

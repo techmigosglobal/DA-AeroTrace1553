@@ -43,9 +43,9 @@ or impact audit was performed for this setup task.
 
 ## Source of truth and project shape
 
-- Root `CMakeLists.txt` declares version **0.6.1**, despite the checkout folder's
+- Root `CMakeLists.txt` declares version **0.7.0**, despite the checkout folder's
   0.5.5 name. Read `README.md`, `docs/current-status.md`, and
-  `docs/Release-0.6.1.md` first for current behavior and qualification scope.
+  `docs/Release-0.7.0.md` first for current behavior and qualification scope.
   `docs/Release-0.6.0.md` retains the earlier software measurements.
 - Preserve **C++20, Qt 6 Widgets, Qt Designer, Qwt, CMake, and Ninja**. This is a
   native Windows x64 application with an isolated Python document worker.
@@ -111,7 +111,8 @@ prerequisites. CI/CD is intentionally unconfigured in the reviewed baseline.
   reporting for loss, overflow, and capture/write errors.
 - Raw capture, replay, and paired CSV export require no ICD. Engineering values
   require validated mappings; uncertain document extraction requires review.
-- Paired exports are `_EXT.csv` / `_INT.csv`, with 42 fields and preserved raw
+- Paired exports are `_EXT.csv` / `_INT.csv`, with compact 11-column default,
+  explicit legacy 42-column compatibility, and preserved raw
   recordings/integrity sidecars. Do not overwrite another recording's exports.
 - The current DDC MTI adapter requests `ACE_TT_2US`: ticks represent **2,000 ns**.
   Display precision does not establish accuracy or cross-device synchronization.
@@ -220,3 +221,262 @@ The approved 0.6.2 plan is being delivered as 0.6.3. Read docs/Release-0.6.3.md 
 
 ## 0.6.4 review build — 5 November 2026
 Selectable native/helper and MT/MTI controls are in `apps/desktop/forms/ddc_method.ui`; method changes are manual. Selecting the x86 helper explicitly selects compatibility policy; pack identity checks remain in force. `scripts/build-release-064.ps1` generated `dist/installers/AeroTrace1553-0.6.4-Review-Setup-x64.exe` and its SHA-256 file. Desktop CTest passed 35/35, including the updated method-selection fixture; x86 helper and provider-pack fixture checks passed. See `docs/Release-0.6.4.md`. Physical card acceptance, interactive Qt Creator review, and runtime redistribution rights remain unverified. The review bundle is not production distribution approval.
+
+## MIL-STD-1553B development work in progress
+See `docs/mil-std-1553b-traceability.md`. Protocol structure is now separated from RT busy/fault/message-error status, while engineering values remain suppressed for those statuses. `SequenceAnalysis` supplies bounded conservative offline observations and Sessions has a versioned JSONL export. No hardware/timing qualification or standards conformance is claimed. This work is incomplete: live sequence presentation, selectable standards profiles, timing capability integration, end-to-end export verification, Qt Creator accessibility review, and a new review installer remain pending. Existing 0.6.4 installer predates these changes.
+
+## Engineering document work in progress
+`docs/engineering-document-work-in-progress.md` records partial implementation. PDF ingestion now requires explicit activation; the local 32-word example produces review-only word-range evidence. Signals support an optional expected data word count and retain compatibility with older profiles. Full reviewed-draft editing, SI conversion, reports, revision playback, 0.6.5 packaging and hardware acceptance remain outstanding. Preserve the separate uncommitted MIL-STD analysis changes.
+Software verification for this partial engineering-document change: document-worker unittest suite 7/7 and desktop CTest 35/35 passed on 5 November 2026. The example-range test used the local untracked Markdown input; no new 32-word digital/scanned PDF fixtures or hardware verification were completed.
+
+## 0.6.5 review build — 5 November 2026
+`scripts/build-release-065.ps1` generated `dist/installers/AeroTrace1553-0.6.5-Review-Setup-x64.exe` and SHA-256 checksum. The example table PDF is `examples/demo-icd/Engineering-32-Word-Example.pdf` with separate simulation notes. Desktop CTest passed 35/35 and native provider/x86 helper fixture checks passed; physical qualification remains NOT RUN. 32-word simulation and four plot selectors were added; interactive Qt Creator/accessibility review and dedicated end-to-end new plot-selection verification remain NOT RUN. The example profile currently decodes all demo mappings, not only those selected for plotting. Source 0 also represents legacy records with ambiguous provenance; the simulation-only flag distinguishes modern DDC records but does not establish origin of old source-0 recordings. MSVC helper build reported warnings C4018, C4267 and C4146.
+
+
+## 0.6.6 bench candidate development — 8 November 2026
+
+See docs/Release-0.6.6.md for the bench procedure and evidence boundaries.
+Preserve the demonstrated 32-bit compatibility helper, automatic MTI/MT,
+and ddc-3.6.15-x86 selection. Healthy empty polls count as progress.
+The helper fixture distinguishes silence from failed heartbeat, stalled
+operations, missing final acknowledgment and explicit SDK cleanup failure.
+Physical acceptance on the affected BU-67113U laptop remains NOT RUN.
+SDK result 22 remains unresolved.
+
+ICD Library and PDF evidence feed the same staged signal review grid.
+Use explicit publication, retain the original source evidence, and
+apply synthetic mappings only in verified example context. Replay loads
+its own latest profile snapshot without replacing the active capture profile.
+See docs/icd-documents.md for CSV and operator workflow.
+
+
+Desktop CTest passed 36/36, both PDF workflow checks passed again with the
+updated plot layout, and the standalone document worker passed 7/7. Use
+the release note for the software throughput and latency figures. The
+installer is a bench candidate until the targeted physical retest passes.
+
+## 0.6.7 bench candidate — 8 November 2026
+
+See docs/Release-0.6.7.md for the installer and qualification record.
+The install wizard requests bench-use acceptance before destination selection.
+Device Setup persists generic, example, and published-ICD simulation separately.
+Use explicit publication and start; the example remains simulation-only.
+Bus Analysis groups Inspector, Topology, and Alerts. Signal reports pair
+engineering CSV and a PNG for one stream, with retained-live or saved-session scope.
+
+See .codebase-memory/Release-0.6.7.md for source entry points and the
+verified simulation mismatch that motivated the 0.6.7 changes.
+
+
+## 0.6.8 bench candidate — 9 November 2026
+
+See [the 0.6.8 release record](docs/Release-0.6.8.md). Offline simulation
+uses RT 03 and RT 08, SA 12 receive, with 32 data words. New ATD sidecars
+record fixture provenance. Keep the simulation-only profile restriction
+for DDC traffic. Prior recorded example sessions retain their proven
+compatibility. Use approved real ICD values to qualify DDC engineering.
+
+Setup checks the existing AeroTrace registration and requires graceful
+desktop exit before clean replacement. Preserve user data and external
+DDC drivers. The compact embedded Python runtime is built from pinned
+artifacts and tested with PDF extraction, OCR and local retrieval.
+
+See .codebase-memory/Release-0.6.8.md for the 0.6.8 source entry points, verification, and pending gates.
+
+## ICD workflow development — 10 November 2026
+
+The build now reports the CMake project version. The document worker indexes
+ordered PDF sets and stages compact ICD tables with separate route headers.
+The private sample verified 54 typed fields and three evidence-only rows.
+Review requires confirmation of undocumented scaling and ambiguous stream
+assignments. Published-mapping chat reads the desktop profile and cites the
+PDF evidence separately. Plot limit overlays use existing alert rules.
+
+See [ICD ingestion and review](docs/icd-documents.md) for the operator flow.
+The offscreen desktop suite passed 36/36. The separate private-sample
+[workflow receipt](out/test-results/table-icd/table-icd-workflow.txt) verifies
+MSW-first float and unsigned integer decoding, channel separation, a plot
+excursion, and a page-cited published-mapping answer with synthetic words.
+The native splash and the broader ICD screen redesign are awaiting design
+selection. Physical engineering acceptance remains pending.
+
+## 0.6.9 bench candidate — 10 November 2026
+
+See [the 0.6.9 release note](docs/Release-0.6.9.md). The Windows x64 bench
+installer and its SHA-256 sidecar are in `dist/installers`. The offscreen
+suite passed 36/36, all provider and helper fixtures passed, and the staged
+app verified startup rendering and handoff at 100% and 150% scaling. The
+staged [Table-1 workflow receipt](out/test-results/069-table-icd/table-icd-workflow.txt)
+uses synthetic bus words. The screen alternatives are design previews for
+a later revision. Interactive upgrade and physical qualification are pending.
+
+
+## 0.6.10 Subsystem Workspace — 11 November 2026
+
+The accepted B workspace is implemented in native Qt Designer/Widgets. Mapping,
+Engineering, Live Plot and docked/floating Chat share subsystem/stream scope.
+Source IDs remain stable; optional subsystem/message/source-signal metadata
+round-trips through profile and session JSON. Known qualified IDs can restore
+missing optional metadata; other legacy mappings remain Unassigned. Replay
+mapping review is read-only and retains its own profile context.
+
+Bulk presets preview changes, preserve edits by default, and persist per named
+ICD set/subsystem. Calibration reuse checks type/width/unit/route compatibility.
+Changed source definitions require explicit review. Publishing a subsystem
+merges other groups, validates profile/check rules and preserves the prior
+profile on failure. The private Table-1 seed uses MSW first, S1 CH1, S3 CH2;
+identity scaling still requires explicit confirmation.
+
+The bundled Qwen3-1.7B Q4_K_M / llama.cpp v0.9.0 (resolved b12110) assets are
+pinned in tools/document_worker/assistant-assets.lock.json. Do not commit model
+weights. scripts/package-assistant.ps1 verifies archive/member/model/license
+hashes. Inference is separate from the PDF worker, authenticated on loopback,
+limited to two CPU threads, 20% CPU and 2.5 GiB process commit, and unloaded after
+120 idle seconds. Structured chat never requires the model. Capture/low memory
+keep source answers available. Conservative generated-answer checks can fall
+back to evidence. No model output publishes a mapping or computes engineering.
+
+See [0.6.10 verification](docs/Release-0.6.10.md), the
+[37-check receipt](out/test-results/0610-regression/release-tests.xml),
+[focused document checks](out/test-results/0610-regression/final-document-tests.xml),
+[final Table-1 re-import checks](out/test-results/0610-release-table/table-icd-workflow.txt),
+[packaged Table-1/RAG receipt](out/test-results/0610-package-acceptance-final/table-icd-workflow.txt),
+[model budget qualification](out/test-results/0610-inference-packaged/environment.json),
+and [model measurements](out/test-results/0610-inference-packaged/qualification.txt).
+The CPU model benchmark used an 8 GiB process-tree commit budget on a 16 GiB
+host, not a physical 8 GB target. Physical DDC qualification and actual installer
+upgrade/silent/cancellation acceptance remain NOT RUN. The computer-use Setup
+preview launch timed out without a targetable window; do not claim visual
+installer animation acceptance. Existing installed application/data were retained.
+
+The native splash minimum is 3,000 ms from first paint, including reduced motion;
+slow initialization extends it. Inno uses SetTimer/CreateCallback with a 32-bit
+Windows BOOL output and stops timers for silent/reduced-motion/shutdown cases.
+Qt Network is now required for the managed local model. Current payload budget
+is 2,140 files (staged 2,036). Guide generation uses the optional build-only
+out/guide-venv with ReportLab 4.4.4; it is not part of the product runtime.
+Use scripts/build-release-0610.ps1 for the bench release and
+scripts/test-offline-assistant.ps1 for bounded packaged inference qualification.
+
+The final bench installer is
+`dist/installers/AeroTrace1553-0.6.10-Bench-Setup-x64.exe` (1,431,769,420 bytes),
+with SHA-256
+`4907BB35C46DB6B600844FB7EDAB747D4B94A00BCFFDFB9CFA40C57AA0EABBF8`.
+Its `.sha256` and `.receipt.json` sidecars record software checks and pending
+acceptance. The verified payload has 2,036 files / 1,726,761,326 bytes; 205
+generated Python cache files in staging are excluded from the installer and
+manifest. Final packaged splash checks measured 3,014 / 3,004 ms at 100%/150%.
+The initial full compiler invocation stopped with a path error; an unchanged
+retry completed successfully. No actual installation or upgrade was performed.
+
+
+## 0.6.11 software acceptance — 12 November 2026
+
+The approved stable workspace implementation is software-verified. Read
+`docs/Release-0.6.11.md`. One sidebar destination now wraps Mapping, Engineering
+and Analysis. Engineering uses a native raw-word preview rather than live tiles;
+plots retain bounded discontinuity segments and expose larger native Qwt views.
+The Assistant is an independent window with additive conversation storage and
+archive/restore operations. Compact 11-column CSV is the new default; legacy
+42-column export remains explicit and old export retries retain their format.
+
+Verification: 39 unique native checks across the complete run and focused
+retries, documented honestly in `out/test-results/0611-regression/aggregate.json`.
+The initial workspace heartbeat check included the modal file chooser; its
+timer now measures only the background conversion. Final cursor changes were
+checked by the operator/workspace tests and exact packaged UI checks at both
+scales. Document-worker 16/16 and fresh provider/helper fixture checks passed.
+All 262,144 word/radix cases and long/quoted/oversized CSV rows passed. A
+45,920,091-byte / 140,000-row CSV converted in 6,478 / 5,413 ms at 100%/150%,
+with 33 / 33 ms maximum heartbeat gaps and unchanged source hashes. The plot/body
+height ratio was 0.80 at 1366 x 768. Final splash durations were 3,009 / 3,002 ms.
+
+See `out/test-results/0611-package-final-ui/`, the Table-1 receipt under
+`out/test-results/0611-package/table-icd/`, and model qualification under
+`out/test-results/0611-inference/`. Structured 39/13-row answers passed. The
+explanatory RAG check completed with cited extractive fallback in 170,967 ms;
+do not claim every generated explanation passes grounding. The constrained
+model run passed with peak working set 1,996 MiB and private commit 1,041 MiB,
+using the same 8 GiB process-tree budget on the 16 GiB development host.
+
+Source entry points: `pages/engineering_setup.cpp`, `pages/analysis_tools.cpp`,
+`pages/csv_tools.cpp`, `services/csv_conversion.hpp`, `pages/icd_management.cpp`
+under `apps/desktop/`, and `tools/document_worker/library_history.py`.
+Archiving holds publication until its asynchronous library operation completes,
+protecting rollback from a second publication. Cursor pairs are scoped to plot,
+signal/raw column and channel/bus. Input bases preserve raw bits; native encoding
+and calibration remain separate. The graph generation predates these new files;
+check coverage and read source where the graph is stale or untracked.
+
+The frozen staged payload has 2,037 files / 1,696,035,599 bytes, no Python caches,
+and retains 1,282,439,264-byte Qwen weights. The duplicate audit retains required
+app-local libraries/notices. The unused 30,876,160-byte OpenCV video DLL is omitted
+after exact packaged PDF/OCR checks. `out/0611-release-finalization.log` records
+the successful 264.748-second installer build. The bench installer is
+`dist/installers/AeroTrace1553-0.6.11-Bench-Setup-x64.exe`, 1,420,523,186 bytes,
+with SHA-256 `D522AFA2A20B7D849D42C5954A6764671C0CA4E459C7AB38B66AFD3E9E7937C8`.
+Its `.sha256` and `.receipt.json` sidecars retain measurements and test evidence.
+Physical DDC/physical 8 GB qualification and actual installation/upgrade,
+silent/cancellation and visual installer-animation acceptance remain NOT RUN.
+Original 0.6.9 supplied logs/recordings and 0.6.10 installers remain unchanged.
+
+## 0.7.0 software acceptance — 15 November 2026
+
+Read `docs/Release-0.7.0.md`. Recorded CSV Analysis uses the native decoder,
+explicit channel/bus/route and copied published rules. `services/recorded_csv.hpp`
+streams full-range statistics and bounded, ordered min/max display envelopes;
+time jumps and gaps remain visible. Narrowed ranges receive their own envelope
+resolution. CSV row cursors identify source records. Legacy 42-column supplier
+rows may contain empty trailing padding; extra nonempty cells remain errors.
+Raw engineering encodings and input/display bases remain separate.
+
+`services/session_store.cpp` retains the primary export reservation and adds
+independent `.export-<format>.json` reservations for format copies. Changed
+settings create pairs such as run3_hex_EXT/INT.csv; retries preserve options,
+hashes and owned files. Same-directory temporary files publish without replacing
+unrelated outputs. Startup discovery checks only a first valid record in the
+background; export validates the prefix and labels incomplete recovery without
+rewriting ATD bytes. Save feedback appears after 300 ms and blocks conflicting
+save/close actions. The splash minimum is 5,000 ms from first paint.
+
+Native CTest passed 39/39, with final frozen-build checks 4/4. Document-worker
+tests passed 17/17; provider/x86-helper fixtures passed. Exact packaged startup,
+slow startup, workspace and session tests passed at 100%/150% scaling. Normal
+splash durations were 5,012/5,008 ms; slow startup 6,131/5,979 ms. The recorded
+plot/body height ratio was 0.697974. The large CSV fixture retained every source
+row and unchanged bytes, with 36/37 ms maximum measured UI heartbeat gaps.
+Supplied compact captures retained 32/186 backward boundaries in selected
+RT4/SA2/Bus-A streams. See `out/test-results/070-regression/`,
+`out/test-results/070-package-ui-final/` and `out/070-supplied-csv-final.log`.
+
+`tools/document_worker/retrieval_context.py` adds table/page context and bounded
+follow-up retrieval without deleting library history. Complete Table-1 39/13-row
+answers and confirmed routes passed. The final scoped RAG check completed in
+209,627 ms with 199 streamed events and cited extractive fallback; generated
+explanations are not guaranteed to pass grounding. Keep the pinned baseline
+model: neither alternative in `out/070-model-eval/decision.json` qualified.
+Operator wording is AeroTrace Assistant; exact model identity remains technical.
+Model policy qualification passed under an 8 GiB process-tree commit budget on
+the 16 GiB development host, with peak working set 1,998 MiB. Physical 8 GB,
+DDC and actual installer/upgrade/silent/cancellation/animation acceptance remain
+NOT RUN. The earlier incomplete packaged UI receipt is not acceptance evidence.
+
+The frozen payload audit covers 2,037 files / 1,696,242,494 bytes, plus the
+267,898-byte SHA256SUMS manifest. It contains no Python caches. Source hashes
+cover 247 first-party product/build files and explicitly record the dirty tree.
+Use `scripts/build-release-070.ps1`; the installer and its external receipt are
+under `dist/installers`. Preserve older installers and supplier inputs.
+
+Structural baseline artifacts are `.ua/knowledge-graph.json` and
+`graphify-out/graph.json`, with limitations in their review records and
+`graphify-out/GRAPH_REPORT.md`. They predate 0.7.0 product edits. The older
+codebase-memory index remains insufficient for new files; check coverage and
+read current source. The dashboard was started on loopback and opening its tab
+was queued by Codex; this is not a claim of rendered browser inspection.
+
+Final 0.7.0 artifact:
+`dist/installers/AeroTrace1553-0.7.0-Bench-Setup-x64.exe`, 1,420,600,422 bytes,
+SHA-256 `C813261760C15862F8AA3060E2A2D1D2B09364C6BBFB17854285DF5784ADB492`.
+Its `.sha256` and `.receipt.json` retain artifact and software-verification
+evidence. Installer compression/verification took 254.072 seconds. No actual
+installation was performed. The preserved 0.6.11 installer hash was rechecked.

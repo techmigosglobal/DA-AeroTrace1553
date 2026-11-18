@@ -14,25 +14,47 @@ class HelperSource final:public CaptureSource {
   CaptureConfig config;DdcHelperPack pack;CaptureFailure failure_;std::string closeFailure,fatal;
   Handle control,data,process,job;std::jthread controlReader,dataReader;std::atomic_bool closing{false};
   mutable std::mutex stateMutex;std::mutex writeMutex;std::atomic_bool expectedExit{false};std::condition_variable changed;std::map<std::uint64_t,Frame> replies;std::deque<std::vector<std::uint8_t>> incoming;std::deque<Frame> events;std::size_t eventBytes{};
-  std::size_t queued{};std::uint64_t requestId{},controlSequence{},dataSequence{},recordCount{},packetCount{},endSequence{};bool opened{},started{},ended{};SourceBatch finalMetrics;
+  std::size_t queued{};std::uint64_t requestId{},controlSequence{},dataSequence{},recordCount{},packetCount{},endSequence{};bool opened{},started{},ended{},exitUnconfirmed{},quiet{};
+  std::uint64_t lastTrafficCount{};
+  std::chrono::steady_clock::time_point lastTrafficAt;SourceBatch finalMetrics;
   std::uint64_t stopRequest{},stopFinalSequence{},stopRecords{},stopPackets{},lastReportedProgress{};bool stopReplied{};std::string stopError,healthOperation;
   std::chrono::steady_clock::time_point stopDeadline,lastHealth,lastProgressAt;
   void transportFailure(const std::string &detail){std::lock_guard lock(stateMutex);if(fatal.empty()){fatal=detail;failure_.category=CaptureFailureCategory::Transport;failure_.stage="helper_transport";failure_.operation="helper IPC";failure_.detail=detail;failure_.recovery={"Collect diagnostics","Disconnect and start a new connection"};}changed.notify_all();}
   void send(Type type,std::uint64_t request,std::vector<std::uint8_t> payload={}){std::lock_guard lock(writeMutex);writeFrame(control.value,{type,request,++controlSequence,std::move(payload)},2000,&closing);}
   void controls(){try{std::uint64_t sequence{};while(!closing){auto frame=readFrame(control.value,sequence,24*60*60*1000u,&closing);if(frame.type==Type::Reply){std::lock_guard lock(stateMutex);if(replies.size()>=16||!replies.emplace(frame.request,std::move(frame)).second)throw std::runtime_error("Unexpected duplicate/excess helper reply");changed.notify_all();}
-      else if(frame.type==Type::Fatal){Reader r{frame.payload};auto f=helper::failure(r);r.done();{std::lock_guard lock(stateMutex);failure_=f;fatal=f.detail;changed.notify_all();}}
+      else if(frame.type==Type::Fatal){Reader r{frame.payload};auto f=helper::failure(r);r.done();{std::lock_guard lock(stateMutex);if(fatal.empty())fatal=f.detail;if(!failure_ || f.cleanupFailed)failure_=f;changed.notify_all();}}
       else if(frame.type==Type::Diagnostic||frame.type==Type::DeviceState){std::lock_guard lock(stateMutex);if(frame.payload.size()+HeaderBytes>1024*1024-eventBytes)throw std::runtime_error("Helper control-event queue exhausted");eventBytes+=frame.payload.size()+HeaderBytes;events.push_back(std::move(frame));changed.notify_all();}
       else if(frame.type==Type::Health){Reader r{frame.payload};auto operation=r.text();auto progress=r.number<std::uint64_t>();r.done();std::lock_guard lock(stateMutex);lastHealth=std::chrono::steady_clock::now();healthOperation=operation;if(progress!=lastReportedProgress){lastReportedProgress=progress;lastProgressAt=lastHealth;}changed.notify_all();}
       else throw std::runtime_error("Unexpected helper control frame");
     }}catch(const std::exception &e){if(!closing&&!expectedExit)transportFailure(e.what());}}
-  void receive(){try{std::uint64_t sequence{};while(!closing){auto frame=readFrame(data.value,sequence,24*60*60*1000u,&closing);if(frame.type==Type::Data){auto decoded=helper::batch(frame.payload);std::lock_guard lock(stateMutex);if(ended)throw std::runtime_error("Helper data after final sequence");if(frame.payload.size()+HeaderBytes>MaxQueuedBytes-queued)throw std::runtime_error("Helper inbound queue exhausted; recording is incomplete");queued+=frame.payload.size()+HeaderBytes;recordCount+=decoded.records.size();packetCount+=decoded.packets.size();dataSequence=frame.sequence;incoming.push_back(std::move(frame.payload));changed.notify_all();}
+  void receive(){try{std::uint64_t sequence{};while(!closing){auto frame=readFrame(data.value,sequence,24*60*60*1000u,&closing);if(frame.type==Type::Data){auto decoded=helper::batch(frame.payload);std::lock_guard lock(stateMutex);if(!fatal.empty())return;if(ended)throw std::runtime_error("Helper data after final sequence");if(frame.payload.size()+HeaderBytes>MaxQueuedBytes-queued)throw std::runtime_error("Helper inbound queue exhausted; recording is incomplete");queued+=frame.payload.size()+HeaderBytes;recordCount+=decoded.records.size();packetCount+=decoded.packets.size();dataSequence=frame.sequence;incoming.push_back(std::move(frame.payload));changed.notify_all();}
       else if(frame.type==Type::End){Reader r{frame.payload};SourceBatch metrics;helper::metrics(r,metrics);auto records=r.number<std::uint64_t>(),packets=r.number<std::uint64_t>();r.done();std::lock_guard lock(stateMutex);if(ended||records!=recordCount||packets!=packetCount)throw std::runtime_error("Helper final record/packet reconciliation failed");finalMetrics=metrics;ended=true;endSequence=frame.sequence;dataSequence=frame.sequence;changed.notify_all();}
       else throw std::runtime_error("Unexpected helper data frame");
     }}catch(const std::exception &e){if(!closing&&!expectedExit){transportFailure(e.what());try{send(Type::Cancel,0);}catch(...){}}}}
   struct Response {CaptureFailure failure;std::string error;std::uint64_t finalSequence{},records{},packets{};std::vector<std::uint8_t> extra;};
   Response parseReply(Frame frame){Reader r{frame.payload};Response out;out.failure=helper::failure(r);out.error=r.text();out.finalSequence=r.number<std::uint64_t>();out.records=r.number<std::uint64_t>();out.packets=r.number<std::uint64_t>();auto extra=r.raw(r.bytes.size()-r.at);out.extra.assign(extra.begin(),extra.end());if(out.failure){std::lock_guard lock(stateMutex);failure_=out.failure;}return out;}
   void dispatchEvents(){for(;;){Frame f;std::function<void(unsigned,DevicePhase,const std::string&)> device;std::function<void(const std::string&,int,const std::string&)> diagnostic;{std::lock_guard lock(stateMutex);if(events.empty())break;f=std::move(events.front());events.pop_front();eventBytes-=f.payload.size()+HeaderBytes;device=config.deviceState;diagnostic=config.diagnostic;}Reader r{f.payload};if(f.type==Type::Diagnostic){auto op=r.text();auto code=r.number<std::int32_t>();auto detail=r.text();r.done();if(diagnostic)diagnostic(op,code,detail);}else{auto channel=r.number<std::uint32_t>(),phase=r.number<std::uint32_t>();auto detail=r.text();r.done();if(channel>1||phase>static_cast<unsigned>(DevicePhase::Failed))throw std::runtime_error("Invalid helper device event");if(device)device(channel,static_cast<DevicePhase>(phase),detail);}}}
-  void checkHealth(){std::string error;{std::lock_guard lock(stateMutex);auto now=std::chrono::steady_clock::now();if(started&&!stopRequest){if(now-lastHealth>std::chrono::seconds(5))error="DDC helper heartbeat timed out";else if(now-lastProgressAt>std::chrono::seconds(10))error="DDC helper SDK operation stalled: "+healthOperation;}}if(!error.empty())transportFailure(error);}
+  void checkHealth() {
+    std::string error,transition;
+    {
+      std::lock_guard lock(stateMutex);
+      const auto now=std::chrono::steady_clock::now();
+      if(!started || stopRequest || !fatal.empty())return;
+      if(now-lastHealth>std::chrono::seconds(5))error="DDC helper heartbeat timed out";
+      else if(now-lastProgressAt>std::chrono::seconds(10))error="DDC helper SDK operation stalled: "+healthOperation;
+      else {
+        if(recordCount!=lastTrafficCount){lastTrafficCount=recordCount;lastTrafficAt=now;}
+        const bool waiting=now-lastTrafficAt>=std::chrono::seconds(2) && now-lastProgressAt<std::chrono::seconds(3);
+        if(waiting!=quiet){
+          quiet=waiting;
+          transition=quiet?"Healthy SDK polling; waiting for bus traffic":"Bus traffic resumed or SDK progress is delayed";
+          transition+="; polls="+std::to_string(lastReportedProgress)+"; records="+std::to_string(recordCount);
+        }
+      }
+    }
+    if(!error.empty())transportFailure(error);
+    if(!transition.empty() && config.diagnostic)config.diagnostic("helper_health",0,transition);
+  }
   Response request(Type type,std::vector<std::uint8_t> payload,unsigned timeout){
     const auto id=++requestId;send(type,id,std::move(payload));auto deadline=std::chrono::steady_clock::now()+std::chrono::milliseconds(timeout);std::unique_lock lock(stateMutex);bool cancelled=false;
     for(;;){lock.unlock();dispatchEvents();lock.lock();auto i=replies.find(id);if(i!=replies.end()){auto frame=std::move(i->second);replies.erase(i);lock.unlock();dispatchEvents();return parseReply(std::move(frame));}
@@ -43,11 +65,29 @@ class HelperSource final:public CaptureSource {
     }
   }
   bool pop(SourceBatch &out){std::vector<std::uint8_t> bytes;{std::lock_guard lock(stateMutex);if(incoming.empty())return false;bytes=std::move(incoming.front());incoming.pop_front();queued-=bytes.size()+HeaderBytes;}out=helper::batch(bytes);return true;}
-  void terminate(){closing=true;changed.notify_all();if(control)CancelIoEx(control.value,nullptr);if(data)CancelIoEx(data.value,nullptr);if(controlReader.joinable())controlReader.join();if(dataReader.joinable())dataReader.join();if(process&&WaitForSingleObject(process.value,100)!=WAIT_OBJECT_0){if(job)TerminateJobObject(job.value,4);else TerminateProcess(process.value,4);WaitForSingleObject(process.value,2000);}control.reset();data.reset();process.reset();job.reset();opened=started=false;}
+  void terminate() {
+    closing=true;
+    changed.notify_all();
+    if(control)CancelIoEx(control.value,nullptr);
+    if(data)CancelIoEx(data.value,nullptr);
+    if(controlReader.joinable())controlReader.join();
+    if(dataReader.joinable())dataReader.join();
+    if(process && WaitForSingleObject(process.value,100)!=WAIT_OBJECT_0){
+      if(!job || !TerminateJobObject(job.value,4))TerminateProcess(process.value,4);
+      exitUnconfirmed=WaitForSingleObject(process.value,2000)!=WAIT_OBJECT_0;
+    }
+    if(exitUnconfirmed) {
+      if(!closeFailure.empty())closeFailure+="; ";
+      closeFailure+="DDC helper process exit could not be confirmed";
+    }
+    if(process && config.diagnostic)config.diagnostic("helper_exit",exitUnconfirmed?1:0,
+      exitUnconfirmed?"Process ownership release unconfirmed":"Process exit confirmed");
+    control.reset();data.reset();process.reset();job.reset();opened=started=false;
+  }
 public:
   ~HelperSource()override{close();}
   std::string open(const CaptureConfig &value)override{
-    close();config=value;failure_={};closeFailure.clear();fatal.clear();closing=false;expectedExit=false;replies.clear();incoming.clear();events.clear();eventBytes=queued=0;requestId=controlSequence=dataSequence=recordCount=packetCount=endSequence=0;stopRequest=0;stopReplied=false;stopError.clear();ended=false;lastHealth=lastProgressAt=std::chrono::steady_clock::now();lastReportedProgress=0;
+    close();if(!closeFailure.empty())return closeFailure;config=value;failure_={};closeFailure.clear();fatal.clear();closing=false;expectedExit=false;replies.clear();incoming.clear();events.clear();eventBytes=queued=0;requestId=controlSequence=dataSequence=recordCount=packetCount=endSequence=0;stopRequest=0;stopReplied=false;stopError.clear();ended=false;lastHealth=lastProgressAt=std::chrono::steady_clock::now();lastReportedProgress=0;
     try{
       if(value.helperPack.empty())throw std::runtime_error("Select a verified x86 helper pack in Device Setup");pack=readDdcHelperPack(value.helperPack);if(!pack.error.empty())throw std::runtime_error(pack.error);
       wchar_t allow[4]{};if(pack.fixture&&GetEnvironmentVariableW(L"AEROTRACE_HELPER_ALLOW_FIXTURES",allow,4)!=1)throw std::runtime_error("Test helper pack requires explicit fixture admission");
@@ -62,21 +102,53 @@ public:
       Writer hello;hello.text(secret);auto identity=request(Type::Hello,std::move(hello.bytes),5000);if(!identity.error.empty())throw std::runtime_error(identity.error);Reader identityReader{identity.extra};if(identityReader.text()!=secret||identityReader.text()!=pack.helperSha256||identityReader.text()!=pack.runtimeSha256||identityReader.text()!=pack.id)throw std::runtime_error("DDC helper handshake identity mismatch");identityReader.done();
       Writer w;std::uint32_t mask=0;for(unsigned i=0;i<4;++i)if(value.enabled[i])mask|=1u<<i;w.number(mask);for(auto ldn:value.logicalDevices)w.number<std::int32_t>(ldn);w.number<std::uint32_t>(static_cast<unsigned>(value.receiveMode));w.number<std::uint32_t>(static_cast<unsigned>(value.connectionPolicy));auto response=request(Type::Open,std::move(w.bytes),30000);if(!response.error.empty())throw std::runtime_error(response.error);opened=true;
       if(config.diagnostic)config.diagnostic("helper_selected",0,"backend=x86; pack="+pack.id+"; helper_sha256="+pack.helperSha256+"; runtime="+utf8(pack.runtimePath.wstring())+"; runtime_sha256="+pack.runtimeSha256+"; physical_qualification="+(pack.automaticApproved?"PASS":"NOT RUN"));return {};
-    }catch(const std::exception &e){const std::string error=e.what();{std::lock_guard lock(stateMutex);if(!failure_){failure_.category=CaptureFailureCategory::Transport;failure_.stage="helper_open";failure_.operation="Open x86 helper";failure_.detail=error;failure_.recovery={"Check selected helper pack","Collect diagnostics"};}}terminate();return error;}
+    }catch(const std::exception &e){const std::string error=e.what();{std::lock_guard lock(stateMutex);if(!failure_){failure_.category=CaptureFailureCategory::Transport;failure_.stage="helper_open";failure_.operation="Open x86 helper";failure_.detail=error;failure_.recovery={"Check selected helper pack","Collect diagnostics"};}}terminate();const auto failure=lastFailure();if(failure.cleanupFailed && closeFailure.empty())closeFailure=failure.detail;return error;}
   }
   void updateCallbacks(const CaptureConfig &value)override{std::lock_guard lock(stateMutex);config.deviceState=value.deviceState;config.diagnostic=value.diagnostic;config.stopToken=value.stopToken;if(!value.deviceState&&!value.diagnostic){events.clear();eventBytes=0;}}
-  std::string startMonitoring()override{try{{std::lock_guard lock(stateMutex);if(!opened||!incoming.empty())return "Helper is not ready or previous raw tail is not drained";recordCount=packetCount=endSequence=0;ended=false;finalMetrics={};stopRequest=0;stopReplied=false;stopError.clear();lastHealth=lastProgressAt=std::chrono::steady_clock::now();}auto r=request(Type::Start,{},10000);if(!r.error.empty())return r.error;started=true;return {};}catch(const std::exception &e){transportFailure(e.what());return e.what();}}
+  std::string startMonitoring()override{try{{std::lock_guard lock(stateMutex);if(!opened||!incoming.empty())return "Helper is not ready or previous raw tail is not drained";recordCount=packetCount=endSequence=0;ended=false;finalMetrics={};stopRequest=0;stopReplied=false;stopError.clear();lastHealth=lastProgressAt=lastTrafficAt=std::chrono::steady_clock::now();lastTrafficCount=0;quiet=false;}auto r=request(Type::Start,{},10000);if(!r.error.empty())return r.error;started=true;return {};}catch(const std::exception &e){transportFailure(e.what());return e.what();}}
   std::string poll(SourceBatch &out,std::stop_token stop)override{try{dispatchEvents();checkHealth();if(!pop(out)){std::unique_lock lock(stateMutex);changed.wait_for(lock,std::chrono::milliseconds(10),[&]{return !incoming.empty()||!fatal.empty()||stop.stop_requested()||!events.empty();});lock.unlock();dispatchEvents();pop(out);}std::lock_guard lock(stateMutex);return fatal;}catch(const std::exception &e){transportFailure(e.what());return e.what();}}
   std::string stopMonitoring()override{if(!started||stopRequest)return {};try{dispatchEvents();stopRequest=++requestId;stopDeadline=std::chrono::steady_clock::now()+std::chrono::seconds(15);send(Type::Stop,stopRequest);return {};}catch(const std::exception &e){transportFailure(e.what());return e.what();}}
   std::string drainNext(SourceBatch &out,bool &more)override{try{for(;;){dispatchEvents();std::optional<Frame> response;{std::lock_guard lock(stateMutex);if(stopRequest&&!stopReplied){auto i=replies.find(stopRequest);if(i!=replies.end()){response=std::move(i->second);replies.erase(i);}}}if(response){auto r=parseReply(std::move(*response));stopReplied=true;stopFinalSequence=r.finalSequence;stopRecords=r.records;stopPackets=r.packets;stopError=r.error;}
-      const bool have=pop(out);std::unique_lock lock(stateMutex);if(!fatal.empty()){more=!incoming.empty();if(have&&more)return {};return fatal;}
+      const bool have=pop(out);std::unique_lock lock(stateMutex);if(!fatal.empty()){more=!incoming.empty();if(more)return {};return fatal;}
       if(ended&&stopReplied){if(endSequence!=stopFinalSequence||recordCount!=stopRecords||packetCount!=stopPackets)throw std::runtime_error("Helper stop acknowledgement does not match received data");more=!incoming.empty();if(!more){out.hardwareLost=finalMetrics.hardwareLost;out.hardwareOverflows=finalMetrics.hardwareOverflows;out.channelLost=finalMetrics.channelLost;out.channelOverflows=finalMetrics.channelOverflows;started=false;stopRequest=0;}return stopError;}
       if(have){more=true;return {};}
       if(!stopRequest){more=false;return {};}
       if(std::chrono::steady_clock::now()>=stopDeadline)throw std::runtime_error("Helper final data acknowledgement deadline exceeded");changed.wait_for(lock,std::chrono::milliseconds(20));
-    }}catch(const std::exception &e){more=false;transportFailure(e.what());return e.what();}}
+    }}catch(const std::exception &e){transportFailure(e.what());if(!out.records.empty() || !out.packets.empty() || pop(out)){more=true;return {};}more=false;return e.what();}}
   std::string finish(SourceBatch &tail)override{auto error=stopMonitoring();bool more=true;while(more){SourceBatch b;auto e=drainNext(b,more);tail.records.insert(tail.records.end(),std::make_move_iterator(b.records.begin()),std::make_move_iterator(b.records.end()));tail.packets.insert(tail.packets.end(),std::make_move_iterator(b.packets.begin()),std::make_move_iterator(b.packets.end()));tail.hardwareLost=b.hardwareLost;tail.hardwareOverflows=b.hardwareOverflows;tail.channelLost=b.channelLost;tail.channelOverflows=b.channelOverflows;if(!e.empty()){if(error.empty())error=e;break;}if(!ended&&!more)break;}return error;}
-  void close()override{if(!process)return;try{bool broken;{std::lock_guard lock(stateMutex);broken=!fatal.empty();}if(!broken&&started){auto e=stopMonitoring();if(e.empty()){bool more=true;while(more){SourceBatch discarded;e=drainNext(discarded,more);if(!discarded.records.empty()||!discarded.packets.empty())closeFailure="Unconsumed helper raw tail on close; session incomplete";if(!e.empty())break;}}if(!e.empty()){closeFailure=e;broken=true;}}if(!broken&&opened){expectedExit=true;auto r=request(Type::Close,{},5000);if(!r.error.empty())closeFailure=r.error;}if(broken){std::lock_guard lock(stateMutex);if(closeFailure.empty())closeFailure=fatal;}}catch(const std::exception &e){closeFailure=e.what();}terminate();}
+  void close()override {
+    if(!process)return;
+    try {
+      bool broken;
+      {std::lock_guard lock(stateMutex);broken=!fatal.empty();}
+      if(!broken && started) {
+        auto error=stopMonitoring();
+        if(error.empty()) {
+          bool more=true;
+          while(more) {
+            SourceBatch discarded;
+            error=drainNext(discarded,more);
+            if(!discarded.records.empty() || !discarded.packets.empty())
+              transportFailure("Unconsumed helper raw tail on close; session incomplete");
+            if(!error.empty())break;
+          }
+        }
+        broken=!error.empty();
+      }
+      if(!broken && opened && WaitForSingleObject(process.value,0)==WAIT_TIMEOUT) {
+        expectedExit=true;
+        const auto response=request(Type::Close,{},5000);
+        if(response.failure.cleanupFailed)closeFailure=response.error;
+        else if(!response.error.empty())transportFailure(response.error);
+      }
+    } catch(const std::exception &e) {
+      transportFailure(e.what());
+      if(config.diagnostic)config.diagnostic("helper_close_transport",1,e.what());
+    }
+    terminate();
+    const auto failure=lastFailure();
+    if(failure.cleanupFailed && closeFailure.empty())closeFailure=failure.detail;
+  }
   std::string closeError()const override{return closeFailure;}
   CaptureFailure lastFailure()const override{std::lock_guard lock(stateMutex);return failure_;}
   CaptureIdentity identity()const override{CaptureIdentity i;i.backend="HelperX86";i.receiveMode=config.receiveMode==DdcReceiveMode::MTI?"MTI":config.receiveMode==DdcReceiveMode::LegacyMT?"LegacyMT":"Auto";i.providerId=pack.id;i.sdkIdentity=pack.sdkIdentity;i.headerSha256=pack.headerSha256;i.runtimeSha256=pack.runtimeSha256;i.helperSha256=pack.helperSha256;i.qualification=pack.automaticApproved?"PASS":"NOT RUN";i.runtime=pack.runtimePath;i.helper=pack.helperPath;i.manifest=pack.manifest;return i;}

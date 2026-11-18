@@ -2,7 +2,9 @@
 #include "record_csv.hpp"
 #include <algorithm>
 #include <iomanip>
+#include <iterator>
 #include <locale>
+#include <limits>
 #include <map>
 #include <sstream>
 #include "downsample.hpp"
@@ -11,20 +13,25 @@ namespace aero {
 bool Workbench::startRecording(const std::filesystem::path &path, std::array<bool,4> channels) {
   if (std::none_of(channels.begin(),channels.end(),[](bool on) { return on; })) return false;
   captureConfig.enabled=channels;
-  if(!captureConfig.simulatorProfile.empty()) captureConfig.simulatorProfile=mappings();
-  if(auto error=acquisition.setProfile(mappings());!error.empty()) return false;
+  if(auto error=acquisition.setProfile(captureMappings());!error.empty()) return false;
   if (!acquisition.startConfigured(path,captureConfig)) return false;
-  archive.clear(); replaySource=false; replayPlaying=false;
+  archive.clear(); archiveExample=!captureConfig.hardware; replaySource=false; replayPlaying=false;
   return true;
 }
 void Workbench::stopRecording() {
   acquisition.stop(); accept(acquisition.drain());
 }
-bool Workbench::accept(const std::vector<Record> &incoming) {
-  archive.insert(archive.end(),incoming.begin(),incoming.end());
-  if(archive.size()<=200000) return false;
-  archive.erase(archive.begin(),archive.begin()+(archive.size()-190000));
-  return true;
+bool Workbench::accept(std::vector<Record> incoming) {
+  constexpr std::size_t maxRecords=200000, retainedRecords=190000;
+  if(incoming.empty())return false;
+  if(archive.capacity()<maxRecords)archive.reserve(maxRecords);
+  const auto combined=archive.size()+incoming.size();
+  const auto drop=combined>maxRecords?combined-retainedRecords:0;
+  const auto dropFromArchive=std::min(drop,archive.size());
+  if(dropFromArchive)archive.erase(archive.begin(),archive.begin()+dropFromArchive);
+  const auto first=incoming.begin()+(drop-dropFromArchive);
+  archive.insert(archive.end(),std::make_move_iterator(first),std::make_move_iterator(incoming.end()));
+  return drop!=0;
 }
 ReadResult Workbench::loadRecording(const std::filesystem::path &path) {
   auto index=std::make_shared<RecordingIndex>();const auto status=index->open(path);
@@ -32,7 +39,7 @@ ReadResult Workbench::loadRecording(const std::filesystem::path &path) {
   if(result.error.empty())useRecordingIndex(std::move(index));return result;
 }
 void Workbench::useRecordingIndex(std::shared_ptr<RecordingIndex> index) {
-  recordingIndex=std::move(index);replaySource=true;replayPlaying=false;replayIndex=0;replayWindowStart=0;replayRecords.clear();
+  recordingIndex=std::move(index);replayExample=false;replayProfile.clear();replaySource=true;replayPlaying=false;replayIndex=0;replayWindowStart=0;replayRecords.clear();
   selected={};seek(0);
 }
 bool Workbench::seek(std::size_t index) {
@@ -73,7 +80,7 @@ std::optional<double> Workbench::latest(const Signal &mapping, const std::vector
   const auto &records=data(fallback);
   for(auto index=end(fallback);index>0;--index) {
     const auto &r=records[index-1];const auto c=interpret(r).payloadCommand;
-    if(c.rt==mapping.rt&&c.sa==mapping.sa&&c.transmit==mapping.transmit&&(!mapping.channel||mapping.channel==r.channel)&&(mapping.bus<0||mapping.bus==r.bus))return decode(r,mapping);
+    if(c.rt==mapping.rt&&c.sa==mapping.sa&&c.transmit==mapping.transmit&&(!mapping.channel||mapping.channel==r.channel)&&(mapping.bus<0||mapping.bus==r.bus))return decode(r,mapping,exampleContext());
   }
   return {};
 }
@@ -89,10 +96,12 @@ std::vector<Signal> Workbench::demoSignals() {
   return mappings;
 }
 std::vector<Signal> Workbench::mappings() const {
-  if(!profile.empty()) return profile;
-  if(replaySource) return {};
-  if(captureConfig.hardware) return {};
-  auto result=demoSignals();result[0]=signal;return result;
+  if(replaySource && (recordingIndex || !replayProfile.empty()))return replayProfile;
+  if(replaySource && replayRecords.empty())return {};
+  return captureMappings();
+}
+std::vector<Signal> Workbench::captureMappings() const {
+  return profile;
 }
 std::string Workbench::applyProfile(std::vector<Signal> mappings) {
   if(auto error=validateProfile(mappings);!error.empty()) return error;
@@ -102,7 +111,7 @@ std::string Workbench::applyProfile(std::vector<Signal> mappings) {
 std::vector<LiveValue> Workbench::liveValues(const std::vector<Record> &fallback,unsigned channel,int bus) const {
   if(!replaySource) if(auto frame=acquisition.liveFrame()) return channel>=1 && channel<=2 && bus>=0 && bus<2 ? frame->sourceValues[(channel-1)*2+bus] : frame->values;
   const auto profile=mappings();if(!replaySource && acquisition.active()) return std::vector<LiveValue>(profile.size());
-  LiveDecoder decoder;decoder.configure(profile,0);const auto &records=data(fallback);const auto finish=end(fallback),begin=finish>8192 ? finish-8192 : 0;
+  LiveDecoder decoder;decoder.configure(profile,0,exampleContext());const auto &records=data(fallback);const auto finish=end(fallback),begin=finish>8192 ? finish-8192 : 0;
   decoder.consume(std::span<const Record>(records).subspan(begin,finish-begin));const auto frame=decoder.snapshot();
   return channel>=1 && channel<=2 && bus>=0 && bus<2 ? frame.sourceValues[(channel-1)*2+bus] : frame.values;
 }
@@ -116,7 +125,7 @@ LiveValue Workbench::liveValue(unsigned index,const std::vector<Record> &fallbac
   const auto &records=data(fallback);const auto &signal=profile[index];
   for(auto i=end(fallback);i>0;--i) {const auto &record=records[i-1];const auto cmd=interpret(record).payloadCommand;
     if((channel && record.channel!=channel)||(bus>=0 && record.bus!=bus)||(signal.channel && signal.channel!=record.channel)||(signal.bus>=0 && signal.bus!=record.bus)) continue;
-    if(cmd.rt==signal.rt && cmd.sa==signal.sa && cmd.transmit==signal.transmit) return decodeValue(record,signal);
+    if(cmd.rt==signal.rt && cmd.sa==signal.sa && cmd.transmit==signal.transmit) return decodeValue(record,signal,exampleContext());
   }
   return {};
 }
@@ -133,7 +142,7 @@ Series Workbench::series(const std::string &role,unsigned index,const std::vecto
       else switch(rawColumn) {case 0:value=r.id;break;case 2:value=r.channel;break;case 3:value=r.bus;break;
         case 4:case 5:case 6:case 7:{const auto p=interpret(r);if(!p.supported||!p.commandPresent)break;const auto c=p.payloadCommand;if(rawColumn==4)value=c.rt;else if(rawColumn==5)value=c.sa;else if(rawColumn==6){if(!p.rtToRt&&!p.broadcast)value=c.transmit;}else if(!p.mode)value=c.count;break;}
         case 9:value=r.commandWord;break;case 10:value=r.flags;break;case 11:if(r.channel>=1 && r.channel<=2 && r.bus<2) {auto &prior=previous[(r.channel-1)*2+r.bus];if(prior && r.timestampNs>=*prior) value=(r.timestampNs-*prior)/1000.;prior=r.timestampNs;}break;case 12:value=r.vendorStatus;break;case 13:value=r.messageType;break;case 14:value=r.commandWord2;break;case 15:value=r.statusWord;break;case 16:value=r.statusWord2;break;}
-      if(value) {const auto time=r.timestampNs/1e9;if(!result.primary.empty() && time<result.primary.back().first) result.primary.clear();result.primary.emplace_back(time,*value);}
+      if(value) {const auto time=r.timestampNs/1e9;if(!result.primary.empty() && time<result.primary.back().first) result.primary.emplace_back(time,std::numeric_limits<double>::quiet_NaN());result.primary.emplace_back(time,*value);}
     }
   } else if(role=="events") {
     std::map<std::uint64_t,unsigned> bins;
@@ -164,12 +173,22 @@ Series Workbench::series(const std::string &role,unsigned index,const std::vecto
     for(auto i=begin;i<finish;++i) {
       if((channel && records[i].channel!=channel)||(bus>=0 && records[i].bus!=bus)) continue;
       const auto seconds=records[i].timestampNs/1e9;
-      if(!result.primary.empty() && seconds<result.primary.back().first) {result.primary.clear();result.secondary.clear();}
-      if(auto value=decode(records[i],mappings[index])) result.primary.emplace_back(seconds,*value);
-      if(index+1<mappings.size()) if(auto value=decode(records[i],mappings[index+1])) result.secondary.emplace_back(seconds,*value);
+
+      const auto append=[&](const Signal &mapping,std::vector<Sample> &series) {
+        const auto &record=records[i];
+        const auto route=interpret(record).payloadCommand;
+        if(route.rt!=mapping.rt || route.sa!=mapping.sa || route.transmit!=mapping.transmit ||
+           (mapping.channel && mapping.channel!=record.channel) || (mapping.bus>=0 && mapping.bus!=record.bus))return;
+        const auto value=decode(record,mapping,exampleContext());
+        if(!series.empty() && seconds<series.back().first)series.emplace_back(seconds,std::numeric_limits<double>::quiet_NaN());
+        series.emplace_back(seconds,value.value_or(std::numeric_limits<double>::quiet_NaN()));
+      };
+      append(mappings[index],result.primary);
+      if(index+1<mappings.size())append(mappings[index+1],result.secondary);
     }
   }
-  result.primary=downsample(result.primary);result.secondary=downsample(result.secondary);
+  // Analysis keeps the bounded source samples for exact range statistics.
+  // Rendering may decimate separately; recording ownership is unchanged.
   return result;
 }
 namespace {
@@ -196,10 +215,10 @@ std::string hexWord(unsigned word) {
 }
 ExportResult Workbench::exportData(ExportFormat format,std::uint64_t startMs,std::uint64_t endMs) const {
   if(replaySource && recordingIndex && recordingIndex->size()>replayRecords.size())return {{},"Use Save session CSVs to export the entire indexed recording",0};
-  return exportRecords(replaySource ? replayRecords : archive,signal,format,startMs,endMs);
+  return exportRecords(replaySource ? replayRecords : archive,signal,format,startMs,endMs,exampleContext());
 }
 ExportResult Workbench::exportRecords(const std::vector<Record> &records, const Signal &signal,
-    ExportFormat format,std::uint64_t startMs,std::uint64_t endMs) {
+    ExportFormat format,std::uint64_t startMs,std::uint64_t endMs,bool example) {
   ExportResult result;
   if(format!=ExportFormat::RawCsv && !validate(signal).empty()) {
     result.error="Invalid ICD mapping";return result;
@@ -231,7 +250,7 @@ ExportResult Workbench::exportRecords(const std::vector<Record> &records, const 
     } else if(format==ExportFormat::RawCsv) {
       out<<rawCsvRecord(record);
     } else {
-      const auto value=decode(record,signal);
+      const auto value=decode(record,signal,example);
       out<<record.id<<','<<record.timestampNs<<','<<quotedCsv(signal.id)<<',';
       if(value) out<<*value;
       out<<','<<quotedCsv(signal.unit)<<','<<(value?"VALID":"NO_MATCH")<<','<<(record.source==2 ? "DDC_MT" : record.source ? "DDC_MTI" : "SIMULATED")<<'\n';
@@ -242,7 +261,7 @@ ExportResult Workbench::exportRecords(const std::vector<Record> &records, const 
   result.text=out.str(); return result;
 }
 ExportResult Workbench::exportProfileRecords(const std::vector<Record> &records,const std::vector<Signal> &profile,
-    ExportFormat format,std::uint64_t startMs,std::uint64_t endMs) {
+    ExportFormat format,std::uint64_t startMs,std::uint64_t endMs,bool example) {
   if(format!=ExportFormat::EngineeringCsv) return exportRecords(records,profile.empty() ? Signal{"UNMAPPED",""} : profile.front(),format,startMs,endMs);
   ExportResult result;
   if(profile.empty()) {result.error="No active ICD mappings";return result;}
@@ -256,7 +275,7 @@ ExportResult Workbench::exportProfileRecords(const std::vector<Record> &records,
     for(const auto &mapping:profile) {
       if(mapping.rt!=command.rt || mapping.sa!=command.sa || mapping.transmit!=command.transmit ||
           (mapping.channel && mapping.channel!=record.channel) || (mapping.bus>=0 && mapping.bus!=record.bus)) continue;
-      const auto value=decode(record,mapping);
+      const auto value=decode(record,mapping,example);
       out<<record.id<<','<<record.timestampNs<<','<<quotedCsv(mapping.id)<<',';
       if(value) out<<*value;
       out<<','<<quotedCsv(mapping.unit)<<','<<(value ? "VALID" : record.flags ? "FLAGGED" : "INVALID_PAYLOAD")

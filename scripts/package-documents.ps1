@@ -1,23 +1,35 @@
 param([Parameter(Mandatory=$true)][string]$PackageRoot,[string]$VcRedistDirectory)
 $ErrorActionPreference='Stop'
 $projectRoot=Split-Path $PSScriptRoot -Parent
-$environment=Join-Path $projectRoot 'out\document-runtime'
-$python=Join-Path $environment 'Scripts\python.exe'
-if(!(Test-Path -LiteralPath $python)){throw 'Run scripts/setup-documents.ps1 before packaging'}
-$base=(& $python -c 'import sys; print(sys.base_prefix)').Trim()
+$cache=Join-Path $projectRoot 'out/toolchains/downloads'
+$wheelhouse=Join-Path $projectRoot 'out/document-wheelhouse-068'
+$lock=Join-Path $projectRoot 'tools/document_worker/requirements-win-x64.lock.txt'
+$pythonZip=Join-Path $cache 'python-3.14.7-embed-amd64.zip'
+New-Item -ItemType Directory -Force $cache,$wheelhouse | Out-Null
+if(!(Test-Path -LiteralPath $pythonZip)){
+  Invoke-WebRequest -UseBasicParsing -Uri 'https://www.python.org/ftp/python/3.14.7/python-3.14.7-embed-amd64.zip' -OutFile $pythonZip
+}
+if((Get-FileHash -LiteralPath $pythonZip).Hash -ne 'd297e5ff019966817ad8502465176139f2d3d840fa4ed84b13bed399a6ab1f15'){
+  throw 'Embedded Python SHA-256 mismatch. Remove the cached ZIP and retry.'
+}
 $runtime=Join-Path $PackageRoot 'document-runtime'
-New-Item -ItemType Directory -Force "$runtime\Lib" | Out-Null
-Copy-Item -LiteralPath "$base\python.exe" -Destination $runtime -Force
-Get-ChildItem -LiteralPath $base -Filter '*.dll' -File | Copy-Item -Destination $runtime -Force
-& robocopy "$base\DLLs" "$runtime\DLLs" /E /NFL /NDL /NJH /NJS /NC /NS | Out-Null
-if($LASTEXITCODE -ge 8){throw 'Python extension deployment failed'}
-& robocopy "$base\Lib" "$runtime\Lib" /E /XD site-packages __pycache__ test tests idlelib tkinter turtledemo /NFL /NDL /NJH /NJS /NC /NS | Out-Null
-if($LASTEXITCODE -ge 8){throw 'Python standard-library deployment failed'}
-& robocopy "$environment\Lib\site-packages" "$runtime\Lib\site-packages" /E /XD __pycache__ /NFL /NDL /NJH /NJS /NC /NS | Out-Null
-if($LASTEXITCODE -ge 8){throw 'Document dependency deployment failed'}
-& robocopy "$projectRoot\tools\document_worker" "$PackageRoot\document-worker" /E /XD __pycache__ /NFL /NDL /NJH /NJS /NC /NS | Out-Null
-if($LASTEXITCODE -ge 8){throw 'Document worker deployment failed'}
-Copy-Item -LiteralPath "$base\LICENSE.txt" -Destination "$PackageRoot\licenses\Python-LICENSE.txt" -Force
+Expand-Archive -LiteralPath $pythonZip -DestinationPath $runtime
+& py -3.14 -m pip install --disable-pip-version-check --no-index --find-links $wheelhouse --require-hashes --only-binary=:all: --no-compile --ignore-installed --no-deps -r $lock --target "$runtime/site-packages"
+if($LASTEXITCODE -ne 0){
+  & py -3.14 -m pip download --disable-pip-version-check --require-hashes --only-binary=:all: -r $lock -d $wheelhouse
+  if($LASTEXITCODE -ne 0){throw 'Pinned Windows wheel download failed'}
+  & py -3.14 -m pip install --disable-pip-version-check --no-index --find-links $wheelhouse --require-hashes --only-binary=:all: --no-compile --ignore-installed --no-deps -r $lock --target "$runtime/site-packages"
+  if($LASTEXITCODE -ne 0){throw 'Pinned Windows wheel staging failed'}
+}
+& py -3.14 (Join-Path $PSScriptRoot 'compact-document-runtime.py') $runtime
+if($LASTEXITCODE -ne 0){throw 'Compacting the document runtime failed'}
+$workerSource=Join-Path $projectRoot 'tools/document_worker'
+$workerDestination=Join-Path $PackageRoot 'document-worker'
+New-Item -ItemType Directory -Force $workerDestination | Out-Null
+foreach($name in 'worker.py','embedding.py','review_actions.py','structured_answers.py','local_generation.py','library_history.py','engineering_reference.py','retrieval_context.py','models'){
+  Copy-Item -LiteralPath (Join-Path $workerSource $name) -Destination $workerDestination -Recurse
+}
+Copy-Item -LiteralPath "$runtime/LICENSE.txt" -Destination "$PackageRoot/licenses/Python-LICENSE.txt" -Force
 if(!$VcRedistDirectory){
   $vswhere=Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
   if(!(Test-Path -LiteralPath $vswhere)){throw 'Set -VcRedistDirectory to the x64 Microsoft C++ CRT redistributable folder'}
@@ -41,3 +53,6 @@ $env:PYTHONDONTWRITEBYTECODE='1'
 $health='{"op":"health"}' | & "$runtime\python.exe" "$PackageRoot\document-worker\worker.py"
 if($LASTEXITCODE -ne 0){throw 'Packaged document runtime failed its health check'}
 Write-Output $health
+$testScript=Join-Path $workerSource 'tests.py'
+& "$runtime/python.exe" -B -c 'import pathlib, runpy, sys, worker; assert pathlib.Path(worker.__file__).resolve().parent == pathlib.Path(sys.argv[2]).resolve(); script = sys.argv[1]; sys.argv = [script]; runpy.run_path(script, run_name=__name__)' $testScript $workerDestination
+if($LASTEXITCODE -ne 0){throw 'Exact packaged runtime failed offline document tests'}

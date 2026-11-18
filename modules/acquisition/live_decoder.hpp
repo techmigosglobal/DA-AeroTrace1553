@@ -7,14 +7,21 @@
 #include <span>
 namespace aero {
 struct LiveValue {std::optional<double> value;std::uint64_t timestampNs{};bool matched{};unsigned channel{},bus{};std::array<std::uint16_t,4> raw{};unsigned rawCount{};std::string_view reason;};
-inline LiveValue decodeValue(const Record &record,const Signal &signal,const ProtocolInfo &protocol) {
-  LiveValue value{decodePayload(record,signal,protocol),record.timestampNs,true,record.channel,record.bus};
+inline LiveValue decodeValue(const Record &record,const Signal &signal,const ProtocolInfo &protocol, bool exampleContext=false) {
+  if(!matchesSignalRoute(record,signal,protocol.payloadCommand)) return {};
+  LiveValue value{decodePayload(record,signal,protocol,exampleContext),record.timestampNs,true,record.channel,record.bus};
   value.reason=protocol.reason;
-  if(!value.value && protocol.payloadEligible)value.reason="Mapping mismatch or invalid numeric value";
+  if(!value.value && protocol.payloadEligible) {
+    if(signal.simulationOnly && (!exampleContext || record.source!=0)) value.reason="Simulation-only profile · verified Offline simulation required";
+    else if(signal.expectedWordCount && (protocol.mode || protocol.payloadCommand.count!=signal.expectedWordCount || record.words.size()!=signal.expectedWordCount))
+      value.reason="Expected word count mismatch";
+    else if(signal.word+(signal.lsb+signal.width+15)/16>record.words.size())value.reason="Mapped data words unavailable";
+    else value.reason="Mapping mismatch or invalid numeric value";
+  }
   for(unsigned i=0;i<4 && signal.word+i<record.words.size() && i<(signal.lsb+signal.width+15)/16;++i) value.raw[value.rawCount++]=record.words[signal.word+i];
   return value;
 }
-inline LiveValue decodeValue(const Record &record,const Signal &signal) {return decodeValue(record,signal,interpret(record));}
+inline LiveValue decodeValue(const Record &record,const Signal &signal, bool exampleContext=false) {return decodeValue(record,signal,interpret(record),exampleContext);}
 struct LiveFrame {
   std::uint64_t revision{}, records{};
   std::uint64_t decodedValues{},invalidValues{};
@@ -26,6 +33,7 @@ struct LiveFrame {
 };
 std::string validateProfile(const std::vector<Signal> &);
 class LiveDecoder {
+  bool exampleContext{};
   std::vector<Signal> profile;
   std::array<std::vector<unsigned>,2048> routes;
   std::vector<LiveValue> values;
@@ -36,7 +44,7 @@ class LiveDecoder {
   std::array<std::vector<std::deque<Sample>>,4> sourceHistory;
   std::uint64_t count{},revision{},decodedValues{},invalidValues{};
 public:
-  void configure(std::vector<Signal>,std::uint64_t);
+  void configure(std::vector<Signal>,std::uint64_t,bool example=false);
   void consume(std::span<const Record>);
   void selectTraces(std::vector<unsigned>);
   LiveFrame snapshot(std::size_t displayPoints=1024) const;

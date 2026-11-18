@@ -34,7 +34,8 @@ int main() {
       aero::LiveDecoder decoder;decoder.configure(isolated.mappings(),1);decoder.consume(isolated.archive);
       auto frame=decoder.snapshot();CHECK(frame.sourceTraces[0][0].size()==1 && frame.sourceTraces[3][0].size()==1);
       first.id=3;first.timestampNs=100;decoder.consume(std::span<const aero::Record>(&first,1));frame=decoder.snapshot();
-      CHECK(frame.sourceTraces[0][0].size()==1 && frame.sourceTraces[0][0][0].first==1e-7);
+      CHECK(frame.sourceTraces[0][0].size()==3 && !std::isfinite(frame.sourceTraces[0][0][1].second) && frame.sourceTraces[0][0][2].first==1e-7);
+      CHECK(frame.sourceTraces[3][0].size()==1); // a discontinuity never clears another stream
       auto many=isolated.mappings();for(unsigned i=many.size();i<512;++i) {auto field=many[0];field.id="FIELD_"+std::to_string(i);many.push_back(field);}
       decoder.configure(many,2);decoder.consume(std::span<const aero::Record>(&second,1));decoder.selectTraces({511});frame=decoder.snapshot();
       CHECK(frame.traceSignals==std::vector<unsigned>{511} && frame.sourceTraces[3][0].size()==1 && frame.sourceTraces[3][0][0].second==20);

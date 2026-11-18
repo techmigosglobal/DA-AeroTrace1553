@@ -17,6 +17,7 @@ struct CheckEvent {
 };
 std::string validateChecks(const std::vector<CheckRule> &,const std::vector<Signal> &);
 class SignalChecks {
+  bool exampleContext{};
   struct State {std::uint64_t last{};bool seen{},missing{},range{};};
   struct Stream {std::uint64_t now{},first{};bool seen{},protocol{},status{};};
   std::vector<Signal> mappings;
@@ -26,7 +27,7 @@ class SignalChecks {
   std::vector<CheckEvent> pending;
   void event(std::uint64_t,unsigned,const Record *,const std::string &,const std::string &,const std::string &);
 public:
-  void configure(const std::vector<Signal> &,const std::vector<CheckRule> &);
+  void configure(const std::vector<Signal> &,const std::vector<CheckRule> &, bool example=false);
   void consume(const Record &);
   void advance(unsigned stream,std::uint64_t cardNs);
   std::vector<CheckEvent> drain();

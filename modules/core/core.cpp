@@ -27,8 +27,10 @@ std::string validate(const Signal &s) {
     return "Signal ID is required";
   if (s.rt > 31 || s.sa > 31 || s.word > 31)
     return "RT, SA and word index must be 0–31";
+  if (s.expectedWordCount>32) return "Expected word count must be 1–32 or unspecified";
   if (!s.width || s.width > 64 || s.lsb > 15 || s.lsb+s.width>64 || s.word + (s.lsb + s.width + 15) / 16 > 32)
     return "Bit field must fit the payload (1–64 bits)";
+  if(s.expectedWordCount && s.word+(s.lsb+s.width+15)/16>s.expectedWordCount) return "Bit field exceeds the expected word count";
   if(s.channel>2 || s.bus < -1 || s.bus > 1) return "Invalid channel or bus";
   if(s.numericType!="integer" && s.numericType!="float32" && s.numericType!="float64" && s.numericType!="bcd")
     return "Unsupported numeric type";
@@ -39,14 +41,12 @@ std::string validate(const Signal &s) {
     return "Scale and offset must be finite";
   return {};
 }
-std::optional<double> decode(const Record &r, const Signal &s) {
-  return decodePayload(r,s,interpret(r));
+std::optional<double> decode(const Record &r, const Signal &s, bool exampleContext) {
+  return decodePayload(r,s,interpret(r),exampleContext);
 }
-std::optional<double> decodePayload(const Record &r,const Signal &s,const ProtocolInfo &protocol) {
+std::optional<double> decodePayload(const Record &r,const Signal &s,const ProtocolInfo &protocol, bool exampleContext) {
   const auto c=protocol.payloadCommand;
-  if (!validate(s).empty() || !protocol.payloadEligible || c.rt != s.rt || c.sa != s.sa ||
-      c.transmit != s.transmit || (s.channel && r.channel!=s.channel) ||
-      (s.bus>=0 && r.bus!=s.bus) || s.word+(s.lsb+s.width+15)/16 > r.words.size())
+  if (!validate(s).empty() || (s.simulationOnly && (!exampleContext || r.source!=0)) || !protocol.payloadEligible || !matchesSignalRoute(r,s,c) || (s.expectedWordCount && (protocol.mode || c.count!=s.expectedWordCount || r.words.size()!=s.expectedWordCount)) || s.word+(s.lsb+s.width+15)/16 > r.words.size())
     return {};
   const auto count=(s.lsb+s.width+15)/16;
   std::uint64_t bits=0;
@@ -109,8 +109,9 @@ std::string serializeProfile(const std::vector<Signal> &mappings) {
       <<",\"word\":"<<s.word<<",\"lsb\":"<<s.lsb<<",\"width\":"<<s.width<<",\"scale\":"<<s.scale<<",\"offset\":"<<s.offset
       <<",\"signed\":"<<(s.signedValue?"true":"false")<<",\"transmit\":"<<(s.transmit?"true":"false")
       <<",\"channel\":"<<s.channel<<",\"bus\":"<<s.bus<<",\"numeric_type\":"<<quote(s.numericType)
-      <<",\"lsw_first\":"<<(s.leastSignificantWordFirst?"true":"false")<<",\"source_document\":"<<quote(s.sourceDocument)
-      <<",\"source_hash\":"<<quote(s.sourceHash)<<",\"source_page\":"<<s.sourcePage<<",\"operator_note\":"<<quote(s.operatorNote)<<'}';
+      <<",\"lsw_first\":"<<(s.leastSignificantWordFirst?"true":"false")<<",\"expected_word_count\":"<<s.expectedWordCount<<",\"simulation_only\":"<<(s.simulationOnly?"true":"false")<<",\"source_document\":"<<quote(s.sourceDocument)
+      <<",\"source_hash\":"<<quote(s.sourceHash)<<",\"source_page\":"<<s.sourcePage<<",\"operator_note\":"<<quote(s.operatorNote)
+      <<",\"subsystem\":"<<quote(s.subsystem)<<",\"message_id\":"<<quote(s.messageId)<<",\"source_signal_id\":"<<quote(s.sourceSignalId)<<",\"icd_set_id\":"<<quote(s.icdSetId)<<",\"icd_revision\":"<<quote(s.icdRevision)<<'}';
   }
   out<<"]}";return out.str();
 }

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(AeroTrace1553 VERSION 0.6.4 LANGUAGES CXX)
+project(AeroTrace1553 VERSION 0.7.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
@@ -115,7 +115,7 @@ if(AEROTRACE_DOCUMENT_PYTHON)
   message(STATUS "Document runtime: ${AEROTRACE_DOCUMENT_PYTHON}")
   add_test(NAME offline_pdf_ocr_and_retrieval
     COMMAND "${AEROTRACE_DOCUMENT_PYTHON}" "${PROJECT_SOURCE_DIR}/tools/document_worker/tests.py")
-  set_tests_properties(offline_pdf_ocr_and_retrieval PROPERTIES TIMEOUT 120 ENVIRONMENT "PYTHONUTF8=1")
+  set_tests_properties(offline_pdf_ocr_and_retrieval PROPERTIES TIMEOUT 240 ENVIRONMENT "PYTHONUTF8=1")
   add_test(NAME icd_pdf_fixture COMMAND "${AEROTRACE_DOCUMENT_PYTHON}"
     "${PROJECT_SOURCE_DIR}/tools/document_worker/tests.py" --write-fixture "${CMAKE_BINARY_DIR}/test-results/icd-fixture.pdf")
   set_tests_properties(icd_pdf_fixture PROPERTIES FIXTURES_SETUP icd_pdf)

@@ -1,0 +1,13 @@
+AeroTrace 1553 0.7.0 | Bench-use terms and privacy notice
+
+Use this build for controlled evaluation and bench testing. Physical DDC acceptance is pending. Confirm the Windows driver, hardware configuration, ICD mappings and engineering results before relying on them. Use ICDs and recordings you are authorized to handle.
+
+AeroTrace saves recordings and exports to the configured folders. It stores imported PDFs, their local search index, profiles, preferences and application logs in the Windows user data area. Logs and diagnostic bundles can contain local paths, document questions, capture metadata and device details. Review them before sharing.
+
+ICD processing and the bundled offline assistant run locally. The desktop sends selected evidence and questions to its separate, authenticated loopback model process. Conversations and page citations are stored locally. No cloud model is required. Model generation pauses under capture or memory pressure; retrieved evidence remains available. Generated explanations require operator review. Review setup inspects local DDC prerequisites.
+
+An upgrade removes the previous registered AeroTrace application before installing the new one. Stop and save any recording and exit the application first.
+
+Uninstall removes the application and its private runtimes. It retains recordings, exports, profiles, imported PDFs and diagnostic data. Manage that data in its configured locations.
+
+Select I accept to continue with installation.

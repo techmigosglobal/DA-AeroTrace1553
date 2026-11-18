@@ -15,6 +15,8 @@ struct StatusInfo {
 struct ProtocolInfo {
   Command first{}, second{}, payloadCommand{};
   bool commandPresent{}, command2Present{}, supported{}, valid{}, payloadEligible{}, broadcast{}, rtToRt{}, mode{};
+  bool terminalBusy{}, terminalFault{}, terminalMessageError{}, reservedStatusBits{};
+  bool sdkEvidenceAvailable{};
   unsigned expectedWords{}, actualWords{}, modeCode{};
   int transmitterRt{-1}, receiverRt{-1}; // -1 = BC/unspecified, 31 = broadcast receiver
   std::array<StatusInfo,2> statuses{};
@@ -27,7 +29,7 @@ struct ProtocolIssues {
   bool noResponseAvailable{}, noResponse{}, illegalMode{}, wrongTadr{}, invalid{};
 };
 ProtocolIssues protocolIssues(const Record &,const ProtocolInfo &);
-std::optional<double> decodePayload(const Record &,const Signal &,const ProtocolInfo &);
+std::optional<double> decodePayload(const Record &,const Signal &,const ProtocolInfo &,bool exampleContext=false);
 std::string statusDescription(const ProtocolInfo &);
 std::string protocolDiagnostics(const Record &, const ProtocolInfo &);
 std::string_view protocolQuality(const Record &, const ProtocolInfo &, bool backwards=false);

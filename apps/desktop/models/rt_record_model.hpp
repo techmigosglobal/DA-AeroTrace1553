@@ -34,7 +34,7 @@ private:
     for(auto item:items)item->setToolTip(detail);
   }
   static QString quality(const aero::Record &r){const auto p=aero::interpret(r);const auto issues=aero::protocolIssues(r,p);
-    if(issues.noResponse)return "No response";if(p.broadcast&&p.valid)return "Broadcast";return p.valid?"Responded":"Review";}
+    if(issues.noResponse)return "No response";if(!p.valid)return "Review";if(p.terminalBusy)return "Busy";if(p.terminalMessageError||p.terminalFault)return "RT status";if(p.broadcast)return "Broadcast";return "Responded";}
 public:
   using QStandardItemModel::QStandardItemModel;
   Mode mode() const{return presentation;}

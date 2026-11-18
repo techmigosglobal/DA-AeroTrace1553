@@ -76,23 +76,23 @@ int main(int argc,char **argv) {
     // Exact values taken from the supplied EXT CSV (seven-word BC-to-RT message).
     aero::Record edge;edge.source=1;edge.validity=5;edge.messageType=0;edge.channel=1;edge.timestampNs=48745527000ULL;
     edge.commandWord=0x0947;edge.statusWord=0x0800;edge.vendorStatus=0x8100;edge.words={0xaaaa,0x5042,1,3,0x14aa,5,7};
-    const auto columns=QString::fromStdString(aero::sessionCsvHeader()).trimmed().split(',');
-    const auto values=QString::fromStdString(aero::sessionCsvRecord(edge,33355489000ULL)).trimmed().split(',');
+    const auto columns=QString::fromStdString(aero::legacySessionCsvHeader()).trimmed().split(',');
+    const auto values=QString::fromStdString(aero::legacySessionCsvRecord(edge,33355489000ULL)).trimmed().split(',');
     CHECK(columns.size()==42&&values.size()==42&&columns[0]=="DateTime"&&columns[41]=="DataWord_31");
     CHECK(values.mid(0,10)==QStringList({"00:00:48 745.527","15390038","8100","BC->RT","A","0947 --> 01-R-10-07","","","0800","7"}));
     CHECK(values[10]=="aaaa"&&values[11]=="5042"&&values[16]=="0007"&&values[17]=="-"&&values[41]=="-");
     // Thirty-two-word RT-to-BC sample, Bus B, with a missing status that must remain blank.
     edge.commandWord=0x0fc0;edge.messageType=1;edge.words.assign(32,0xffff);edge.bus=1;edge.validity=1;
-    const auto tx=QString::fromStdString(aero::sessionCsvRecord(edge)).trimmed().split(',');
+    const auto tx=QString::fromStdString(aero::legacySessionCsvRecord(edge)).trimmed().split(',');
     CHECK(tx.size()==42&&tx[1]=="0"&&tx[3]=="RT->BC"&&tx[4]=="B"&&tx[5].isEmpty());
     CHECK(tx[6]=="0fc0 --> 01-T-30-00"&&tx[7].isEmpty()&&tx[8].isEmpty()&&tx[9]=="32"&&tx[41]=="ffff");
-    edge.validity=5;CHECK(QString::fromStdString(aero::sessionCsvRecord(edge)).split(',')[7]=="0800");
+    edge.validity=5;CHECK(QString::fromStdString(aero::legacySessionCsvRecord(edge)).split(',')[7]=="0800");
     // RT-to-RT command/status order follows SDK presence flags, including absent second status.
     edge.commandWord=(5<<11)|(2<<5)|1;edge.commandWord2=(3<<11)|(1<<10)|(7<<5)|1;edge.messageType=2;
     edge.statusWord=3<<11;edge.statusWord2=5<<11;edge.validity=15;edge.words={1};
-    const auto rt=QString::fromStdString(aero::sessionCsvRecord(edge)).split(',');
+    const auto rt=QString::fromStdString(aero::legacySessionCsvRecord(edge)).split(',');
     CHECK(rt[3]=="RT->RT"&&rt[5]=="2841 --> 05-R-02-01"&&rt[6]=="1ce1 --> 03-T-07-01"&&rt[7]=="1800"&&rt[8]=="2800");
-    edge.timestampNs=1000;CHECK(QString::fromStdString(aero::sessionCsvRecord(edge,4000)).split(',')[1]=="-3");
+    edge.timestampNs=1000;CHECK(QString::fromStdString(aero::legacySessionCsvRecord(edge,4000)).split(',')[1]=="-3");
     // Deltas follow each exported channel across Bus A/B interleaving.
     const auto timed=temp.path()+"/timed.atd";CHECK(writer.open(std::filesystem::path(timed.toStdWString())));
     edge=aero::synthetic(0);edge.timestampNs=100000;edge.channel=1;CHECK(writer.append(edge));
@@ -131,6 +131,30 @@ int main(int argc,char **argv) {
     // Existing outputs also reserve names case-insensitively on a case-sensitive test host.
     auto colliding=temp.path()+"/collision.atd";CHECK(QFile::copy(custom,colliding));CHECK(!desktop::exportSession(colliding,output,{},"ses_bench_01").error.isEmpty());
     CHECK(desktop::suggestedRunName(output)=="run3");
+    const auto formats=temp.path()+"/formats.atd",formatOutput=temp.path()+"/format-export";
+    CHECK(writer.open(std::filesystem::path(formats.toStdWString()))&&writer.append(record)&&writer.close());
+    const auto contents=[](const QString &file){QFile input(file);if(!input.open(QIODevice::ReadOnly))throw std::runtime_error("Cannot read fixture");return input.readAll();};
+    const auto rawBefore=contents(formats);
+    const aero::CsvExportOptions octal{aero::CsvLayout::Compact11,aero::NumericRadix::Octal};
+    const aero::CsvExportOptions hex{aero::CsvLayout::Compact11,aero::NumericRadix::Hexadecimal};
+    CHECK(desktop::exportSession(formats,formatOutput,{},"run3",octal).error.isEmpty());
+    const auto oldCsv=contents(formatOutput+"/run3_EXT.csv");
+    CHECK(oldCsv.contains("0o"));
+    const auto variant=desktop::sessionExportTarget(formats,formatOutput,"run4",hex,desktop::SessionExportIntent::SelectedFormat);
+    CHECK(variant.name=="run3_hex");
+    CHECK(desktop::exportSession(formats,formatOutput,{},"run4",hex,desktop::SessionExportIntent::SelectedFormat,{},variant.name).error.isEmpty());
+    CHECK(contents(formatOutput+"/run3_hex_EXT.csv").contains("0X")&&contents(formatOutput+"/run3_EXT.csv")==oldCsv);
+    CHECK(desktop::sessionCsvSources(formats).size()==4);
+    CHECK(QFile::remove(formatOutput+"/run3_hex_INT.csv"));
+    CHECK(desktop::exportSession(formats,formatOutput,{},"run4",hex,desktop::SessionExportIntent::SelectedFormat).error.isEmpty());
+    CHECK(QFileInfo::exists(formatOutput+"/run3_hex_INT.csv")&&contents(formats)==rawBefore);
+    const auto interrupted=temp.path()+"/interrupted.atd";
+    CHECK(QFile::copy(formats,interrupted));QFile tail(interrupted);CHECK(tail.open(QIODevice::Append));tail.write("partial");tail.close();
+    const auto recoverable=desktop::recoverableSessions({temp.path()});
+    CHECK(recoverable.contains(interrupted)&&!recoverable.contains(formats)&&!recoverable.contains(retry));
+    const auto interruptedBytes=contents(interrupted);
+    const auto savedRecovery=desktop::exportSession(interrupted,temp.path()+"/recovered-copy",{},"recovery");
+    CHECK(savedRecovery.error.isEmpty()&&savedRecovery.incomplete&&savedRecovery.recovered&&contents(interrupted)==interruptedBytes);
     const auto scan=desktop::discoverDdc({});CHECK(scan.contains("devices")&&scan.contains("runtime_available"));
     std::cout<<"PASS: 220008-record full export, indexed replay, counts, naming, empty channel, collision, failed commit/retry, recovery, rename, Windows discovery\n";
   }catch(const std::exception &e){std::cerr<<e.what()<<"\n";return 1;}

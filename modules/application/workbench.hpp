@@ -26,15 +26,16 @@ public:
   void useRecordingIndex(std::shared_ptr<RecordingIndex>);
 
   double replaySpeed{1}, replayPositionNs{};
-  bool replayPlaying{}, replaySource{};
+  bool replayPlaying{}, replaySource{}, replayExample{}, archiveExample{};
+  bool exampleContext() const { return replaySource ? replayExample : archiveExample; }
   Record selected{};
   Signal signal{"Sample Temperature", "degC"};
   CaptureConfig captureConfig;
-  std::vector<Signal> profile;
+  std::vector<Signal> profile, replayProfile;
 
   bool startRecording(const std::filesystem::path &, std::array<bool,4>);
   void stopRecording();
-  bool accept(const std::vector<Record> &);
+  bool accept(std::vector<Record>);
   ReadResult loadRecording(const std::filesystem::path &);
   bool seek(std::size_t);
   void advance(std::uint64_t elapsedMilliseconds);
@@ -46,11 +47,12 @@ public:
   std::vector<LiveValue> liveValues(const std::vector<Record> &,unsigned channel=0,int bus=-1) const;
   static std::vector<Signal> demoSignals();
   std::vector<Signal> mappings() const;
+  std::vector<Signal> captureMappings() const;
   std::string applyProfile(std::vector<Signal>);
   ExportResult exportData(ExportFormat, std::uint64_t startMs, std::uint64_t endMs) const;
   static ExportResult exportRecords(const std::vector<Record> &, const Signal &,
-      ExportFormat, std::uint64_t startMs, std::uint64_t endMs);
+      ExportFormat, std::uint64_t startMs, std::uint64_t endMs, bool example=false);
   static ExportResult exportProfileRecords(const std::vector<Record> &, const std::vector<Signal> &,
-      ExportFormat, std::uint64_t startMs, std::uint64_t endMs);
+      ExportFormat, std::uint64_t startMs, std::uint64_t endMs, bool example=false);
 };
 }

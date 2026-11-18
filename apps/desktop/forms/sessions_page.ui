@@ -53,6 +53,13 @@
         </property>
        </widget>
       </item>
+      <item>
+       <widget class="QPushButton" name="exportAnalysisButton">
+        <property name="text"><string>Export passive analysis…</string></property>
+        <property name="accessibleName"><string>Export passive analysis for selected session</string></property>
+        <property name="toolTip"><string>Export observations and limitations from the selected recording.</string></property>
+       </widget>
+      </item>
      </layout>
     </widget>
    </item>

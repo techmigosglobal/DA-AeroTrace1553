@@ -13,7 +13,7 @@ void Window::setupKeyGate() {
 }
 void Window::lockForApplicationKey(const QString &message) {
   applicationKeyVerified=false;applicationKeyMessage=message;automaticHeld=true;configurationRetry.stop();
-  if(documentDialog)documentDialog->close();if(taskDialog)taskDialog->close();
+  if(documentDialog)documentDialog->close();
   if(unlocked || connecting || backend.acquisition.active())removeKey();
   else navigate(0);
   toast(message);

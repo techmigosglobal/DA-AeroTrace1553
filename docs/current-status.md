@@ -1,3 +1,44 @@
+# AeroTrace 0.7.0 bench candidate
+
+See [0.7.0 release status](Release-0.7.0.md) for Recorded CSV Analysis, reliable
+save copies, startup recovery and offline Assistant evidence improvements.
+The native suite passed 39/39, document worker 17/17, and final packaged UI checks
+passed at 100%/150% scaling. Installer artifact measurements are recorded in its
+external receipt. Physical and actual installation acceptance remain separate
+pending gates. Prior installers remain unchanged.
+
+# AeroTrace 0.6.11 bench candidate
+
+See [0.6.11 release status](Release-0.6.11.md) for the stable workspace, larger analysis views, independent Assistant, retained ICD history and compact CSV conversion. The bench installer, checksum and verification receipt are in `dist/installers`. Software checks are complete; physical DDC, physical 8 GB and actual installation/upgrade acceptance remain separate pending gates. Previous packaged releases remain unchanged.
+
+# AeroTrace 0.6.10 bench candidate
+
+See [0.6.10 release status](Release-0.6.10.md) for the Subsystem Workspace, offline assistant and qualification record.
+
+# AeroTrace 0.6.9 bench candidate
+
+See [0.6.9 release status](Release-0.6.9.md) for the startup splash, ICD workflow, Live Plot limits, and Windows installer.
+
+# AeroTrace 0.6.8 bench candidate
+
+See [0.6.8 release status](Release-0.6.8.md) for the offline ICD, clean replacement setup, and bench verification.
+
+# AeroTrace 0.6.7 bench candidate
+
+See [0.6.7 release status](Release-0.6.7.md) for installation, simulation, signal reports and qualification scope.
+
+# Current development — 0.6.6 bench candidate
+
+The x86 helper remains selectable with automatic MTI/MT and the verified
+3.6.15 pack. Healthy empty polls count as SDK progress. See
+[0.6.6 release status](Release-0.6.6.md) for bench and verification scope.
+
+Use **ICD Library → Review signals** for manual or CSV input, or open the
+review grid from the PDF evidence tab. Profile publication is explicit.
+See [ICD documents](icd-documents.md).
+
+The sections below describe prior releases.
+
 # Current development: 0.6.3
 
 The connection recovery work originally planned for 0.6.2 is delivered under 0.6.3. See [release record](Release-0.6.3.md). Hardware acceptance remains NOT RUN; earlier status below describes the 0.6.1 baseline.

@@ -334,7 +334,7 @@ public:
     const bool hadRuntime=bool(runtime);
     if(runtime) for(unsigned channel=0;channel<2;++channel) {
       if(started[channel]) {const auto result=(legacy[channel]?runtime->aceMTStopFn(config.logicalDevices[channel]):runtime->aceMTIStopFn(config.logicalDevices[channel]));if(config.diagnostic) config.diagnostic(legacy[channel]?"aceMTStop":"aceMTIStop",result,"channel="+std::to_string(channel+1));if(result)closeFailure+=runtime->error(result,"DDC close stop")+"; ";}
-      if(opened[channel]) {const auto result=runtime->aceFreeFn(config.logicalDevices[channel]);if(config.diagnostic) config.diagnostic("aceFree",result,"channel="+std::to_string(channel+1));if(result)closeFailure+=runtime->error(result,"aceFree")+"; ";}
+      if(opened[channel]) {const auto result=runtime->aceFreeFn(config.logicalDevices[channel]);if(config.diagnostic) config.diagnostic("aceFree",result,"channel="+std::to_string(channel+1)+"; logical_device="+std::to_string(config.logicalDevices[channel])+"; "+(result?runtime->error(result,"aceFree"):std::string("success")));if(result)closeFailure+=runtime->error(result,"aceFree")+"; ";}
       started[channel]=opened[channel]=false;
     }
     runtime.reset();

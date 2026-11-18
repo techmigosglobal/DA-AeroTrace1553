@@ -23,7 +23,8 @@ $packs=@(Get-ChildItem -LiteralPath $ProviderPacksRoot -Directory | Where-Object
 if(!$packs.Count){throw 'Build verified private SDK/provider packs before packaging'}
 $sourceExe=Join-Path $BuildDirectory 'apps/desktop/aerotrace_desktop.exe'
 if((Get-Item -LiteralPath $sourceExe).VersionInfo.ProductVersion -ne $projectVersion){throw 'Executable version does not match the project; rebuild before packaging'}
-@{schema='aerotrace.deployment.v1';version=$projectVersion;sourceCommit=(& git -C $projectRoot rev-parse HEAD).Trim();architecture='x64';minimumWindows='Windows 10 1809';builtUtc=(Get-Date).ToUniversalTime().ToString('o');developmentFallbacks=$false;hardwareQualified=$false;bundleMode=$BundleMode;providerPacks=@($packs.Name);qtVersion=(& "$QtRoot\bin\qmake.exe" -query QT_VERSION).Trim()} | ConvertTo-Json | Set-Content -LiteralPath "$packageRoot\deployment.json" -Encoding UTF8
+$sourceStatus=@(& git -C $projectRoot status --porcelain --untracked-files=normal)
+@{schema='aerotrace.deployment.v1';version=$projectVersion;sourceCommit=(& git -C $projectRoot rev-parse HEAD).Trim();sourceTreeDirty=($sourceStatus.Count -gt 0);architecture='x64';minimumWindows='Windows 10 1809';builtUtc=(Get-Date).ToUniversalTime().ToString('o');developmentFallbacks=$false;hardwareQualified=$false;bundleMode=$BundleMode;providerPacks=@($packs.Name);qtVersion=(& "$QtRoot\bin\qmake.exe" -query QT_VERSION).Trim()} | ConvertTo-Json | Set-Content -LiteralPath "$packageRoot\deployment.json" -Encoding UTF8
 '[Paths]','Prefix=.' | Set-Content -LiteralPath "$packageRoot\qt.conf" -Encoding ASCII
 Copy-Item -LiteralPath $sourceExe -Destination "$packageRoot\AeroTrace1553.exe" -Force
 $inspector=Join-Path $BuildDirectory 'aerotrace_provider_info.exe'
@@ -43,34 +44,19 @@ if(Test-Path -LiteralPath "$packageRoot\qwt.dll"){
 Copy-Item -LiteralPath "$projectRoot\README.md" -Destination $packageRoot
 Copy-Item -LiteralPath "$projectRoot\apps\desktop\icons\aerotrace.ico" -Destination "$packageRoot\aerotrace.ico" -Force
 Copy-Item -LiteralPath "$projectRoot\installer\Install-Notes.txt" -Destination "$packageRoot\Install-Notes.txt" -Force
-Copy-Item -LiteralPath "$projectRoot\AeroTrace_1553_PRD_v2.0_Vinay_Ravali.md" -Destination $packageRoot -Force
-Copy-Item -LiteralPath "$projectRoot\docs" -Destination $packageRoot -Recurse -Force
-Copy-Item -LiteralPath "$projectRoot\docs\Operator-Guide.html" -Destination "$packageRoot\START-HERE.html" -Force
-# The full guide uses docs/assets; the entry page links to it without duplicating assets.
-'<!doctype html><html lang="en"><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=docs/Operator-Guide.html"><title>AeroTrace guide</title><a href="docs/Operator-Guide.html">Open the AeroTrace operator guide</a></html>' | Set-Content -LiteralPath "$packageRoot\START-HERE.html" -Encoding UTF8
-Copy-Item -LiteralPath "$projectRoot\examples" -Destination $packageRoot -Recurse -Force
+New-Item -ItemType Directory -Force "$packageRoot/docs","$packageRoot/examples" | Out-Null
+foreach($name in 'Operator-Guide.html','Operator-Guide.pdf','assets',"Release-$projectVersion.md",'icd-documents.md','sdk-compatibility.md','provider-contract.md','card-time-and-diagnostics.md','SES-Bench-Checklist.md'){
+  Copy-Item -LiteralPath (Join-Path "$projectRoot/docs" $name) -Destination "$packageRoot/docs" -Recurse
+}
+Copy-Item -LiteralPath "$projectRoot/examples/offline-icd/Offline-Simulation-ICD.pdf" -Destination "$packageRoot/examples"
+'<!doctype html><html lang="en"><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=docs/Operator-Guide.html"><title>AeroTrace guide</title><a href="docs/Operator-Guide.html">Open the AeroTrace operator guide</a></html>' | Set-Content -LiteralPath "$packageRoot/START-HERE.html" -Encoding UTF8
 New-Item -ItemType Directory -Force "$packageRoot\scripts" | Out-Null
 Copy-Item -LiteralPath "$projectRoot\scripts\collect-diagnostics.ps1" -Destination "$packageRoot\scripts" -Force
 '@echo off', 'powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\collect-diagnostics.ps1"' | Set-Content -LiteralPath "$packageRoot\Collect Diagnostics.cmd" -Encoding ASCII
 Copy-Item -LiteralPath "$projectRoot\scripts\check-ddc.ps1" -Destination "$packageRoot\scripts" -Force
 New-Item -ItemType Directory -Force "$packageRoot\licenses" | Out-Null
-$venvPython=Join-Path $projectRoot 'out\document-runtime\Scripts\python.exe'
-$venvHealthy=$false
-if(Test-Path $venvPython){try{& $venvPython -c 'import numpy, onnxruntime, pdfplumber' 2>$null;$venvHealthy=$LASTEXITCODE -eq 0}catch{$venvHealthy=$false}}
-if($venvHealthy){& "$PSScriptRoot\package-documents.ps1" -PackageRoot $packageRoot}
-else {
-  $installed=Join-Path $env:ProgramFiles 'AeroTrace1553'
-  if(!(Test-Path (Join-Path $installed 'document-runtime\python.exe'))){$installed=Join-Path $env:LOCALAPPDATA 'Programs\AeroTrace1553'}
-  $installedPython=Join-Path $installed 'document-runtime\python.exe'
-  if(!(Test-Path $installedPython)){throw 'No working document runtime. Run scripts/setup-documents.ps1 first.'}
-  & $installedPython -c 'import numpy, onnxruntime, pdfplumber'
-  if($LASTEXITCODE -ne 0){throw 'Installed document runtime is unhealthy'}
-  Copy-Item -LiteralPath (Join-Path $installed 'document-runtime') -Destination $packageRoot -Recurse
-  Copy-Item -LiteralPath (Join-Path $projectRoot 'tools\document_worker') -Destination (Join-Path $packageRoot 'document-worker') -Recurse
-  Copy-Item -LiteralPath (Join-Path $installed 'licenses\Python-LICENSE.txt') -Destination "$packageRoot\licenses" -Force
-  Copy-Item -LiteralPath (Join-Path $installed 'licenses\Microsoft-CRT-NOTICE.txt') -Destination "$packageRoot\licenses" -Force
-  Copy-Item -LiteralPath (Join-Path $installed 'licenses\Microsoft-CRT-provenance.json') -Destination "$packageRoot\licenses" -Force
-}
+& "$PSScriptRoot/package-documents.ps1" -PackageRoot $packageRoot
+& "$PSScriptRoot/package-assistant.ps1" -PackageRoot $packageRoot
 $privatePacks=Join-Path $packageRoot 'providers/packs'
 if(![IO.Path]::IsPathRooted($HelperPacksRoot)){$HelperPacksRoot=Join-Path $projectRoot $HelperPacksRoot}
 if(!(Test-Path -LiteralPath $HelperPacksRoot)){throw 'Build the x86 helper with scripts/build-ddc-helper.ps1 -Test before packaging'}
@@ -123,4 +109,7 @@ if($LASTEXITCODE -ne 0){throw 'Package contains missing native imports; see depe
 if($LASTEXITCODE -ne 0){throw 'Complete offline bundle is BLOCKED; see release-gate.json. A review build can still be packaged explicitly.'}
 $hashLines=Get-ChildItem -LiteralPath $packageRoot -File -Recurse | Where-Object {$_.Name -notin @('SHA256SUMS.txt','preferences.ini') -and $_.FullName -notmatch '\\(Sessions|Diagnostics|Logs|test-results|__pycache__)\\' -and $_.Extension -ne '.atd'} | Get-FileHash -Algorithm SHA256 | ForEach-Object {"$($_.Hash)  $($_.Path.Substring($packagePrefix.Length))"}
 $hashLines | Set-Content "$packageRoot\SHA256SUMS.txt"
+$fileCount=@(Get-ChildItem -LiteralPath $packageRoot -File -Recurse).Count
+if($fileCount -gt 2140){throw "Staged file count $fileCount exceeds the installer budget of 2140"}
+Write-Output "Staged installer payload files: $fileCount"
 Write-Output "Launch: $packageRoot\AeroTrace1553.exe"

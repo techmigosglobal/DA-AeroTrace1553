@@ -46,7 +46,7 @@
       <item>
        <widget class="QPushButton" name="newSignalButton">
         <property name="text">
-         <string>New signal</string>
+         <string>Review signals</string>
         </property>
         <property name="primary" stdset="0">
          <bool>true</bool>

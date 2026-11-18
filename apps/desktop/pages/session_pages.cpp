@@ -1,9 +1,11 @@
 #include "main_window.hpp"
+#include <QCryptographicHash>
 #include "ui_sessions_page.h"
 #include "ui_replay_page.h"
 #include "services/profile_io.hpp"
 #include "services/session_store.hpp"
 #include "services/runtime_paths.hpp"
+#include "sequence_analysis.hpp"
 
 QStringList Window::recordingFiles(){
     QStringList roots{sessionDir};roots+=settings.value("legacySessionRoots").toStringList();roots<<desktop::dataDirectory()+"/Sessions";
@@ -13,12 +15,40 @@ QStringList Window::recordingFiles(){
   }
 
 void Window::sessions() {
+  auto convert=new QPushButton("Open CSV Viewer…",content);pageLayout->addWidget(convert,0,Qt::AlignLeft);connect(convert,&QPushButton::clicked,this,[this]{const auto row=sessionTable?sessionTable->currentRow():-1;csvTools(sessionPaths.value(row));});
   auto form=showForm<Ui::SessionsPage>();
   connect(form.newRecordingButton,&QPushButton::clicked,this,[this] { startCapture(); });
   connect(form.importRecordingButton,&QPushButton::clicked,this,[this] { openSession(); });
   connect(form.allSessionsButton,&QPushButton::clicked,this,[this] { navigate(10); });
   connect(form.refreshButton,&QPushButton::clicked,this,[this] { navigate(10); });
   connect(form.renameButton,&QPushButton::clicked,this,[this] { renameSession(); });
+  connect(form.exportAnalysisButton,&QPushButton::clicked,this,[this] {
+    if(connecting||savingSession||backend.acquisition.active()){toast("Stop capture before exporting analysis");return;}
+    const auto row=sessionTable->currentRow();if(row<0||row>=sessionPaths.size()){toast("Select a recording first");return;}
+    const auto input=sessionPaths[row];const auto output=QFileDialog::getSaveFileName(this,"Export passive analysis",input+".analysis.jsonl","JSON Lines (*.jsonl)");
+    if(output.isEmpty())return;
+    if(QFileInfo(input).absoluteFilePath().compare(QFileInfo(output).absoluteFilePath(),Qt::CaseInsensitive)==0){toast("Choose a different output file");return;}
+    auto watcher=new QFutureWatcher<QString>(this);
+    connect(watcher,&QFutureWatcher<QString>::finished,this,[this,watcher]{const auto result=watcher->result();toast(result.isEmpty()?"Passive analysis exported":result);watcher->deleteLater();});
+    watcher->setFuture(QtConcurrent::run([input,output] {
+      QSaveFile file(output);if(!file.open(QIODevice::WriteOnly))return QString("Cannot open analysis export: ")+file.errorString();
+      auto write=[&](const QJsonObject &object){const auto line=QJsonDocument(object).toJson(QJsonDocument::Compact)+'\n';if(file.write(line)!=line.size())throw std::runtime_error("Analysis export write failed");};
+      try {
+        write({{"schema","aerotrace.passive-analysis.v1"},{"profile","1553b-baseline-review"},{"recording",QFileInfo(input).fileName()},{"limitations","Passive observations only; capture history, loss, timing and terminal conformance are not established."}});
+        aero::SequenceAnalysis sequence;
+        const auto result=aero::scanRecording(std::filesystem::path(input.toStdWString()),[&](const aero::Record &record,std::uint64_t){
+          const auto p=aero::interpret(record);QJsonArray observations;
+          for(const auto &o:sequence.consume(record))observations.append(QJsonObject{{"kind",o.kind},{"record_id",QString::number(o.recordId)},{"prior_record_id",o.priorRecordId?QString::number(o.priorRecordId):QString()},{"evidence",o.evidence},{"conclusion","insufficient evidence for conformance"}});
+          write({{"record_id",QString::number(record.id)},{"channel",int(record.channel)},{"bus",record.bus?"B":"A"},{"source",record.source==1?"DDC_MTI":record.source==2?"DDC_MT":"SIMULATED_OR_LEGACY"},{"structure",!p.supported?"unknown":p.valid?"checks passed":"review"},{"terminal_busy",p.terminalBusy},{"terminal_fault",p.terminalFault},{"terminal_message_error",p.terminalMessageError},{"payload_eligible",p.payloadEligible},{"reason",QString::fromUtf8(p.reason.data(),qsizetype(p.reason.size()))},{"vendor_status",int(record.vendorStatus)},{"timing","not measured"},{"observations",observations}});
+          return true;
+        });
+        if(!result.error.empty())return QString::fromStdString(result.error);
+        write({{"record_count",QString::number(result.count)},{"recovered",result.recovered},{"capture_completeness","not established by recording scan"}});
+        if(!file.commit())return QString("Analysis export commit failed: ")+file.errorString();
+      } catch(const std::exception &e){return QString::fromUtf8(e.what());}
+      return QString();
+    }));
+  });
   auto save=new QPushButton("Save selected session CSVs");save->setObjectName("saveSessionCsvs");pageLayout->addWidget(save,0,Qt::AlignLeft);
   connect(save,&QPushButton::clicked,this,[this]{if(connecting||savingSession||backend.acquisition.active()){toast("Stop the active capture first");return;}const auto row=sessionTable->currentRow();if(row>=0&&row<sessionPaths.size()){stopAndSave(sessionPaths[row]);}});
   sessionTable=form.sessionTable; sessionSearch=form.sessionSearch; sessionPaths=recordingFiles();
@@ -72,6 +102,7 @@ void Window::openSession(){
   }
 
 void Window::loadSession(QString p){
+  recordedCsv.reset();
     applicationEvent("replay_open_request",p);
     if (connecting || savingSession || backend.acquisition.active()) {
       toast("Stop capture before opening a recording.");
@@ -89,9 +120,36 @@ void Window::loadSession(QString p){
       if(backend.acquisition.active()||connecting||savingSession){toast("Capture state changed; reopen the recording when stopped.");return;}
       replayCheckpoints=result.checkpoints;replayActivity={};replayRtFrame=result.statistics;viewingReplayStatistics=false;++*replayGeneration;
       try{backend.recordingIndex=std::move(result.first);backend.replaySource=true;backend.replayPlaying=false;backend.replayIndex=0;backend.replayWindowStart=0;backend.replayRecords.clear();backend.selected={};}catch(const std::exception &e){backend.replaySource=false;toast(QString::fromUtf8(e.what()));return;}
-      currentReplay=p;backend.applyProfile({});QFile profileFile(p+".profile.json");
-      if(profileFile.open(QIODevice::ReadOnly)&&profileFile.size()<4*1024*1024){std::vector<aero::Signal> mappings;if(desktop::profileFromJson(QJsonDocument::fromJson(profileFile.readAll()).object(),mappings).isEmpty())backend.applyProfile(std::move(mappings));}
+      currentReplay=p;
+      backend.replayProfile.clear();
+      backend.replayExample=desktop::verifiedOfflineFixture(p);
+      QFile profileFile(p+".profile.json");
+      replayProfileDescription="Raw-only session";
+      QString profileError;
+      if(profileFile.exists()) {
+        if(!profileFile.open(QIODevice::ReadOnly) || profileFile.size()>4*1024*1024)
+          profileError="Cannot read profile or file exceeds 4 MB";
+        else {
+          const auto bytes=profileFile.readAll();
+          QJsonParseError syntax;
+          const auto object=QJsonDocument::fromJson(bytes,&syntax).object();
+          std::vector<aero::Signal> mappings;
+          profileError=syntax.error==QJsonParseError::NoError?desktop::profileFromJson(object,mappings):syntax.errorString();
+          if(profileError.isEmpty() && !mappings.empty()) {
+            backend.replayProfile=std::move(mappings);
+            const auto revision=QString::fromLatin1(QCryptographicHash::hash(bytes,QCryptographicHash::Sha256).toHex().left(12));
+            replayProfileDescription="Latest saved profile · "+revision;
+            QFile journal(p+".icd.jsonl");
+            if(journal.open(QIODevice::ReadOnly) && !journal.readLine().isEmpty() && !journal.readLine().isEmpty())
+              replayProfileDescription+=" · multiple revisions; latest applied throughout";
+          }
+        }
+      }
       eventText=result.second.recovered?"Recovered recording: incomplete tail discarded":"Recording CRC validation passed; device clocks remain independent";
+      if(!profileError.isEmpty()) {
+        eventText+=" · "+QFileInfo(profileFile).fileName()+": "+profileError;
+        qWarning().noquote()<<"Recording ICD profile rejected:"<<profileFile.fileName()<<profileError;
+      }
       navigate(11);toast(eventText);
     });
     watcher->setFuture(QtConcurrent::run([p,loadGeneration,cancel=replayGeneration]{auto index=std::make_shared<aero::RecordingIndex>();auto checkpoints=std::make_shared<std::vector<aero::RtActivity>>(1);auto statistics=std::make_shared<aero::RtMonitorFrame>();statistics->session=p.toStdString()+"/full-file";aero::RtActivity activity;std::uint64_t count=0;
@@ -125,7 +183,7 @@ void Window::replay() {
   registerPlot(form.replayPlot,"replay");
   populate(replayTable,{});
   form.loaded->setText(QString::number(backend.replayCount())); form.status->setText(eventText);
-  form.profile->setText(QString::fromStdString(backend.signal.id));
+  form.profile->setText(replayProfileDescription);
   connect(form.addBookmarkButton,&QPushButton::clicked,this,[this] {
     if(!backend.replayCount()) return;
     const auto key=currentReplay+"/bookmarks"; auto list=settings.value(key).toStringList();
@@ -204,6 +262,7 @@ QStringList Window::engineeringValues() {
 
 
 void Window::refreshDataViews() {
+  updateEngineeringDetails();
   if(!engineeringLabels.empty()) {
     const auto values=engineeringValues();
     for(int i=0;i<engineeringLabels.size();++i) {
@@ -211,14 +270,42 @@ void Window::refreshDataViews() {
     }
     refreshEngineeringTable();
   }
-  if(plotPaused) return;
+  if(plotPaused || (page==7&&recordedCsv)) return;
+  const auto mappings=backend.mappings();
+  const auto frame=backend.replaySource?std::shared_ptr<const aero::LiveFrame>():backend.acquisition.liveFrame();
   for(auto plot:plots) {
+    const auto index=plot->property("signalIndex").toInt();
+    const auto channel=plot->property("sourceChannel").toUInt();
+    const auto bus=plot->property("sourceBus").toInt();
+    std::optional<double> minimum,maximum;
+    if(plot->property("role").toString().isEmpty() && index>=0 && index<int(mappings.size())) {
+      const auto value=backend.liveValue(index,model.records,channel,bus);
+      const auto quality=!value.matched?trafficMismatch(mappings[index],channel,bus):value.value?QString("Decoded sample"):QString("Invalid sample · ")+QString::fromUtf8(value.reason.data(),qsizetype(value.reason.size()));
+      const auto time=backend.exampleContext()?"Synthetic relative time":
+        backend.replaySource?"Recorded stream time":backend.captureConfig.hardware?"Card time · per stream":"Synthetic relative time";
+      const auto revision=backend.replaySource?replayProfileDescription:frame?QString("Profile revision %1").arg(frame->revision):QString("Active profile");
+      const auto &signal=mappings[index];
+      const auto &rules=backend.captureConfig.checkRules;
+      const auto check=std::find_if(rules.begin(),rules.end(),[&](const auto &rule){return rule.signalId==signal.id;});
+      const bool selectedStream=(!signal.channel || signal.channel==channel) && (signal.bus<0 || signal.bus==bus);
+      const bool sameUnits=!backend.replaySource || std::any_of(backend.profile.begin(),backend.profile.end(),[&](const auto &current){
+        return current.id==signal.id && current.unit==signal.unit && current.rt==signal.rt &&
+          current.sa==signal.sa && current.transmit==signal.transmit;
+      });
+      if(check!=rules.end() && selectedStream && sameUnits){minimum=check->minimum;maximum=check->maximum;}
+      QStringList limits;
+      if(minimum)limits.append("Min "+desktop::displayValue(*minimum));
+      if(maximum)limits.append("Max "+desktop::displayValue(*maximum));
+      const auto thresholdText=limits.isEmpty()?QString():" · Configured limits "+limits.join(" / ")+
+        " "+QString::fromStdString(signal.unit);
+      plot->setStatus(QString("%1 · CH%2/%3 · %4 · %5").arg(quality).arg(channel).arg(bus==1?"B":"A",time,revision)+thresholdText);
+    } else plot->setStatus({});
     const auto series=backend.series(plot->property("role").toString().toStdString(),plot->property("signalIndex").toUInt(),model.records,plot->property("sourceChannel").toUInt(),plot->property("sourceBus").toInt(),plot->property("rawColumn").toInt());
     QVector<QPointF> primary,secondary;
     primary.reserve(series.primary.size()); secondary.reserve(series.secondary.size());
     for(const auto &[x,y]:series.primary) primary << QPointF(x,y);
     for(const auto &[x,y]:series.secondary) secondary << QPointF(x,y);
-    plot->setSeries(std::move(primary),std::move(secondary));
+    plot->setSeries(std::move(primary),std::move(secondary),minimum,maximum);
   }
 }
 

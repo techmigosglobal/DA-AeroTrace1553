@@ -455,8 +455,8 @@
           </item>
           <item>
            <widget class="QPushButton" name="icdChatButton">
-            <property name="text"><string>ICD chat</string></property>
-            <property name="accessibleName"><string>Open ICD Assistant in a separate window</string></property>
+            <property name="text"><string>AeroTrace Assistant</string></property>
+            <property name="accessibleName"><string>Open AeroTrace Assistant in a separate window</string></property>
            </widget>
           </item>
           <item>

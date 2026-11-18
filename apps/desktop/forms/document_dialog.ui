@@ -1,21 +1,20 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
  <class>DocumentDialog</class>
  <widget class="QDialog" name="DocumentDialog">
   <property name="windowTitle">
-   <string>ICD Assistant</string>
+   <string>AeroTrace Assistant</string>
   </property>
   <property name="minimumSize">
    <size>
-    <width>900</width>
-    <height>650</height>
+    <width>420</width>
+    <height>450</height>
    </size>
   </property>
   <layout class="QVBoxLayout" name="dialogLayout">
    <item>
     <widget class="QLabel" name="heading">
      <property name="text">
-      <string>ICD Assistant</string>
+      <string>AeroTrace Assistant</string>
      </property>
      <property name="tone" stdset="0">
       <string>title</string>
@@ -25,7 +24,7 @@
    <item>
     <widget class="QLabel" name="explanation">
      <property name="text">
-      <string>Ask for cited ICD facts. Use Preview action for an explicit clarification, then review it before changing live conversion or plots.</string>
+      <string>Ask a question, check the cited evidence, then review any conversion change.</string>
      </property>
      <property name="wordWrap">
       <bool>true</bool>
@@ -139,10 +138,7 @@
       </attribute>
       <layout class="QVBoxLayout" name="chatTabLayout">
        <item>
-        <widget class="QPlainTextEdit" name="answer">
-         <property name="readOnly">
-          <bool>true</bool>
-         </property>
+        <widget class="QTextBrowser" name="answer">
          <property name="placeholderText">
           <string>Your conversation is saved separately for each ICD. Answers cite source pages; uncertain rules stay in review.</string>
          </property>
@@ -150,6 +146,23 @@
        </item>
        <item>
         <layout class="QHBoxLayout" name="questionLayout">
+         <item>
+          <widget class="QComboBox" name="answerSource">
+           <property name="accessibleName">
+            <string>ICD answer source</string>
+           </property>
+           <item>
+            <property name="text">
+             <string>ICD documents</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Published mappings</string>
+            </property>
+           </item>
+          </widget>
+         </item>
          <item>
           <widget class="QLineEdit" name="question">
            <property name="placeholderText">
@@ -164,11 +177,8 @@
            </property>
           </widget>
          </item>
-         <item><widget class="QPushButton" name="previewAction"><property name="text"><string>Preview action</string></property><property name="toolTip"><string>Examples: Plot TEMP; Set TEMP scale to 0.01; TEMP offset is -40. Word indices are zero-based.</string></property></widget></item>
         </layout>
        </item>
-       <item><widget class="QPlainTextEdit" name="actionPreview"><property name="readOnly"><bool>true</bool></property><property name="maximumHeight"><number>110</number></property><property name="placeholderText"><string>Reviewed action preview. No conversion or plot changes until you apply.</string></property><property name="accessibleName"><string>Action preview</string></property></widget></item>
-       <item><widget class="QPushButton" name="applyAction"><property name="text"><string>Apply reviewed action</string></property><property name="enabled"><bool>false</bool></property></widget></item>
       </layout>
      </widget>
      <widget class="QWidget" name="mappingTab">
@@ -217,10 +227,17 @@
          <item>
           <widget class="QPushButton" name="activateButton">
            <property name="text">
-            <string>Activate checked mappings</string>
+            <string>Review signals…</string>
            </property>
            <property name="enabled">
             <bool>false</bool>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="explainEvidence">
+           <property name="text">
+            <string>Ask about this row</string>
            </property>
           </widget>
          </item>
@@ -232,6 +249,53 @@
           </widget>
          </item>
         </layout>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="reviewedActionsTab">
+      <attribute name="title">
+       <string>Reviewed actions</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="reviewedActionsLayout">
+       <item>
+        <widget class="QLineEdit" name="actionQuestion">
+         <property name="accessibleName">
+          <string>Proposed mapping or plot action</string>
+         </property>
+         <property name="placeholderText">
+          <string>Example: Set TEMP scale to 0.01</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="previewAction">
+         <property name="text">
+          <string>Preview action</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPlainTextEdit" name="actionPreview">
+         <property name="readOnly">
+          <bool>true</bool>
+         </property>
+         <property name="placeholderText">
+          <string>Check the proposed change against the ICD before applying.</string>
+         </property>
+         <property name="accessibleName">
+          <string>Action preview</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="applyAction">
+         <property name="text">
+          <string>Apply reviewed action</string>
+         </property>
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
+        </widget>
        </item>
       </layout>
      </widget>

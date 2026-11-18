@@ -68,7 +68,7 @@ bool Window::sessionWorkflowTest(const QString &directory) {
   const auto saved=aero::read(std::filesystem::path(currentFile.toStdWString()));
   for(unsigned ch=1;ch<=2;++ch){QFile csv(output+"/run1"+(ch==1?"_EXT.csv":"_INT.csv"));same&=csv.open(QIODevice::ReadOnly);same&=QString::fromUtf8(csv.readLine()).trimmed()==QString::fromStdString(aero::sessionCsvHeader()).trimmed();std::optional<std::uint64_t> previous;
     for(const auto &r:saved.records)if(r.channel==ch){same&=QString::fromUtf8(csv.readLine()).trimmed()==QString::fromStdString(aero::sessionCsvRecord(r,previous)).trimmed();previous=r.timestampNs;++matched;}same&=csv.atEnd();}
-  check(same&&matched==int(metrics.recorded)&&matched>0,"Every finalized record matches the 42-column channel CSV with independent time deltas");
+  check(same&&matched==int(metrics.recorded)&&matched>0,"Every finalized record matches the selected channel CSV with independent time deltas");
   resize(1500,940);settle(50);settings.setValue("monitorLayout","tabs");navigate(4);check(!monitorWorkspace->isVisible()&&deviceTabs->isVisible(),"Settings selects the tab layout");
   grab().save(directory+"/tabs.png");
   check(QDir(output).entryList(QDir::Files|QDir::Hidden).size()==2,"CSV destination contains only the paired CSVs");
@@ -84,6 +84,15 @@ bool Window::sessionWorkflowTest(const QString &directory) {
   navigate(1);settle(50);grab().save(directory+"/welcome.png");navigate(2);settle(50);grab().save(directory+"/device.png");
   rescanDdc();wait();check(hardwareDiscovery.contains("driver_store_evidence")&&hardwareDiscovery.contains("logical_assignments"),"Discovery records installed drivers and vendor logical assignments");
   QFile evidence(directory+"/ddc-discovery.json");if(evidence.open(QIODevice::WriteOnly))evidence.write(QJsonDocument(hardwareDiscovery).toJson());
+  savingSession=true;sessionSaveState="Writing CSVs…";beginSaveProgress();settle(100);
+  check(!saveProgress,"Fast saves do not flash a progress panel");settle(250);
+  check(saveProgress&&saveProgress->isVisible()&&saveProgressLabel->text()==sessionSaveState,"Slow saves show a responsive progress panel after 300 milliseconds");
+  check(!close(),"Closing is blocked while a save is in progress");savingSession=false;finishSaveProgress();settle(20);check(!saveProgress,"Completed save removes its progress panel");
+  const auto unsaved=directory+"/unsaved-"+QUuid::createUuid().toString(QUuid::Id128)+".atd";check(QFile::copy(older,unsaved),"Unsaved recording fixture retained on disk");
+  findUnsavedRecordings();wait();auto recovery=findChild<QDialog *>("unsavedRecordings");
+  check(recovery&&recovery->isVisible(),"Startup discovery offers retained recordings without a completed export");
+  if(recovery){for(auto button:recovery->findChildren<QPushButton *>())if(button->text()=="Later")button->click();settle(20);}
+  check(QFileInfo::exists(unsaved)&&!backend.acquisition.active(),"Deferring recovery preserves raw bytes and never starts capture");
   backend.recordingIndex.reset();backend.replaySource=false;sessionDir=oldDir;settings.clear();for(auto i=previous.begin();i!=previous.end();++i)settings.setValue(i.key(),i.value());
   QFile file(directory+"/session-workflow.txt");if(file.open(QIODevice::WriteOnly))file.write(report.join('\n').toUtf8());else passed=false;return passed;
 }

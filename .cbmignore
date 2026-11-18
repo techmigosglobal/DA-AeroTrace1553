@@ -1,0 +1,8 @@
+# Keep local vendor inputs and bench evidence outside the source graph.
+/DDC_4.0.3.1/
+/RTPRO_4.1.1_28102026/
+/Testing_Phase-1/
+/out/
+/dist/
+/third_party/
+/.codebase-memory/

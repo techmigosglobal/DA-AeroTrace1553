@@ -1,18 +1,19 @@
 # AeroTrace 1553 — Operator guide
 
-Version 0.6.0 · Windows x64 · Updated 4 November 2026
+Version 0.7.0 · Windows x64 · Updated 15 November 2026
 
-This guide covers installation, offline rehearsal, receive-only DDC acquisition, ICD conversion, plots, saved tasks, reporting and diagnosis. Software tests do not qualify a physical card, bus connection or electrical transmit inhibit. Limited A-path loopback is recorded in the November 2 SES evidence. Responding RTs, Bus B, simultaneous channels, endurance and reconnect remain the highest-priority qualification work. See current-status.md and SES-Bench-Checklist.md.
+This guide covers installation, offline rehearsal, receive-only DDC acquisition, ICD conversion, plots, signal reports and diagnosis. Software tests do not qualify a physical card, bus connection or electrical transmit inhibit. Limited A-path loopback is recorded in the November 2 SES evidence. Responding RTs, Bus B, simultaneous channels, endurance and reconnect remain the highest-priority qualification work. See current-status.md and SES-Bench-Checklist.md.
 
-## 1. Install and run V0.6.0
+## 1. Install and run
 
-Use the V0.6.0 offline installer for operation, or build the CMake aerotrace_desktop target for development. See Release-0.6.0.md for simulation and deployment evidence. Historical SES installation and capture evidence describes the older tested build. V0.6.0 physical hardware qualification remains pending.
+Use the 0.7.0 bench installer for controlled evaluation or build the CMake desktop target for development. See Release-0.7.0.md for verification scope.
 
 ### Installation
 
-1. Use Windows 10 version 1809 or later, or Windows 11, on an x64 computer with writable local storage. This build is not for 32-bit Windows or native ARM64. A local administrator may be needed for the separate DDC driver installation; The V0.6.0 installer requires administrator rights and installs under C:\Program Files\AeroTrace1553. The preview installer is unsigned; a SHA-256 sidecar identifies the exact delivered file.
-2. Copy `AeroTrace1553-0.6.0-Setup-x64.exe` to that computer and run it. The installer contains the application, Qt/Qwt libraries, isolated Python PDF/OCR runtime, local retrieval models, documentation and examples. It does not need an internet connection or separately installed Qt, Python or Node.js.
-3. Accept the single application installation. Runtimes are included internally. Start AeroTrace from the Start menu or desktop shortcut.
+1. Use Windows 10 version 1809 or later, or Windows 11, on an x64 computer with writable local storage. Setup requires administrator rights. Verify the installer against its SHA-256 sidecar.
+2. Run `AeroTrace1553-0.7.0-Bench-Setup-x64.exe`. Read and accept the bench-use terms and privacy notice, choose the destination, and review the summary. Setup shows progress, optional file details, and a separate DDC prerequisite check.
+3. Setup removes the previous registered application before upgrading in its existing folder. Stop and save any capture and exit AeroTrace first. To relocate the application, uninstall it first and then select the new folder. Unattended deployment requires `/ACCEPTBENCHNOTICE=0.6.8` in addition to the desired Inno silent options. Start AeroTrace from the Start menu or desktop shortcut.
+
 4. For DDC capture, install the vendor-supported x64 driver and configure the actual logical devices with the vendor's utility. The application package includes the locally selected runtime; it does not silently install or replace card drivers. Use the runtime/driver combination supported by the fitted card. Supplied physical evidence covers SDK 3.6.15 / acexusb 3.6.15.1; other combinations require qualification.
 5. For a PC with its own SDK installation, open **Device setup → Technical details** and enter that SDK folder or its x64 `emacepl.dll`. The package includes separately verified providers for aceXtreme 4.10.2 and 4.4.2.4 runtime fingerprints. Other runtime/header combinations require a separately built and verified provider; version discovery alone does not prove compatibility. With the field blank, `DDC_SDK_ROOT` takes precedence over automatic installed-SDK discovery and packaged fallback. An invalid configured SDK produces an error instead of silently choosing another version. See [SDK selection and compatibility](sdk-compatibility.md).
 6. Open **More tools → Help & Diagnostics** or **F1** and check version, OS architecture, plot backend and runtime status. A loadable runtime does not prove a connected card can initialize.
@@ -34,7 +35,7 @@ New installations store settings and recordings outside the installed program fi
 | Approved conversion profile | `active-profile.json` in user data |
 | Reviewed changes | `ReviewedActions` in user data |
 | Support bundles | `Documents\AeroTraceDiagnostics` in the Windows user profile |
-| Batch reports | The output folder selected in **Tasks and automation** |
+| Signal reports | The chosen parent folder, inside a new report folder |
 
 Prefer a local disk for the initial bench test. Verify enough free space for both ATD records and original Chapter 10 packet files. The recorder refuses a start or stops on less than 100 MiB available; reserve substantially more for real acquisition. Measure total file growth during the first minute to estimate the space required for longer tests.
 
@@ -42,14 +43,13 @@ Prefer a local disk for the initial bench test. Verify enough free space for bot
 
 The approved Live monitor layout starts with External and Internal side by side and **Grouped by RT**. Incoming RT 03 traffic updates RT 03’s existing row; RT 02 updates its own row. A/B times and totals remain independent. Expand an RT for latest messages by SA or mode code, direction and bus. Latest hexadecimal words are visible in the parent row. **Pause RT display** freezes only this display; raw recording continues. **Chronological records** restores the raw table. Per-pane filters never restrict recording. RT totals are receive-side aggregates and survive raw display-row eviction; up to 128 message routes per RT are listed, while all messages remain on disk. Broadcast and unclassified traffic have separate groups. Identical RT addresses on External/Internal stay separate.
 
-The main pages are Live Bus Monitor, Engineering Values and Live Plot Analysis. **More tools** exposes the remaining pages, task automation and diagnostics. Collapse/expand the sidebar with **Ctrl+B**. Hover an icon to see its page name.
+The main pages are Live Bus Monitor, Engineering Values and Live Plot Analysis. **More tools** exposes the Bus Analysis, reporting and diagnostics. Collapse/expand the sidebar with **Ctrl+B**. Hover an icon to see its page name.
 
 | Shortcut | Operation |
 |---|---|
 | Ctrl+1 / Ctrl+2 / Ctrl+3 | Monitor / Engineering / Plots |
-| Ctrl+J | Open the separate ICD Assistant window |
+| Ctrl+J | Open the separate AeroTrace Assistant window |
 | Ctrl+I | Import an ICD PDF or JSON profile |
-| Ctrl+Shift+T | Tasks and automation |
 | Ctrl+O | Open a recorded session |
 | Ctrl+R | Start/stop capture, depending on current state |
 | F1 | Help & Diagnostics |
@@ -59,18 +59,12 @@ Monitoring does not wait for a run name or CSV folder. Edit these in Welcome or 
 
 In hardware mode, configure devices and buses while stopped, then choose Connect devices. Connection configures the channels without receiving or creating a recording. Start recording is a separate explicit action. Launch, arrival and configuration edits never automatically record. Stop & save retains a healthy connection; Disconnect saves an active recording before releasing it.
 
-## 4. Rehearse offline before connecting hardware
+## 4. Offline simulation
 
-1. Open **Tasks and automation → Offline simulation**. Check **Use offline simulator for the next capture** and apply. Without an active ICD, leave ICD-based generation unchecked to use the original demo generator.
-2. Import `examples\demo-icd\AeroTrace-Demo-ICD.pdf` from the installation. Wait for the indexing job to finish. Complete explicit digital tables can activate automatically; uncertain rows require review. This demo has a `READY` bit alias inside the full `STATUS` word. For ICD-based generation, open **Mappings and evidence**, uncheck `READY`, and choose **Activate checked mappings** to use eight non-overlapping fields. The full nine-field profile remains useful with the legacy demo source and replay.
-3. Return to Offline simulation and enable **Generate traffic from the approved ICD mappings**. Start with `constant`, center `20`, rate `120`, drop interval `0` and flag interval `0`. Apply while capture is stopped, then start the simulator explicitly.
-4. Open Engineering Values. Check raw hexadecimal words, engineering units, decoded values, card time and quality. Different numeric encodings/scales can quantize or saturate; the same center is interpreted separately in each signal's units.
-5. Select a signal and open its plot. Verify the selected CH/bus source has samples. Stop capture and open the resulting `.atd` from Sessions. Confirm replay uses the approved profile and can reproduce engineering values.
-6. Save this setup as an offline task workspace for future regression checks.
-
-The mapped simulator packs all non-overlapping applicable fields into each message and rotates through applicable routes/streams. It supports sine, square, ramp, constant and repeatable seeded noise. Total record rate is not the rate of every individual signal. Intentional aliases/overlapping fields require separate simulation profiles. A zero conversion scale cannot be inverted for generation. Legacy demo traffic intentionally includes occasional protocol flags; those flagged samples must not become valid engineering values.
-
-Offline simulation generates software records. It does not transmit to a card, emulate a physical bus controller or prove hardware operation.
+1. Open **Device Setup → Offline simulation**. Every enabled channel/bus receives RT 03 and RT 08, SA 12 receive, with 32 words per message. The editable rate is total simulated messages per second across streams.
+2. Import the installed `examples/Offline-Simulation-ICD.pdf`. Review its explicit mappings and publish. These mappings are for simulated traffic.
+3. Start simulation explicitly and select an enabled stream in Engineering or Live Plot. Stop and save to verify the same data in replay or a signal report.
+4. For real DDC traffic, publish the approved hardware ICD. Select a captured message and use **Verify against selected message** in Review signals to check the address, count, raw words, word order and engineering value.
 
 ## 5. Hardware qualification
 
@@ -80,7 +74,7 @@ Offline simulation generates software records. It does not transmit to a card, e
 2. Stop AeroTrace capture. Open **Device Setup**, select the real DDC source and set the logical device assigned to Channel 1 (External) and Channel 2 (Internal). The labels are operator labels; verify the actual physical mapping. Logical device IDs are vendor assignments, not Windows USB port numbers.
 3. Enable only the channel/bus paths actually connected. Two enabled channel groups require distinct logical-device assignments. Do not assume defaults `0` and `1` match the bench. A single device/channel can be tested by disabling the unused group.
 4. In Preferences choose the recording disk and save. Raw monitoring and complete-session CSV export require no ICD. For engineering verification, index/review the relevant ICD and select the correct profile and verify direction, address, word indexing, bit layout, numeric encoding, units and scale against a known message.
-5. Save a task workspace named for the hardware configuration. In Help & Diagnostics record the run ID and collect a baseline support bundle if initialization is failing.
+5. In Help & Diagnostics record the run ID and collect a baseline support bundle if initialization is failing.
 
 ### Perform a short receive-only run
 
@@ -96,7 +90,7 @@ The source uses DDC MTI receive-only calls. BC scheduling, active RT emulation, 
 
 ## 6. ICD PDFs, concise chat and conversion corrections
 
-**Ctrl+J** opens ICD Assistant independently of the main window. Select a PDF, choose **Index PDF**, and wait for extraction/OCR and indexing. Processing is local; capture runs on its separate worker. Each document has a separate conversation and retrieval scope based on its hash.
+**Ctrl+J** opens AeroTrace Assistant independently of the main window. Select a PDF, choose **Index PDF**, and wait for extraction/OCR and indexing. Processing is local; capture runs on its separate worker. Each document has a separate conversation and retrieval scope based on its hash.
 
 Ask short questions such as `What is TEMP's unit?`, `What is TEMP's scale?` or `Describe TEMP conversion`. Answers cite PDF source pages. **Open PDF** opens the evidence. The most recent two exchanges are displayed; the document's conversation remains saved locally. Optional local-model configuration is separate: the application does not bundle a generative LLM server. Evidence retrieval and conversion work without one.
 
@@ -119,7 +113,7 @@ For a correction, enter one explicit action, choose **Preview action**, verify t
 
 Example: a validated unsigned 16-bit extraction of hex `0BB8` is decimal `3000`. With scale `0.01` and offset `0`, engineering value is `30`. This example only applies when the ICD actually defines that field, layout, encoding and route. Flagged/short/invalid payloads do not become valid values.
 
-Ambiguous/compound instructions are rejected instead of partially applied. Numerical conversion runs in validated C++ services, not in RAG or model prose. An accepted clarification carries an operator note and a before/after audit. The original PDF and its indexed definition stay intact. Asking about the PDF can therefore show its original value even after an operator override. Save the reviewed setup as a workspace; reimporting/activating the original PDF profile can restore its original definition.
+Ambiguous/compound instructions are rejected instead of partially applied. Numerical conversion runs in validated C++ services, not in RAG or model prose. An accepted clarification carries an operator note and a before/after audit. The original PDF and its indexed definition stay intact. Asking about the PDF can therefore show its original value even after an operator override. Reimporting and publishing the original PDF profile can restore its original definition.
 
 ## 7. Monitor, engineering values and plots
 
@@ -133,21 +127,19 @@ Ambiguous/compound instructions are rejected instead of partially applied. Numer
 
 Card time is relative device/source time, displayed with milliseconds and microseconds. Hours do not wrap at midnight. UTC application-log timestamps are a different clock. Do not assume two independent boards are physically synchronized until that is established on the bench.
 
-## 8. Saved task workspaces
+## 8. Bus Analysis
 
-In **Ctrl+Shift+T**, apply simulation/check edits first and then save a named `.aerotask.json` workspace. It retains the approved profile/provenance, capture source, streams/devices, simulator settings, checks, display filters, plot selection/source, added traces, column visibility and sidebar state.
-
-Opening a task validates it before applying it. Capture must be stopped and remains stopped. Start explicitly afterward. Referenced recording files/full PDFs are not embedded in the task. Use **Clear added plot traces** to reset added trace cards. If a check references a signal absent from the newly active profile, choose a valid signal or remove that check; it is not silently reassigned.
+Open **More tools → Bus Analysis** for Inspector, Topology and Alerts. A record link from the monitor or replay opens Inspector in the same workspace. Capture Dashboard highlights a terminal after you select it.
 
 ## 9. Automatic signal checks
 
-Open Tasks → Signal checks. Add one row per signal and set engineering min/max, missing timeout in milliseconds and hysteresis. Blank bounds disable those bounds; missing timeout `0` disables its timer. Apply while stopped.
+Open **Bus Analysis → Alerts → Configure signal alerts**. Set engineering min/max, missing interval in seconds, and hysteresis for the selected signals. Blank bounds disable those bounds; missing timeout `0` disables its timer. Apply while stopped.
 
 Checks are independent per matching channel/bus. Missing timers start after that stream first produces traffic and are reset by valid decoded values. Live silent-stream timers continue between packets; offline checks use recorded time and do not extrapolate past the last record. A never-observed stream is diagnosed through device/traffic checks rather than the signal's missing timer.
 
 Events also report protocol flags, non-address status bits and backward card-time jumps. A status-bit observation is not automatically a hardware fault. Recovery transitions are logged, and clock resets restart the affected timers.
 
-Events & Alerts shows the recent 512 transitions; its checkboxes filter display. The complete live transition log stays in `.checks.jsonl`. The Events CSV contains the retained recent events, not necessarily the whole capture. Capture configuration/check rules are preserved separately in `.configuration.json`.
+The Alerts tab shows the recent 512 transitions; its checkboxes filter display. The complete live transition log stays in `.checks.jsonl`. The Events CSV contains the retained recent events, not necessarily the whole capture. Capture configuration/check rules are preserved separately in `.configuration.json`.
 
 ## 10. Sessions, replay and exports
 
@@ -157,18 +149,13 @@ Use play/pause, speed, rewind and the position control. Inspect messages and com
 
 **Stop & save** finalizes capture and exports the complete recording as `<run name>_int.csv` and `<run name>_ext.csv` into the chosen output folder. The default suggestion is `run1`, then the next available run number. If either field is missing, the save dialog offers Desktop, Documents and Browse shortcuts. Cancelling leaves the finalized recording available for retry. Filters and display retention do not restrict these files. Use **Sessions → Save selected session CSVs** to export or retry a stopped recording. The live table retains approximately 5,000 rows and the analysis cache trims around 200,000 records; raw disk recording and complete-session export are independent of those limits. See section 16 for naming, partial-failure handling and replay.
 
-**Exports & Reports** provides raw CSV/JSON and engineering CSV for a selected time range. For automatic processing of complete files, use Batch analysis. Keep generated SHA-256 files with exported data. Time ranges are card/source time, not the Windows wall clock.
+**Exports & Reports** provides raw CSV/JSON and engineering CSV for a selected time range. Use **Export signal report** for a specific signal and stream. Keep generated SHA-256 files with exported data. Time ranges are card/source time, not the Windows wall clock.
 
-## 11. Batch analysis and reporting
+## 11. Signal reports
 
-1. Stop capture. Activate/review the profile you want to apply and configure its checks.
-2. Open Tasks → Batch analysis. Select 1–100 `.atd`/`.atd2` recordings, each at most 32 MiB, and choose an output directory.
-3. Choose **Analyze and report**. Processing is sequential and runs away from the UI thread. Cancel stops at the next bounded operation; completed outputs remain available.
-4. Open the report folder. `report.html` is the readable summary; `batch-report.json` includes all outcomes, hashes, profile/check definitions and events. Each successful input has an engineering CSV and detailed JSON report.
+Open **Export signal report** from Engineering, Live Plot, or Exports & Reports. Choose a retained live snapshot or a full saved recording, the signal ID and channel/bus, and an output parent folder. The new report folder contains engineering CSV, a PNG plot and a provenance manifest.
 
-The explicitly selected profile is applied to every input; per-recording historical profiles are not automatically substituted. Recordings without matching signals have zero valid samples. Missing/corrupt inputs are reported alongside successful ones. Recovered inputs are marked incomplete. Up to 10,000 event details per input are retained in JSON, with total count and a truncation flag. Full card timestamps beyond 24 hours are preserved.
-
-Replay uses an index and bounded payload window; index memory still grows with record count. Batch analysis loads a complete input snapshot and enforces the 32 MiB per-input limit. Very large live recordings remain on disk, but huge-session streaming, automatic chunk rotation and power-loss/fsync guarantees are not qualified. Use short separate bench captures initially and preserve the complete originals rather than splitting binary files manually.
+The CSV retains matching records and sample quality. The image uses a bounded subset of valid samples. A saved recording is decoded with its latest saved profile across the file. The report identifies recovered recordings and its profile policy.
 
 ## 12. Logs and support bundles
 
@@ -212,7 +199,6 @@ If the GUI will not open, use **Collect Diagnostics** from the Start menu or run
 | Display skips with complete disk records | Investigate rendering/queue pressure separately from hardware loss. Reduce visible traces and inspect periodic health metrics and UI-delay journal events. |
 | Capture stops on disk space | Free/choose a suitable recording disk and preserve the closed/incomplete files. Do not delete an active recording. |
 | Logging/storage failure | Status bar/F1 logs path, disk free space and write permissions. New user data is outside the install folder. |
-| Batch refuses a large input | 32 MiB per-input limit; preserve the large original. Huge-session streaming is not implemented. |
 | Support ZIP incomplete | Inspect `collectionIssues`, custom paths, size limits and whether capture was active. Keep omitted raw files separately. |
 
 ## 14. Page reference and scope
@@ -233,7 +219,7 @@ If the GUI will not open, use **Collect Diagnostics** from the Start menu or run
 | Exports & Reports | Time-ranged raw/engineering datasets |
 | Preferences | Storage and display settings |
 | Help & Diagnostics | Runtime status, self-test, logs, support bundle and this guide |
-| Tasks and automation | Saved workspaces, offline generation, signal checks and batch reports |
+| Bus Analysis | Inspector, topology, recent alerts and signal checks |
 
 The local workspace/lock pages are not a physical dongle entitlement in this delivery. No key is required. No cloud service or model training is required. Physical receive behavior, sustained bench rates, card-clock accuracy, active BC/RT operation, large-file streaming, arbitrary ICD layouts, RHEL and signed public distribution are outside the completed software validation.
 
@@ -285,17 +271,17 @@ CSV exports use temporary files and validate recording CRCs while streaming. Exp
 Application logging runs on a dedicated writer with bounded buffering, batched writes and shutdown draining. Queue or storage failures remain visible. UI heartbeat delays and slow refreshes include the recording path. Capture journals retain SDK calls, queue pressure, buffer loss, draining and integrity outcomes. These software measurements do not qualify physical DDC monitoring; complete the SES bench checklist with known passive traffic.
 
 
-## 18. Match the live monitor with a CSV export
+## 18. Save and convert CSV files
 
-Compare the same **record number and session**, not the visible row position. The monitor retains recent rows and can filter traffic; Stop & save exports the complete recording, including earlier records and the final drained tail. External is CH1 and Internal is CH2.
+Stop & save writes the complete recording to paired `_EXT.csv` (CH1) and `_INT.csv` (CH2) files. Display filters and paused plots never limit this export. Empty channels produce a header-only file. Choose the output layout and word base beside the run name before saving. Retries preserve the format and base allocated to that session.
 
-Complete-session CSV v2 retains the original first 16 raw fields and adds monitor-style `time`, `rt`, `sa`, `direction`, `word_count`, and `quality`. Raw `timestamp_ns` retains full device precision; `time` matches the monitor's microsecond display. Additional `command_hex`, `status_hex`, vendor/second-command/status hex and `word_0_hex` through `word_31_hex` use explicit `0x` prefixes. These text values preserve leading zeros and hex values such as `1E10` in spreadsheets. `session_id` identifies the source recording. CSV files use UTF-8 with a BOM so spreadsheet programs display arrows correctly.
+The default compact layout has eleven columns: Time, DeltaT, BlockStatus, MessageType, Bus, Rx_Cmd, Tx_Cmd, Tx_Status, Data, Rx_Status, BSW_err_str. Commands include readable RT, SA and encoded word-count descriptions. WC 00 means 32 data words for an ordinary data command. Payload words share the Data cell, in original order. Missing commands/statuses stay blank.
 
-The original `words` field is unchanged uppercase, zero-padded hex. If a spreadsheet reformats an unprefixed legacy field, compare against the explicit `_hex` columns or import that column as Text. A nanosecond timestamp and a formatted card time represent the same stored timestamp. Keep the ATD recording for lossless replay.
+Time is relative card time, formatted as elapsed days:hours:minutes:seconds:microseconds. Days start at zero; no calendar or wall-clock offset is added. DeltaT is a signed microsecond difference within each exported channel. Keep backward deltas as evidence. The compact CSV omits the global recording ID, so a per-channel CSV row number is not the ATD record ID. Keep the original ATD and its export manifest for integrity and full provenance.
 
-The supplied 0.4.0 `run1_EXT.csv` and `run1_INT.csv` were checked against their original CRC-valid recording: all 305 records matched (153 External, 152 Internal). This checks the saved recording against its exports; a historical live-screen snapshot was not supplied. The original files were preserved.
+Legacy 42-column CSV remains selectable. The detailed diagnostic raw CSV retains its separate native schema. Session manifests stay beside the recording and preserve the selected format, hashes and export counts. Existing files are protected from accidental replacement.
 
-Live monitor's save is tied to its displayed live capture, even after visiting a different replay. The visible Live capture ID matches the CSV `session_id`. Saving a selected file from Sessions does not replace that live-capture identity.
+To inspect or convert a saved file, open **Sessions / Exports → Open / convert saved CSV**. Select the base for unprefixed input words; explicit 0x, 0b and 0o prefixes remain unambiguous. Preview 100 rows at a time. Export a new raw copy in hexadecimal, unsigned decimal, binary or octal, or explicitly confirm published rules and a channel to export engineering values. Conversion runs in the background and can be cancelled. Original files are never changed. An imported CSV does not establish the integrity or acquisition origin of a raw ATD recording.
 
 ## 19. DDC readiness and protocol interpretation
 
@@ -312,3 +298,50 @@ Service Request and other informational status bits do not automatically mark da
 CSV schema `aerotrace.raw-csv.v3` retains the existing columns and appends transaction participants, mode information, expected/actual payload counts, eligibility/reasons, presence flags, status meanings and evidence/timing labels. For mode commands, ordinary `word_count` is blank. Existing ATD1/ATD2 recordings remain readable and unchanged; missing SDK evidence is identified as inferred.
 
 Response-time and intermessage-gap verdicts are **not measured**. Timestamp encoding does not establish physical accuracy; classic timestamp rollover ambiguity remains visible. Separate card clocks are not assumed synchronized. See [DDC protocol safety](DDC-Protocol-Safety.md) and complete the [hardware checklist](SES-Bench-Checklist.md) independently on this PC and SES.
+
+
+## Signal review and quiet-bus monitoring
+
+For the BU-67113U bench setup, choose **32-bit compatibility helper**,
+**Automatic MTI / MT by device capability**, and **ddc-3.6.15-x86**.
+Connect, then select Start recording. Healthy polling can wait indefinitely
+for bus traffic. Use Stop & save to finalize the recording.
+
+Import an ICD PDF or open **ICD Library → Review signals** to enter or paste
+mappings. Complete the staged fields, preview hex words or a selected
+record, and publish. Use Engineering to inspect quality and open a signal
+plot. AeroTrace Assistant stays scoped to the selected PDF and includes source pages.
+See [ICD documents](icd-documents.md) for the CSV template.
+
+
+## Subsystem Workspace and offline assistant (0.7.0)
+
+Open **ICD & Analysis** in the main navigation. Mapping, Engineering and Analysis are tabs within the same workspace. The selected ICD, subsystem and bus route stay visible. Navigation and splitter sizes change only when you change them.
+
+In Mapping, choose **Manage ICDs** to import, rename, open/edit, replace a revision, archive or restore an ICD. Archiving previews which active mappings will be deactivated. Old conversations, PDF evidence and saved recording profiles remain available. Original supplier PDFs are never deleted. A replacement remains in review until publication.
+
+Open Review subsystem to fill missing conversion fields. Apply conversion preset previews bulk changes to word order, channel and explicitly confirmed scale/offset values. Existing edits are preserved unless replacement is deliberately enabled. Re-imports flag changed source definitions. Unresolved fields block publication; publishing one subsystem preserves the other groups.
+
+Engineering lists the stored conversion rules. Select a signal, choose an input base, enter that field's raw words, and choose **Preview conversion**. Alternatively use a record selected in the monitor or saved replay. Expand encoding/calibration details to inspect or review the rule and open its PDF evidence. Base describes how bits are written; encoding describes their meaning. The same native decoder supplies preview, Engineering, Analysis and replay. A decoded finite number still needs an independently known sample or physical limits to establish plausibility.
+
+Choose **Plot selected signal** to open Analysis with one large trace. Compare reveals the other panes. The compact **Tools** menu provides cursor inspection, pan, rectangle zoom, previous zoom, Follow, axes/time range, limits, statistics, Focus plot and data export. Manual inspection disables automatic following; Follow resets the axes. Pause affects display only. Statistics describe retained source samples in the visible range, not every sample of an entire long recording. Gaps and backward-time boundaries remain visible; device clocks are not silently aligned. Export saves a plot PNG or retained trace CSV.
+
+**AeroTrace Assistant** opens in its own window. Use New chat, search previous conversations, or Load older messages. New chats inherit the current workspace subsystem; existing conversations retain their ICD and scope. Choose PDF evidence or Published mappings. Table answers retain complete results in pages of 13 rows with page citations. The multiline composer sends with Ctrl+Enter. General engineering references and the last native preview are labeled separately from supplier evidence. Chat never activates mappings or invents conversion settings.
+
+The bundled offline AeroTrace Assistant loads for explanatory questions when memory permits. It runs separately with two CPU threads, a 20% CPU cap and a 2.5 GiB process memory cap, and unloads after two idle minutes. Capture or low memory pauses generation while structured source answers remain available. Cancel stops the request. Check evidence before relying on an explanation.
+
+The startup splash remains for at least five seconds, with static rendering when Windows animations are disabled. Setup includes a subtle signal animation alongside actual installation progress. The fully offline model remains bundled; see Release-0.7.0.md for measured sizes and qualification scope.
+
+## Recorded CSV analysis and reliable saves (0.7.0)
+
+Open **Sessions → Open CSV Viewer** for a saved session's External/Internal files, or use the same action in Exports to browse another CSV. Preview shows 100 rows per page. Double-click a row for full original values. Verified export metadata supplies the input base and channel; otherwise choose the input base and confirm the channel. Filename suffixes only suggest a channel.
+
+Select a data-message row and choose **Plot selected**. Pick up to four raw words or published engineering signals, one channel and bus, and optionally a card-time range. Raw word indices are zero-based. The Analysis tab labels the source **Recorded CSV**. No recording or hardware connection is needed. Its mapping snapshot stays fixed until you open another plot. CSV does not establish the original capture's integrity; use retained ATD replay for validated recordings.
+
+Use **Tools → Scan range** to choose a range and calculate full-range sample count, minimum, maximum, mean, population standard deviation, RMS and peak-to-peak. **Statistics** opens the results. Statistics exclude invalid engineering samples. Gaps and backward timestamps remain visible; samples are never sorted or time-corrected. The plot uses a bounded min/max envelope. Cursors show original row numbers for retained points. Narrow the scanned range to inspect finer detail. Tools provide cursor, pan, rectangle zoom, zoom back, axes, reset and Focus plot. Comparison panes retain separate units. Existing signal-alert limits are copied into the selected engineering trace.
+
+**Export new copy** converts CSV bases or creates a separate engineering CSV after explicit rule confirmation. Original files remain unchanged. Hexadecimal, unsigned decimal, binary and octal describe raw bits; IEEE 754/integer/BCD encoding determines their meaning. Engineering previews and plot labels use at most six decimal places; calculations and machine-readable exports retain full precision.
+
+When a save takes longer than 300 ms, a progress panel shows stopping, writing or verification status. Wait until completion before saving again or closing. To keep another format, change the CSV base/layout and Save again: the preview lists the new pair, such as run3_hex_EXT.csv and run3_hex_INT.csv. Original octal files remain. Retrying unchanged settings reuses verified files and retains that export's reservation.
+
+After an interrupted or unsaved recording, the next launch offers **Save CSVs**, **Review in Sessions** or **Later**. Recordings already reside on disk. Later keeps them. Incomplete recordings export their valid prefix with an incomplete warning; raw bytes remain untouched.

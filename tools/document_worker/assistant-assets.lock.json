@@ -1,0 +1,62 @@
+{
+  "schema": "aerotrace.offline-assistant.v1",
+  "model": {
+    "repository": "ggml-org/Qwen3-1.7B-GGUF",
+    "revision": "daeb8e2d528a760970442092f6bf1e55c3b659eb",
+    "file": "Qwen3-1.7B-Q4_K_M.gguf",
+    "sha256": "d2387ca2dbfee2ffabce7120d3770dadca0b293052bc2f0e138fdc940d9bc7b5",
+    "bytes": 1282439264,
+    "license": "Apache-2.0"
+  },
+  "runtime": {
+    "requested_release": "v0.9.0",
+    "resolved_build": "b12110",
+    "revision": "cd959bae99ff4bed22bef2604f45241c09bbb8c8",
+    "archive": "llama-b12110-bin-win-cpu-x64.zip",
+    "sha256": "98901e327c252875accaf2d1bf364e10e868843b0b63468baad1aa945cdc5da2",
+    "license": "MIT"
+  },
+  "files": {
+    "runtime/ggml-base.dll": "3a0399fa51102a86824255beda9d021ea7e8cd2bd8ca448a43a9a80aa4829290",
+    "runtime/ggml-cpu-alderlake.dll": "1de7a0d14d70bd741f2e4cdfa959176fee26680d6fbc78c717c0bd19e20b6233",
+    "runtime/ggml-cpu-cannonlake.dll": "1451909b84c223739247088a0e03db0f89bcd83461f2af43f53d794727afddcd",
+    "runtime/ggml-cpu-cascadelake.dll": "74d79278bd20143d3e7deeb2b5c033555f9d621016a7152b5190a2fcbf30265c",
+    "runtime/ggml-cpu-cooperlake.dll": "737f0e96f23ca7d66c8dc55eace36ebbfd47770a9a228c804ffff5bf66f933a8",
+    "runtime/ggml-cpu-haswell.dll": "85d9ffd6f84fd0ec01586420b935ac4d5a5c9a1ab76b533eb3ddc060c1fe2869",
+    "runtime/ggml-cpu-icelake.dll": "41ca727e74b171983ea9afe0250553706c09225c10a8c6ad72a619f9189279a8",
+    "runtime/ggml-cpu-ivybridge.dll": "39752b7667cb34b3bbd06178fac83803f6089771d43873a9c81015d2a98c280b",
+    "runtime/ggml-cpu-piledriver.dll": "65bef2ae4f69256d9aff053a6fff1abdbd33acdbc51ede863d8bc5bd43c53ee8",
+    "runtime/ggml-cpu-sandybridge.dll": "5359624dee5670cb299c08f4a49347f7a6f4d0df35ed4c0a91164e4d771b3e23",
+    "runtime/ggml-cpu-sapphirerapids.dll": "a7a395d0e49f182240c9a2ed1d623398911506bdae418baf161354541aa06a89",
+    "runtime/ggml-cpu-skylakex.dll": "6bd53dc5731c5b9e4d3fbf98a9dc5b3ce76d357be9a579bc6c8cedac035462e8",
+    "runtime/ggml-cpu-sse42.dll": "1e1700e6b6eef26b6abb0bc68669b6ee9fdad2b8d00058e491cb5160eb54afc2",
+    "runtime/ggml-cpu-x64.dll": "81877c8787f9d5680b990f4cf5f8b89ba5b02ee5064b36abfd53d9d2ffb50916",
+    "runtime/ggml-cpu-zen4.dll": "b5c1eec79e83878303acfa774f1275d9e025493b2c23f2a01af09fe985cdc21a",
+    "runtime/ggml-rpc.dll": "6f7508cdb895ba2d5cba72ade374ba04a3bf408da0c8f0203ac9de9ec5993ebf",
+    "runtime/ggml.dll": "06dfdff8b7b834c757ec5b5411abfc0f732604fb595eaaffbdc6da563523e8a1",
+    "runtime/libomp.dll": "a12116ba72d1d6820407cf30be23da04ce79d6bb8a71a5ee71759c5a1faa6f1c",
+    "runtime/LICENSE-LLVM-OpenMP": "fdad1758a9e1f9d5a81e18879b3406772115edc92c24bfa36b70c654f325e8e4",
+    "runtime/llama-batched-bench-impl.dll": "c6ebea5727fa9389ffa863831f594d0f8e12be52078b72ff3ddf96846d56e8e0",
+    "runtime/llama-bench-impl.dll": "da476f661ea0f7c1944528b2a41e746e61ff5b31830b6493be76ab8efd72f0cc",
+    "runtime/llama-cli-impl.dll": "d717cbcf8165393d29fda98282018c777de028306f407bc5894eb05f3788474b",
+    "runtime/llama-common.dll": "0898e517843e4478b5178621dc878552b4d40a4d47d7b6f1775e7897f4e2344e",
+    "runtime/llama-completion-impl.dll": "e817efece35b0aa03b4527054638d6e576ba1c36df82a33eabfc834fa70bfac4",
+    "runtime/llama-fit-params-impl.dll": "563c26491a23411f36fff5ba862a3d8adf1d9c71e432bc64bd50dc705bb88da3",
+    "runtime/llama-perplexity-impl.dll": "07f127d8dc44b0c47b0502bb2f370a1d93c24a8fae88e82a69e8de6e47a677b3",
+    "runtime/llama-quantize-impl.dll": "df915f459101d6c36362298721537b4a28312d985a47a1422ca26868afedda44",
+    "runtime/llama-server-impl.dll": "c5d306bdcad1c4011f18a1c01ae2fcdca48a197af0d421c2931ace2cfb487fc6",
+    "runtime/llama-server.exe": "00d50686815af38249d0218c91558fbd0e9093ac8c074bac86196907f4305e31",
+    "runtime/llama.dll": "211b91d86e67c49f12eb97992b45ae4c2fc797d6edab48637835a877c808890e",
+    "runtime/mtmd.dll": "74a3cace50f6c545cc66e4dc05e2aecf465f146ea1b4000376cd9834598a3e14"
+  },
+  "limits": {
+    "context": 2048,
+    "threads": 2,
+    "cpu_percent": 20,
+    "process_memory_mib": 2560,
+    "idle_unload_seconds": 120,
+    "requests": 1
+  },
+  "model_license_revision": "70d244cc86ccca08cf5af4e1e306ecf908b1ad5e",
+  "model_license_sha256": "832dd9e00a68dd83b3c3fb9f5588dad7dcf337a0db50f7d9483f310cd292e92e"
+}

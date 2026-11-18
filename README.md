@@ -1,3 +1,36 @@
+# AeroTrace 0.7.0 bench candidate
+
+See [0.7.0 release status](docs/Release-0.7.0.md) for Recorded CSV Analysis,
+format-preserving save copies, startup recovery, five-second splash and offline
+Assistant evidence improvements. Qualification results and remaining gates are
+recorded in the release note.
+
+# AeroTrace 0.6.11 bench candidate
+
+See [0.6.11 release status](docs/Release-0.6.11.md) for the stable workspace, conversion preview, independent Assistant, compact CSVs and verification scope.
+
+# AeroTrace 0.6.10 bench candidate
+
+See [0.6.10 release status](docs/Release-0.6.10.md) for the initial Subsystem Workspace and bundled offline model.
+
+# AeroTrace 0.6.9 bench candidate
+
+See [0.6.9 release status](docs/Release-0.6.9.md) for the startup splash, ICD workflow, Live Plot limits, and Windows installer.
+
+# AeroTrace 0.6.8 bench candidate
+
+See [0.6.8 release status](docs/Release-0.6.8.md) for the offline ICD, clean replacement setup, and bench verification.
+
+# AeroTrace 0.6.7 bench candidate
+
+See [0.6.7 release status](docs/Release-0.6.7.md) for installation, simulation, signal reports and qualification scope.
+
+# AeroTrace 0.6.6 bench candidate
+
+See [0.6.6 release status](docs/Release-0.6.6.md) and the
+[signal review workflow](docs/icd-documents.md). Earlier release sections
+below describe their historical scope.
+
 # AeroTrace 0.6.3 connection recovery
 
 See [0.6.3 delivery and installer command](docs/Release-0.6.3.md). Physical hardware acceptance remains NOT RUN. Earlier release sections below are historical.
@@ -35,7 +68,7 @@ Launch the installed application or the locally built `aerotrace_desktop` target
 - Recording always requires **Start recording**. Changing connection settings closes the idle connection so the new settings are applied on the next explicit Connect.
 - Select a row once; it remains selected as new batches arrive. **Inspect**, **Engineering** and **Plot** give direct access to the existing analysis views.
 - **Export CSV** saves a unique file, checksum and ICD sidecar into the configured export folder without a repeated Save dialog. It applies the selected display filters to the retained analysis window. Load a completed session for exports of its full loaded contents.
-- Drop one local ICD **PDF or JSON** onto the workspace, or press **Ctrl+I**. Complete supported PDF rules activate automatically; uncertain extraction still requires evidence review. The active profile persists between launches.
+- Drop one local ICD **PDF or JSON** onto the workspace, or press **Ctrl+I**. PDF rules require explicit publication after review. The active profile persists between launches.
 - Body text is 15 px, the monitor table is 14 px with larger rows, and the palette uses neutral surfaces, graphite, green, amber and red. Blue and purple accents are removed, including plot traces.
 
 The self-contained package includes Qt dependencies. A bare build executable should be run through the configured Qt Creator kit or with the Qt runtime on PATH.
@@ -46,7 +79,7 @@ See [operator design and reference review](docs/design/operator-workflow.md) and
 
 **ICD chat** in the header (**Ctrl+J**) opens the separate [ICD Assistant](docs/icd-assistant.md). Choose a PDF, index it, ask cited questions and return to its saved conversation later. Answers are scoped to the selected ICD; switching chat documents does not switch the active conversion rules. The Mappings and evidence tab provides explicit review/activation.
 
-Use [the demo ICD kit](examples/demo-icd/README.md): a digital PDF, image-only OCR PDF, matching JSON and expected conversion CSV. The digital PDF automatically activates nine validated rules. The scanned sample exercises OCR and currently sends nine uncertain rows to evidence review; it does not silently activate questionable conversions. ICD understanding creates a local searchable index and validated rules, rather than retraining model weights.
+Use [the demo ICD kit](examples/demo-icd/README.md): a digital PDF, image-only OCR PDF, matching JSON and expected conversion CSV. The digital PDF supplies nine rules for explicit review and publication. The scanned sample exercises OCR and currently sends nine uncertain rows to evidence review; it does not silently activate questionable conversions. ICD understanding creates a local searchable index and validated rules, rather than retraining model weights.
 
 Engineering displays all active mappings with raw words, engineering values, units, `HH:MM:SS.mmm.uuu` card time and quality. Select a row and Plot selected signal, or double-click it. Monitor Columns → Individual data words exposes all 32 word columns; double-click a mapped word for engineering plotting, or plot an unmapped numeric column as raw values. Signal plots and cursor inspection stay on the selected channel/bus clock. Hours do not wrap at 24. Original ticks and packets are preserved; physical idle gaps and clock resets are reported rather than concealed.
 
@@ -66,7 +99,7 @@ The supplied November 2 SES notes report BU-67113U, started acexusb 3.6.15.1 and
 
 1. Open **ICD Library → PDF / OCR / ICD evidence**, or import a PDF directly.
 2. Embedded text/tables are extracted first. Image-only pages use local OCR, including cell recognition for ruled tables.
-3. Complete explicit rules become a validated profile automatically. Missing addressing, unclear indexing, unsupported types, conflicting IDs or uncertain OCR remain in review. Review candidates against their linked source page and check accepted rows; unresolved values never become live rules.
+3. Complete rules enter the review grid for explicit publication. Missing addressing, unclear indexing, unsupported types, conflicting IDs or uncertain OCR remain in review. Review candidates against their linked source page and check accepted rows; unresolved values never become live rules.
 4. Approved mappings feed worker-side engineering conversion and live plots. Integer fields up to 64 bits, signed values, IEEE float32/64, packed BCD, scale/offset, word order, channel and bus constraints are supported.
 5. Search imported ICDs using **SQLite FTS5 BM25 + local MiniLM semantic vectors**. Extractive answers include document/page citations. An optional loopback OpenAI-compatible model endpoint can synthesize prose; no language-model server or generative weights are bundled.
 

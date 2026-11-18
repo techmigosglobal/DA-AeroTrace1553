@@ -18,7 +18,7 @@ struct CaptureMetrics {
   double maxBatchMilliseconds{};
   std::array<TimingHistogram,TimingStageCount> timings{};
   std::uint64_t decodedValues{},invalidValues{};
-  std::array<std::uint64_t,4> sourceCounts{};
+  std::array<std::uint64_t,4> sourceCounts{}, lastTrafficNs{};
   std::array<std::uint64_t,2> channelLost{},channelOverflows{};
   std::array<DeviceState,2> devices;
   std::array<bool,2> configuredChannels{}; // Successful configuration before any atomic rollback, not current connectivity.

@@ -4,6 +4,8 @@
 #include "models/record_model.hpp"
 #include "models/rt_record_model.hpp"
 #include "workbench.hpp"
+#include "services/local_inference.hpp"
+#include "services/recorded_csv.hpp"
 #include "pages/page_catalog.hpp"
 class Window : public QMainWindow {
   QWidget *root{}, *content{};
@@ -36,7 +38,9 @@ class Window : public QMainWindow {
   QPointer<QLabel> outputPreview;
   std::array<std::array<QLabel *,31>,2> rtLights{};
   QPointer<QLabel> rtDetail,rtLegend;
-  int selectedRt{3};
+  int selectedRt{-1};
+  void selectCaptureSource(int mode);
+  void restoreCaptureSource();
   quint64 replaySeekGeneration{};
   bool replaySeekPending{};
   bool replayLoadPending{};
@@ -46,7 +50,12 @@ class Window : public QMainWindow {
   aero::RtActivity replayActivity;
   QWidget *saveControls(bool compact=false);
   bool chooseSaveDestination();
-  void exportFinalizedSession(const QString &);
+  void exportFinalizedSession(const QString &,bool retry=false);
+  void beginSaveProgress();
+  void finishSaveProgress();
+  QPointer<QDialog> saveProgress;
+  QPointer<QLabel> saveProgressLabel;
+  quint64 saveProgressGeneration{};
   void persistMonitorWorkspace();
   void refreshRtDashboard();
   void applyMonitorLayout();
@@ -69,6 +78,7 @@ class Window : public QMainWindow {
 
 
   aero::Workbench backend;
+  desktop::LocalInference inference{this};
   QTimer tick;
   QSettings settings;
   int page = 0;
@@ -78,7 +88,7 @@ class Window : public QMainWindow {
   QLabel *replayTime{};
   QString currentFile, sessionDir;
   QLineEdit *signalId{}, *signalUnit{}, *scaleEdit{}, *offsetEdit{}, *rawEdit{};
-  QSpinBox *rtEdit{}, *saEdit{}, *wordEdit{}, *widthEdit{}, *lsbEdit{};
+  QSpinBox *rtEdit{}, *saEdit{}, *wordEdit{}, *widthEdit{}, *lsbEdit{}, *expectedWordCountEdit{};
   QComboBox *signedEdit{}, *directionEdit{};
   QComboBox *numericTypeEdit{}, *wordOrderEdit{};
   QLabel *preview{};
@@ -102,7 +112,15 @@ class Window : public QMainWindow {
   QString eventText;
   std::string editingSignalId;
   QPointer<QDialog> documentDialog;
-  QPointer<QDialog> taskDialog;
+  QPointer<QDockWidget> documentDock;
+  QJsonObject workspaceDocument;
+  QString workspacePdf,workspaceSubsystem,workspaceScopeKey;
+  QPointer<QLabel> engineeringDetails;
+  QWidget *attachIcdWorkspace();
+  void rememberIcdDocument(const QJsonObject &,const QString &);
+  void restoreIcdDocument();
+  bool inWorkspace(const aero::Signal &) const;
+  void updateEngineeringDetails();
   QFrame *sidebar{};
   QPushButton *sidebarToggle{},*captureButton{};
   bool sidebarCollapsed{},moreToolsVisible{},connecting{},automaticHeld{},connectionIsRecording{},disconnectAfterSave{};
@@ -115,6 +133,9 @@ class Window : public QMainWindow {
   std::uint64_t selectedMonitorId{};
   int selectedMonitorColumn{},plotRawColumn{-1};
   unsigned preferredSignalIndex{},analysisChannel{1};int analysisBus{};
+  std::array<QString,4> plotPanelIds;
+  bool plotPanelsInitialized{};
+  QString replayProfileDescription;
   QStringList extraPlotIds;
   void plotMonitorSelection();
   void refreshEngineeringTable();
@@ -124,12 +145,13 @@ class Window : public QMainWindow {
   QElapsedTimer applicationKeyClock;
 
 public:
+  void findUnsavedRecordings();
   template<class Form> Form showForm() {
     auto panel = new QWidget;
     Form form;
     form.setupUi(panel);
     panel->setProperty("designerSource", desktop::pages.at(page).form);
-    pageLayout->addWidget(panel,page==4 ? 1 : 0);
+    pageLayout->addWidget(panel,(page==4 || page==6 || page==7) ? 1 : 0);
     if (auto bar = panel->findChild<QWidget *>("actionBar");bar && page!=4)
       titleActions->addWidget(bar);
     return form;
@@ -159,6 +181,12 @@ public:
   void selectRelative(int delta);
   void engineering();
   void plotPage();
+  void configureAnalysisTools(bool recorded=false);
+  void configureSignalAlerts();
+  void manageIcds();
+  void csvTools(const QString &recording={});
+  void recordedCsvPage();
+  std::optional<desktop::RecordedCsvRequest> recordedCsv;
   void exportPlot();
   void topology();
   void events();
@@ -187,6 +215,10 @@ public:
   void importIcd();
   void importIcdPath(const QString &);
   void exports();
+  void exportSignalReport(QString suggestedId={});
+  void addEngineeringActions();
+  QString trafficMismatch(const aero::Signal &signal,unsigned channel,int bus) const;
+  bool signalReportWorkflowTest(const QString &directory);
   void createExport();
   void security();
   void removeKey();
@@ -206,7 +238,7 @@ public:
   void automaticCapture();
   void configurationChanged();
   void exportMonitorCsv();
-  void stopAndSave(QString recording={});
+  void stopAndSave(QString recording={},bool retry=false);
   void rescanDdc(QLabel *target=nullptr);
   void openCardManager();
   void buildMonitorPanes(QTableView *);
@@ -216,6 +248,7 @@ public:
   bool rtMonitorWorkflowTest(const QString &);
   bool sessionWorkflowTest(const QString &);
 
+  bool stableWorkspaceTest(const QString &);
   bool operatorWorkflowTest(const QString &);
   void toggleCapture();
   void updateLive();
@@ -226,11 +259,11 @@ public:
   void documentCenter(QString pdf={});
   void activateProfile(const QJsonObject &);
   void persistProfile();
-  void taskCenter();
-  QJsonObject taskSnapshot(const QString &) const;
-  QString restoreTask(const QJsonObject &);
+  QString publishProfile(const std::vector<aero::Signal> &);
+  void reviewSignals(QJsonArray rows={}, const QString &csv={}, bool replace=false);
+  void reviewDocument(const QJsonObject &,const QString &,const QJsonArray &checked={});
+  QPointer<QDialog> signalReviewDialog;
   QString applyReviewedAction(const QJsonObject &,const QJsonObject &base,const QString &documentHash);
-  bool automationWorkflowTest(const QString &);
   void setupKeyGate();
   void verifyApplicationKey(bool interactive);
   void lockForApplicationKey(const QString &);

@@ -1,6 +1,6 @@
-AeroTrace 1553 V0.6.1
+AeroTrace 1553 V0.7.0
 
-All application libraries and the offline PDF/OCR/retrieval runtime are installed together. No separate Qt, Python, Node.js or internet connection is required.
+All application libraries and the offline PDF/OCR/retrieval runtime and CPU-only AeroTrace Assistant are installed together. No separate Qt, Python, Node.js or internet connection is required.
 
 Real DDC acquisition additionally requires a verified SDK/provider/runtime, matching vendor x64 driver, and correct logical-device assignments. A review installer only inspects prerequisites. A complete bundle is blocked until actual vendor redistribution and hardware qualification receipts are supplied. Complete bundles preserve existing drivers and staged packages; signed driver installation is limited to a missing matching device. Repair is an explicit separate operation, with backup and no forced replacement or automatic reboot. Uninstall retains shared drivers, Card Manager, recordings and preferences.
 

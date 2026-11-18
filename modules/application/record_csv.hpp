@@ -6,7 +6,23 @@
 #include <iomanip>
 #include <locale>
 #include <charconv>
+#include <stdexcept>
 namespace aero {
+enum class CsvLayout { Compact11, Legacy42 };
+enum class NumericRadix : unsigned { Hexadecimal=16, Decimal=10, Binary=2, Octal=8 };
+struct CsvExportOptions {
+  CsvLayout layout{CsvLayout::Compact11};
+  NumericRadix radix{NumericRadix::Hexadecimal};
+};
+inline std::string rawNumber(std::uint16_t value,NumericRadix radix,bool payload=false) {
+  const auto base=unsigned(radix);
+  if(base!=2 && base!=8 && base!=10 && base!=16)throw std::invalid_argument("Unsupported numeric base");
+  char digits[32];auto end=std::to_chars(digits,digits+sizeof(digits),value,base).ptr;
+  std::string text(digits,end);
+  const auto width=base==2?16u:base==8?6u:0u;
+  if(text.size()<width)text.insert(0,width-text.size(),'0');
+  return (base==2?"0b":base==8?"0o":base==16&&payload?"0X":"")+text;
+}
 inline std::string csvHex(std::uint16_t value) {
   constexpr char digits[]="0123456789ABCDEF";
   const char text[]{digits[(value>>12)&15],digits[(value>>8)&15],digits[(value>>4)&15],digits[value&15]};
@@ -66,11 +82,11 @@ inline std::string sessionCsvCommand(std::uint16_t word) {
   out+=" --> ";sessionCsvNumber(out,c.rt,2);out+='-';out+=c.transmit?'T':'R';out+='-';
   sessionCsvNumber(out,c.sa,2);out+='-';sessionCsvNumber(out,word&31,2);return out;
 }
-inline std::string sessionCsvHeader() {
+inline std::string legacySessionCsvHeader() {
   std::string s="DateTime,DeltaT,BlockStatus,MessageType,Bus,Rx_Cmd,Tx_Cmd,Tx_Status,Rx_Status,WordCount";
   for(unsigned i=0;i<32;++i)s+=",DataWord_"+std::to_string(i);return s+"\n";
 }
-inline std::string sessionCsvRecord(const Record &r,std::optional<std::uint64_t> previous={}) {
+inline std::string legacySessionCsvRecord(const Record &r,std::optional<std::uint64_t> previous={}) {
   const auto p=interpret(r);std::string rx,tx,txStatus,rxStatus;
   if(p.commandPresent)(p.first.transmit?tx:rx)=sessionCsvCommand(r.commandWord);
   if(p.command2Present)(p.second.transmit?tx:rx)=sessionCsvCommand(r.commandWord2);
@@ -83,6 +99,46 @@ inline std::string sessionCsvRecord(const Record &r,std::optional<std::uint64_t>
   CsvBuffer out;out<<sessionCsvTime(r.timestampNs)<<','<<delta<<','<<sessionCsvHex(r.vendorStatus)<<','<<type<<','<<(r.bus?'B':'A')
     <<','<<rx<<','<<tx<<','<<txStatus<<','<<rxStatus<<','<<r.words.size();
   for(unsigned i=0;i<32;++i){out<<',';out<<(i<r.words.size()?sessionCsvHex(r.words[i]):"-");}
+  out<<'\n';return std::move(out.text);
+}
+
+inline std::string sessionCsvHeader(CsvExportOptions options={}) {
+  return options.layout==CsvLayout::Legacy42?legacySessionCsvHeader():
+    "Time,DeltaT,BlockStatus,MessageType,Bus,Rx_Cmd,Tx_Cmd,Tx_Status,Data,Rx_Status,BSW_err_str\n";
+}
+inline std::string compactCsvTime(std::uint64_t ns) {
+  const auto us=ns/1000;std::string text;
+  sessionCsvNumber(text,us/86400000000ULL,2);text+=':';
+  sessionCsvNumber(text,(us/3600000000ULL)%24,2);text+=':';
+  sessionCsvNumber(text,(us/60000000ULL)%60,2);text+=':';
+  sessionCsvNumber(text,(us/1000000ULL)%60,2);text+=':';
+  sessionCsvNumber(text,us%1000000ULL,6);return text;
+}
+inline std::string compactCsvCommand(std::uint16_t word,NumericRadix radix) {
+  const auto c=command(word);std::string text=radix==NumericRadix::Hexadecimal?csvHex(word):rawNumber(word,radix);
+  text+=" -->RT ";sessionCsvNumber(text,c.rt,2);text+=c.transmit?"-T-SA ":"-R-SA ";
+  sessionCsvNumber(text,c.sa,2);text+=(c.sa==0||c.sa==31)?"-MC ":"-WC ";
+  sessionCsvNumber(text,word&31,2);return text;
+}
+inline std::string sessionCsvRecord(const Record &r,std::optional<std::uint64_t> previous={},CsvExportOptions options={}) {
+  if(options.layout==CsvLayout::Legacy42 && options.radix==NumericRadix::Hexadecimal)return legacySessionCsvRecord(r,previous);
+  const auto p=interpret(r);std::string rx,tx,ts,rs;
+  const auto commandText=[&](std::uint16_t word){if(options.layout==CsvLayout::Legacy42){auto text=sessionCsvCommand(word);text.replace(0,4,rawNumber(word,options.radix));return text;}return compactCsvCommand(word,options.radix);};
+  if(p.commandPresent)(p.first.transmit?tx:rx)=commandText(r.commandWord);
+  if(p.command2Present)(p.second.transmit?tx:rx)=commandText(r.commandWord2);
+  if(p.statuses[0].present)(p.rtToRt||p.first.transmit?ts:rs)=rawNumber(r.statusWord,options.radix);
+  if(p.statuses[1].present)rs=rawNumber(r.statusWord2,options.radix);
+  auto type=std::string(p.direction);for(auto i=type.find("→");i!=std::string::npos;i=type.find("→",i+3))type.replace(i,3,options.layout==CsvLayout::Legacy42?"->":" --> ");
+  const auto difference=previous?(r.timestampNs>=*previous?r.timestampNs-*previous:*previous-r.timestampNs)/1000:0;
+  const auto delta=(previous&&r.timestampNs<*previous&&difference?"-":"")+std::to_string(difference);
+  CsvBuffer out;out<<(options.layout==CsvLayout::Compact11?compactCsvTime(r.timestampNs):sessionCsvTime(r.timestampNs))<<','<<delta<<','<<rawNumber(r.vendorStatus,options.radix)<<','<<type<<','<<(r.bus?'B':'A')<<','<<rx<<','<<tx<<','<<ts<<',';
+  if(options.layout==CsvLayout::Legacy42){out<<rs<<','<<r.words.size();for(unsigned i=0;i<32;++i){out<<',';if(i<r.words.size())out<<rawNumber(r.words[i],options.radix);else out<<'-';}}
+  else {
+    for(unsigned i=0;i<r.words.size();++i){if(i)out<<"  ";out<<rawNumber(r.words[i],options.radix,true);}
+    out<<','<<rs<<',';
+    const auto reason=protocolQuality(r,p,false)=="OK"?std::string():protocolDiagnostics(r,p);
+    out<<'"';for(char c:reason){if(c=='"')out<<'"';out<<c;}out<<'"';
+  }
   out<<'\n';return std::move(out.text);
 }
 

@@ -1,4 +1,4 @@
-param([string]$PackageName='AeroTrace1553-0.6.4',[string]$OutputBaseName='',[string]$Compiler='')
+param([string]$PackageName='AeroTrace1553-0.7.0',[string]$OutputBaseName='',[string]$Compiler='')
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'resolve-inno-compiler.ps1')
 $Compiler=Resolve-InnoCompiler $Compiler
@@ -12,20 +12,21 @@ if(!$OutputBaseName){$OutputBaseName='AeroTrace1553-'+$deployment.version+'-Setu
 if((Get-Item -LiteralPath (Join-Path $packageRoot 'AeroTrace1553.exe')).VersionInfo.ProductVersion -ne $deployment.version){throw 'Deployment/executable versions differ'}
 New-Item -ItemType Directory -Force -Path $outputRoot | Out-Null
 $issFile=Join-Path $projectRoot 'installer\AeroTrace1553.iss'
-# Inno's preprocessor receives each /D value as one argument. Keep the quotes
-# inside the argument so paths containing spaces remain a single preprocessor
-# value instead of being split by ISCC.
+# Inno's payload reader can hit Windows path limits on deeply nested
+# Python modules. A temporary junction shortens the path without copying
+# or changing the verified deployment.
+$payloadAlias=Join-Path ([IO.Path]::GetTempPath()) ('at-setup-'+[Guid]::NewGuid().ToString('N').Substring(0,12))
+New-Item -ItemType Junction -Path $payloadAlias -Target $packageRoot | Out-Null
 $defines=@(
-  ('/DPackageRoot="'+$packageRoot+'"'),
-  ('/DOutputRoot="'+$outputRoot+'"'),
-  ('/DOutputBaseFilename="'+$OutputBaseName+'"'),
-  ('/DAppVersion="'+$deployment.version+'"')
+  "/DPackageRoot=$payloadAlias",
+  "/DOutputBaseFilename=$OutputBaseName",
+  "/DAppVersion=$($deployment.version)"
 )
-Push-Location $projectRoot
 try {
   & $Compiler /Qp @defines $issFile
 } finally {
-  Pop-Location
+  # Nonrecursive removal deletes the junction itself.
+  [IO.Directory]::Delete($payloadAlias)
 }
 if($LASTEXITCODE -ne 0){throw 'Offline installer compilation failed'}
 $installer=Join-Path $outputRoot ($OutputBaseName+'.exe')
