@@ -5,10 +5,10 @@
   #define OutputRoot "..\dist\installers"
 #endif
 #ifndef OutputBaseFilename
-  #define OutputBaseFilename "AeroTrace1553-0.7.0-Bench-Setup-x64"
+  #define OutputBaseFilename "AeroTrace1553-0.7.1-Bench-Setup-x64"
 #endif
 #ifndef AppVersion
-  #define AppVersion "0.7.0"
+  #define AppVersion "0.7.1"
 #endif
 #ifndef CompleteBundle
   #define CompleteBundle 0

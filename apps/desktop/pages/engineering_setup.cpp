@@ -9,15 +9,23 @@ void Window::engineering() {
   form.analysisSource->addItems({"External · CH1 / A","External · CH1 / B","Internal · CH2 / A","Internal · CH2 / B"});
   form.analysisSource->setCurrentIndex((analysisChannel-1)*2+analysisBus);
   connect(form.analysisSource,&QComboBox::currentIndexChanged,content,[this](int value){analysisChannel=value/2+1;analysisBus=value%2;updateEngineeringDetails();});
-  connect(form.loadProfileButton,&QPushButton::clicked,content,[this]{manageIcds();});
+  connect(form.loadProfileButton,&QPushButton::clicked,content,[this]{navigate(12);});
+  if(auto liveBtn=content->findChild<QPushButton *>("liveEngineeringButton"))
+    connect(liveBtn,&QPushButton::clicked,content,[this]{liveEngineering();});
+  form.openPlotsButton->setText("Plot selected →");
   connect(form.openPlotsButton,&QPushButton::clicked,content,[this]{recordedCsv.reset();plotRawColumn=-1;navigate(7);});
   const auto mappings=backend.mappings();
-  qualityTable->setColumnCount(5);qualityTable->setHorizontalHeaderLabels({"Signal","Words (0-based)","Encoding","Unit","Scale / offset"});
+  qualityTable->setColumnCount(8);
+  qualityTable->setHorizontalHeaderLabels({"Signal","Source words","Encoding","Unit","Conversion","Latest hex","Live value","Status"});
   qualityTable->setRowCount(mappings.size());qualityTable->verticalHeader()->hide();qualityTable->verticalHeader()->setDefaultSectionSize(36);
   qualityTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);
-  const int widths[]{90,120,110,70,140};for(int i=0;i<5;++i)qualityTable->setColumnWidth(i,widths[i]);qualityTable->setColumnHidden(4,true);
+  const int widths[]{90,95,110,60,125,95,110,120};
+  for(int i=0;i<8;++i){qualityTable->setColumnWidth(i,widths[i]);qualityTable->setColumnHidden(i,false);}
   for(unsigned row=0;row<mappings.size();++row){const auto &s=mappings[row];const auto last=s.word+(s.lsb+s.width+15)/16-1;
-    const QStringList cells{QString::fromStdString(s.sourceSignalId.empty()?s.id:s.sourceSignalId),QString("%1–%2").arg(s.word).arg(last),QString::fromStdString(s.numericType)+(s.numericType=="integer"?(s.signedValue?" · signed":" · unsigned"):""),QString::fromStdString(s.unit),QString("×%1 + %2").arg(desktop::displayValue(s.scale)).arg(desktop::displayValue(s.offset))};
+    const auto wordsText=s.word==last?QString("Payload %1").arg(s.word):QString("Payload %1–%2").arg(s.word).arg(last);
+    const auto source=s.sourceWord==aero::SignalWord::Payload?wordsText:QString::fromStdString(std::string(aero::signalWordName(s.sourceWord)));
+    const QStringList cells{QString::fromStdString(s.sourceSignalId.empty()?s.id:s.sourceSignalId),source,QString::fromStdString(s.numericType)+(s.numericType=="integer"?(s.signedValue?" · signed":" · unsigned"):""),QString::fromStdString(s.unit),s.conversionFormula.empty()?QString("x × %1 + %2").arg(desktop::displayValue(s.scale)).arg(desktop::displayValue(s.offset)):
+      QString::fromStdString(s.conversionFormula),"—","—","Awaiting data"};
     for(int col=0;col<cells.size();++col){auto item=new QTableWidgetItem(cells[col]);item->setToolTip(QString::fromStdString(s.id)+"\n"+cells[col]);qualityTable->setItem(row,col,item);}
     qualityTable->setRowHidden(row,!inWorkspace(s));
   }
@@ -33,17 +41,24 @@ void Window::engineering() {
       const auto parts=form.rawWords->toPlainText().trimmed().split(QRegularExpression("[\\s,;]+"),Qt::SkipEmptyParts);
       const auto span=(signal.lsb+signal.width+15)/16;
       if(parts.size()!=int(span)){form.previewResult->setPlainText(QString("Enter exactly %1 word(s) for this field.").arg(span));return;}
-      record.channel=analysisChannel;record.bus=analysisBus;record.commandWord=(signal.rt<<11)|(signal.transmit?0x400:0)|(signal.sa<<5)|((signal.expectedWordCount?signal.expectedWordCount:signal.word+span)&31);
-      record.statusWord=signal.rt<<11;record.words.resize(signal.expectedWordCount?signal.expectedWordCount:signal.word+span);
-      for(int i=0;i<parts.size();++i){auto text=parts[i];if(text.startsWith("0x",Qt::CaseInsensitive)||text.startsWith("0b",Qt::CaseInsensitive)||text.startsWith("0o",Qt::CaseInsensitive))text=text.mid(2);bool ok=false;const auto value=text.toULongLong(&ok,form.rawBase->currentData().toInt());if(!ok||value>65535){form.previewResult->setPlainText("Each word must be an unsigned 16-bit value in the selected base.");return;}record.words[signal.word+i]=value;}
+      std::vector<std::uint16_t> words;
+      for(auto text:parts){if(text.startsWith("0x",Qt::CaseInsensitive)||text.startsWith("0b",Qt::CaseInsensitive)||text.startsWith("0o",Qt::CaseInsensitive))text=text.mid(2);bool ok=false;const auto value=text.toULongLong(&ok,form.rawBase->currentData().toInt());if(!ok||value>65535){form.previewResult->setPlainText("Each word must be an unsigned 16-bit value in the selected base.");return;}words.push_back(value);}
+      record=aero::previewSignalRecord(signal,words,analysisChannel,analysisBus);
     }
-    const auto value=aero::decode(record,signal,backend.exampleContext());auto unscaled=signal;unscaled.scale=1;unscaled.offset=0;
+    const auto value=aero::decode(record,signal,backend.exampleContext());auto unscaled=signal;unscaled.scale=1;unscaled.offset=0;unscaled.conversionFormula.clear();unscaled.preparedFormula.reset();
     const auto code=aero::decode(record,unscaled,backend.exampleContext());
     QStringList rows{*selected?"Selected record · native decoder":"Synthetic field preview · other words unspecified",QString::fromStdString(signal.id)};
-    const auto span=(signal.lsb+signal.width+15)/16;
-    for(unsigned i=signal.word;i<signal.word+span && i<record.words.size();++i){const auto word=record.words[i];rows<<QString("Word %1: 0x%2 · %3 · %4 · %5").arg(i).arg(hexword(word)).arg(word).arg(QString::fromStdString(aero::rawNumber(word,aero::NumericRadix::Binary)),QString::fromStdString(aero::rawNumber(word,aero::NumericRadix::Octal)));}
+    const auto decoded=aero::decodeValue(record,signal,backend.exampleContext());
+    for(unsigned i=0;i<decoded.rawCount;++i){const auto word=decoded.raw[i];const auto label=signal.sourceWord==aero::SignalWord::Payload?QString("Word %1").arg(signal.word+i):QString::fromStdString(std::string(aero::signalWordName(signal.sourceWord)));
+      rows<<QString("%1: 0x%2 · %3 · %4 · %5").arg(label,hexword(word)).arg(word).arg(QString::fromStdString(aero::rawNumber(word,aero::NumericRadix::Binary)),QString::fromStdString(aero::rawNumber(word,aero::NumericRadix::Octal)));}
     rows<<QString("Encoding: %1 · %2").arg(QString::fromStdString(signal.numericType),signal.leastSignificantWordFirst?"LSW first":"MSW first");
-    if(value){rows<<QString("Decoded: %1\nEngineering: %2 × %3 + %4 = %5 %6\nDecoded; physical plausibility requires configured limits / known reference.").arg(desktop::displayValue(code.value_or(0))).arg(desktop::displayValue(code.value_or(0))).arg(desktop::displayValue(signal.scale)).arg(desktop::displayValue(signal.offset)).arg(desktop::displayValue(*value)).arg(QString::fromStdString(signal.unit));}
+    if(value){
+      const auto expression=signal.conversionFormula.empty()?
+        QString("x × %1 + %2").arg(desktop::displayValue(signal.scale),desktop::displayValue(signal.offset)):
+        QString::fromStdString(signal.conversionFormula);
+      rows<<QString("Decoded: %1\nFormula: %2\nEngineering: %3 %4\nDecoded; physical plausibility requires configured limits / known reference.")
+        .arg(desktop::displayValue(code.value_or(0)),expression,desktop::displayValue(*value),QString::fromStdString(signal.unit));
+    }
     else rows<<"No engineering value: route, encoding, payload quality, or required words do not match.";
     form.previewResult->setPlainText(rows.join('\n'));
     form.previewResult->setProperty("decodedValue",value?QVariant(*value):QVariant());
@@ -52,10 +67,25 @@ void Window::engineering() {
   connect(form.rawWords,&QPlainTextEdit::textChanged,content,[selected]{selected->reset();});
   connect(form.rawBase,&QComboBox::currentIndexChanged,content,[selected]{selected->reset();});
   connect(form.previewButton,&QPushButton::clicked,content,preview);
-  connect(form.useRecord,&QPushButton::clicked,content,[this,form,mappings,selected,preview]{if(preferredSignalIndex>=mappings.size())return;const auto &s=mappings[preferredSignalIndex];const auto &r=backend.selected;if(r.words.empty()){form.previewResult->setPlainText("Select a saved/replay record in Sessions or the monitor first.");return;}QStringList raw;for(unsigned i=s.word;i<s.word+(s.lsb+s.width+15)/16 && i<r.words.size();++i)raw<<QString::fromStdString(aero::rawNumber(r.words[i],static_cast<aero::NumericRadix>(form.rawBase->currentData().toUInt()),true));form.rawWords->setPlainText(raw.join(' '));*selected=r;preview();});
-  connect(form.editRule,&QPushButton::clicked,content,[this]{reviewSignals();});
-  connect(form.openEvidence,&QPushButton::clicked,content,[this,mappings]{if(preferredSignalIndex>=mappings.size())return;const auto &s=mappings[preferredSignalIndex];if(!QRegularExpression("^[0-9a-f]{64}$").match(QString::fromStdString(s.sourceHash)).hasMatch()){toast("No valid source PDF identity is attached to this mapping.");return;}auto url=QUrl::fromLocalFile(QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation)+"/Documents/"+QString::fromStdString(s.sourceHash)+".pdf");url.setFragment("page="+QString::number(s.sourcePage));if(QFileInfo::exists(url.toLocalFile()))QDesktopServices::openUrl(url);else toast("Source evidence is not available locally.");});
-  connect(qualityTable,&QTableWidget::currentCellChanged,content,[this,form,mappings,selected](int row,int,int,int){if(row<0||row>=int(mappings.size()))return;preferredSignalIndex=row;selected->reset();const auto &s=mappings[row];if(s.channel)analysisChannel=s.channel;if(s.bus>=0)analysisBus=s.bus;const QSignalBlocker block(form.analysisSource);form.analysisSource->setCurrentIndex((analysisChannel-1)*2+analysisBus);form.ruleDetails->setText(QString("%1 bits · offset %2\n%3 · scale %4 · offset %5\n%6 · page %7").arg(s.width).arg(s.lsb).arg(s.leastSignificantWordFirst?"LSW first":"MSW first").arg(desktop::displayValue(s.scale)).arg(desktop::displayValue(s.offset)).arg(QString::fromStdString(s.sourceDocument)).arg(s.sourcePage));form.previewResult->setPlainText("Enter raw words or use a selected record, then preview.");updateEngineeringDetails();});
+  form.useRecord->setText("Use latest / selected record");
+  connect(form.useRecord,&QPushButton::clicked,content,[this,form,mappings,selected,preview]{
+    if(preferredSignalIndex>=mappings.size())return;
+    const auto &s=mappings[preferredSignalIndex];
+    aero::Record match=backend.selected;
+    auto matchesSignal=[&](const aero::Record &r){
+      return aero::decode(r,s,backend.exampleContext()).has_value();
+    };
+    if(match.words.empty() || !matchesSignal(match)) {
+      const auto &records=analysisData();
+      for(auto it=records.rbegin();it!=records.rend();++it)if(matchesSignal(*it)){match=*it;backend.selected=match;break;}
+      if(match.words.empty())for(auto it=records.rbegin();it!=records.rend();++it){match=*it;break;}
+    }
+    if(match.words.empty()){form.previewResult->setPlainText("Capture or load a matching recording first, then click Use latest / selected record.");return;}
+    QStringList raw;for(unsigned i=s.word;i<s.word+(s.lsb+s.width+15)/16 && i<match.words.size();++i)raw<<QString::fromStdString(aero::rawNumber(match.words[i],static_cast<aero::NumericRadix>(form.rawBase->currentData().toUInt()),true));
+    form.rawWords->setPlainText(raw.join(' '));*selected=match;preview();
+  });
+  connect(form.editRule,&QPushButton::clicked,this,&Window::manualMappings);
+  connect(qualityTable,&QTableWidget::currentCellChanged,content,[this,form,mappings,selected](int row,int,int,int){if(row<0||row>=int(mappings.size()))return;preferredSignalIndex=row;selected->reset();const auto &s=mappings[row];if(s.channel)analysisChannel=s.channel;if(s.bus>=0)analysisBus=s.bus;const QSignalBlocker block(form.analysisSource);form.analysisSource->setCurrentIndex((analysisChannel-1)*2+analysisBus);form.ruleDetails->setText(QString("%1 bits · offset %2 · %3 · scale %4 · offset %5\nRoute: RT %6 / SA %7 / %8 · Word %9").arg(s.width).arg(s.lsb).arg(s.leastSignificantWordFirst?"LSW first":"MSW first").arg(desktop::displayValue(s.scale)).arg(desktop::displayValue(s.offset)).arg(s.rt).arg(s.sa).arg(s.transmit?"Tx":"Rx").arg(s.word));form.previewResult->setPlainText("Enter raw words or click Use latest / selected record, then preview.");updateEngineeringDetails();});
   if(preferredSignalIndex>=mappings.size())preferredSignalIndex=0;
   if(!mappings.empty())qualityTable->selectRow(preferredSignalIndex);
   form.engineeringSplitter->restoreState(settings.value("engineeringSplitter").toByteArray());

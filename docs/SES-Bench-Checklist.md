@@ -1,5 +1,17 @@
 # Hardware qualification — AeroTrace 0.5.5 and later development builds
 
+## 0.7.1 engineering conversion
+
+With a responding RT and an independent bus reference, publish the approved
+manual command and its raw examples. Verify RT, subaddress, direction, expected
+word count, and stream against the reference. Receive the known values with
+**Monitor & Record**, then open **Live Engineering** from the matching message.
+Compare the recorded raw words, displayed values, units, and synchronized plots
+against the independent reference. Verify the values for each configured stream
+and include a wrong-length or nonmatching message from the existing bench
+fixture. Preserve the approved profile revision and evidence with the receipt.
+Mark each scope as PASS, FAIL, or NOT RUN.
+
 **Highest-priority release gate.** Use an isolated authorized bench with known BC traffic and responding RT equipment. AeroTrace stays passive; configure source/RTs with separate approved equipment. Record wiring, coupling, termination and logical assignments. Do not interrupt an operational bus.
 
 The supplied November 2 A-path loopback is a starting point, not qualification of responding RTs, B paths, four simultaneous streams, endurance or recovery. All cases below start NOT RUN.
@@ -20,8 +32,8 @@ Record build/hash; machine/OS; Qt/compiler; selected runtime path/hash/API; comp
 | HW-06 | Sustained/burst traffic | One-hour representative peak, then 24-hour four-stream run or actual operational duration if longer; reference counts, memory, disk latency, queue/GUI latency percentiles |
 | HW-07 | Stop/start cycles | At least 20 cycles on retained connection; unique files, correct tail drain and no counter leakage |
 | HW-08 | USB loss/reconnect | During separate capture unplug device; visible error, incomplete recording; reconnect/rescan/explicit connect/start; repeat 10 times; no auto-record or simulation fallback |
-| HW-09 | Contention/storage | Slow/full disk, GUI stress and concurrent OCR; display skips distinguished from raw loss; explicit incomplete state |
-| HW-10 | Shutdown/recovery | Stop near burst; application exit/restart/replay; truncated-tail recovery marked incomplete; no silent overwrite |
+| HW-09 | Contention/storage | Slow/full disk, GUI stress and indexed ICD questions; OCR and generation deferred; display skips distinguished from raw loss; explicit incomplete state |
+| HW-10 | Shutdown/recovery | Stop near burst; recover from the selected output folder after interruption; truncated tail marked incomplete; no silent overwrite |
 | HW-11 | Time | Reference time resolution, rollover/reset and idle gaps; qualify alignment before cross-channel latency claims |
 | HW-12 | SDK/driver families | Repeat relevant matrix for each supported runtime/driver/card/firmware combination |
 

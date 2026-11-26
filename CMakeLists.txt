@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(AeroTrace1553 VERSION 0.7.0 LANGUAGES CXX)
+project(AeroTrace1553 VERSION 0.7.3 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
@@ -119,9 +119,4 @@ if(AEROTRACE_DOCUMENT_PYTHON)
   add_test(NAME icd_pdf_fixture COMMAND "${AEROTRACE_DOCUMENT_PYTHON}"
     "${PROJECT_SOURCE_DIR}/tools/document_worker/tests.py" --write-fixture "${CMAKE_BINARY_DIR}/test-results/icd-fixture.pdf")
   set_tests_properties(icd_pdf_fixture PROPERTIES FIXTURES_SETUP icd_pdf)
-  if(AEROTRACE_BUILD_GUI)
-    add_test(NAME gui_pdf_to_live_conversion COMMAND aerotrace_desktop --document-workflow-test
-      "${CMAKE_BINARY_DIR}/test-results" "${CMAKE_BINARY_DIR}/test-results/icd-fixture.pdf")
-    set_tests_properties(gui_pdf_to_live_conversion PROPERTIES FIXTURES_REQUIRED icd_pdf ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 150)
-  endif()
 endif()

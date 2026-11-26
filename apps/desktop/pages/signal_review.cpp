@@ -5,9 +5,9 @@
 
 namespace {
 enum Column { Id, Rt, Sa, Direction, Count, Word, Lsb, Width, Type, Signed, Order,
-              Scale, Offset, Unit, Channel, Bus, Reference, Result };
+              Scale, Offset, Unit, Channel, Bus, Reference, SourceWord, PeerRt, PeerSa, Result };
 const QStringList headers{"id","rt","sa","direction","word_count","data_word","lsb","width",
-  "representation","signed","word_order","scale","offset","unit","channel","bus","source_reference"};
+  "representation","signed","word_order","scale","offset","unit","channel","bus","source_reference","source_word","peer_rt","peer_sa"};
 constexpr int rowLimit=512;
 
 QString reviewOverridesPath() {
@@ -34,7 +34,10 @@ QString presetKey(const QJsonObject &data) {
 }
 QString calibrationLayout(const QJsonArray &cells) {
   QJsonArray layout;
-  for(const auto column:{Rt,Sa,Direction,Count,Width,Type,Unit})layout.append(cells[column]);
+  for(const auto column:{Rt,Sa,Direction,Count,Width,Type,Unit})layout.append(cells.at(column));
+  const auto source=cells.at(SourceWord).toString();
+  if((!source.isEmpty()&&source!="payload") || !cells.at(PeerRt).toString().isEmpty() || !cells.at(PeerSa).toString().isEmpty())
+    for(const auto column:{SourceWord,PeerRt,PeerSa})layout.append(cells.at(column));
   return QString::fromLatin1(QCryptographicHash::hash(QJsonDocument(layout).toJson(QJsonDocument::Compact),QCryptographicHash::Sha256).toHex());
 }
 
@@ -82,11 +85,14 @@ QJsonObject reviewRow(const QJsonObject &mapping) {
   const auto text=[&](const char *key){return mapping.value(key).toVariant().toString();};
   cells << text("id") << text("rt") << text("sa") << (mapping["transmit"].toBool()?"transmit":"receive")
         << QString::number(mapping["expected_word_count"].toInt())
-        << QString::number(mapping["word"].toInt()+1) << text("lsb") << text("width")
+        << QString::number(mapping["word"].toInt()) << text("lsb") << text("width")
         << mapping["numeric_type"].toString("integer") << (mapping["signed"].toBool()?"true":"false")
         << (mapping["lsw_first"].toBool()?"lsw-first":"msw-first") << QString::number(mapping["scale"].toDouble(),'g',17) << QString::number(mapping["offset"].toDouble(),'g',17)
         << (text("unit").isEmpty()?QString("unitless"):text("unit")) << text("channel")
-        << (mapping["bus"].toInt(-1)<0?"any":mapping["bus"].toInt()==0?"A":"B") << text("source_document");
+        << (mapping["bus"].toInt(-1)<0?"any":mapping["bus"].toInt()==0?"A":"B") << text("source_document")
+        << mapping["source_word"].toString("payload")
+        << (mapping["peer_rt"].toInt(-1)<0?QString():text("peer_rt"))
+        << (mapping["peer_sa"].toInt(-1)<0?QString():text("peer_sa"));
   return {{"cells",QJsonArray::fromStringList(cells)},{"mapping",mapping}};
 }
 QString parseCsv(QStringView csv, QJsonArray &result) {
@@ -133,13 +139,16 @@ QString mappingAt(QTableWidget *grid, int row, aero::Signal &signal) {
   if(row<0)return "Select a signal row.";
   auto mapping=grid->item(row,Id)->data(Qt::UserRole).toJsonObject()["mapping"].toObject();
   const auto cell=[&](int column){return grid->item(row,column)->text().trimmed();};
-  const auto required={Id,Rt,Sa,Direction,Count,Word,Lsb,Width,Type,Signed,Order,Scale,Offset,Unit};
+  const auto source=cell(SourceWord).isEmpty()?QString("payload"):cell(SourceWord);
+  const auto required={Id,Rt,Sa,Direction,Count,Lsb,Width,Type,Signed,Order,Scale,Offset,Unit};
   for(const auto column:required)if(cell(column).isEmpty())return "Complete "+headers[column]+".";
+  if(source=="payload" && cell(Word).isEmpty())return "Enter the payload word number.";
   for(const auto column:{Rt,Sa,Count,Word,Lsb,Width,Scale,Offset}) {
+    if(column==Word && source!="payload"){mapping["word"]=0;continue;}
     bool ok=false;auto number=cell(column).toDouble(&ok);
     if(!ok || !std::isfinite(number))return "Invalid "+headers[column]+".";
     const auto key=column==Count?QString("expected_word_count"):column==Word?QString("word"):headers[column];
-    mapping[key]=column==Word?number-1:number;
+    mapping[key]=number;
   }
   const auto direction=cell(Direction).toLower(), sign=cell(Signed).toLower(), order=cell(Order).toLower();
   if(direction!="receive" && direction!="transmit")return "Direction must be receive or transmit.";
@@ -155,10 +164,18 @@ QString mappingAt(QTableWidget *grid, int row, aero::Signal &signal) {
   mapping["unit"]=cell(Unit).compare("unitless",Qt::CaseInsensitive)==0?QString():cell(Unit);
   mapping["channel"]=channel.toInt();mapping["bus"]=bus=="A"?0:bus=="B"?1:-1;
   mapping["source_document"]=cell(Reference);
+  mapping["source_word"]=source;
+  for(const auto column:{PeerRt,PeerSa}){
+    const auto value=cell(column);
+    bool ok=false;const auto address=value.toInt(&ok);
+    if(!value.isEmpty() && (!ok || address<0 || address>31))return "Enter a peer address from 0 through 31.";
+    mapping[headers[column]]=value.isEmpty()?-1:address;
+  }
   return desktop::signalFromJson(mapping,signal);
 }
 bool overlaps(const aero::Signal &a,const aero::Signal &b) {
-  if(a.rt!=b.rt || a.sa!=b.sa || a.transmit!=b.transmit ||
+  if(a.rt!=b.rt || a.sa!=b.sa || a.transmit!=b.transmit || a.sourceWord!=b.sourceWord ||
+     (a.peerRt>=0 && b.peerRt>=0 && (a.peerRt!=b.peerRt || a.peerSa!=b.peerSa)) ||
      (a.channel && b.channel && a.channel!=b.channel) || (a.bus>=0 && b.bus>=0 && a.bus!=b.bus) ||
      (a.expectedWordCount && b.expectedWordCount && a.expectedWordCount!=b.expectedWordCount) ||
      a.simulationOnly!=b.simulationOnly)return false;
@@ -176,115 +193,6 @@ bool overlaps(const aero::Signal &a,const aero::Signal &b) {
 }
 }
 
-void Window::reviewDocument(const QJsonObject &document,const QString &pdf,const QJsonArray &checked) {
-  QJsonArray rows;
-  QSettings edits(reviewOverridesPath(),QSettings::IniFormat);
-  const auto pdfFor=[&pdf](const QJsonValue &source) {
-    static const QRegularExpression digest(QStringLiteral("^[0-9a-f]{64}$"));
-    const auto hash=source.toString();
-    return !pdf.isEmpty() && digest.match(hash).hasMatch()?QFileInfo(pdf).dir().filePath(hash+".pdf"):pdf;
-  };
-  const auto stage=[this,&rows,&edits,setName=document["document"].toString()](QJsonObject row) {
-    row["icd_set"]=setName;
-    const auto mapping=row["mapping"].toObject();
-    const auto source=mapping["source_hash"].toString().toStdString();
-    const auto id=mapping["id"].toString().toStdString();
-    const auto key=reviewOverrideKey(row);
-    const auto saved=key.isEmpty()?QJsonArray():QJsonDocument::fromJson(edits.value(key).toByteArray()).array();
-    const auto seeded=row["cells"].toArray();
-    const auto documented=row["source_cells"].toArray();
-    const auto imported=documented.size()==headers.size()?documented:seeded;row["import_cells"]=imported;
-    auto cells=seeded;
-    const auto preset=QJsonDocument::fromJson(edits.value(presetKey(row)).toByteArray()).object();
-    for(const auto &column:{Order,Scale,Offset,Channel}) {
-      const bool compatible=column!=Scale && column!=Offset || preset["compatible_layouts"].toArray().contains(calibrationLayout(imported));
-      if(compatible && cells[column].toString().isEmpty() && preset.contains(headers[column]))cells[column]=preset[headers[column]];
-    }
-    const auto previous=QJsonDocument::fromJson(edits.value(stableRowKey(row)).toByteArray()).object();
-    const auto before=previous["original"].toArray(),manual=previous["cells"].toArray();
-    if(before.size()==headers.size() && manual.size()==headers.size()) {
-      bool changed=false;
-      for(int column=0;column<=Bus;++column)changed|=before[column]!=imported[column];
-      row["definition_changed"]=changed;
-      for(int column=0;column<headers.size();++column)if(manual[column]!=before[column])cells[column]=manual[column];
-    }
-    if(saved.size()==headers.size())cells=saved;
-    const auto prior=std::find_if(backend.profile.begin(),backend.profile.end(),[&](const auto &signal){return signal.id==id || signal.id==cells[Id].toString().toStdString();});
-    if(prior!=backend.profile.end() && prior->sourceHash!=source) {
-      const auto priorCells=reviewRow(desktop::signalToJson(*prior))["cells"].toArray();
-      if(before.size()!=headers.size()) {
-        bool changed=false;
-        for(int column=Rt;column<=Bus;++column)
-          if(!imported[column].toString().isEmpty())changed|=imported[column]!=priorCells[column];
-        row["definition_changed"]=changed;
-      }
-      if(QString::fromStdString(prior->sourceDocument)!=mapping["source_document"].toString())row["definition_changed"]=true;
-      if(calibrationLayout(imported)==calibrationLayout(priorCells))
-        for(const auto column:{Order,Scale,Offset,Channel,Bus})if(cells[column].toString().isEmpty() || before.size()!=headers.size())cells[column]=priorCells[column];
-    }
-    row["cells"]=cells;
-    const auto effectiveId=row["cells"].toArray().at(Id).toString().toStdString();
-    if(!source.empty() && std::any_of(backend.profile.begin(),backend.profile.end(),[&](const auto &signal){
-      return signal.sourceHash==source && (signal.id==id || signal.id==effectiveId);
-    }))return;
-    row["override_key"]=key;
-    rows.append(row);
-  };
-  const auto candidates=checked.isEmpty()?document["signals"].toArray():checked;
-  for(const auto &item:candidates) {
-    const auto mapping=item.toObject();
-    auto row=reviewRow(mapping);
-    row["pdf"]=pdfFor(mapping["source_hash"]);row["page"]=mapping["source_page"];row["evidence"]=mapping["evidence"].toObject()["text"];
-    stage(row);
-  }
-  for(const auto &item:document["review"].toArray()) {
-    const auto evidence=item.toObject(), field=evidence["draft_field"].toObject();
-    const auto explicitCells=evidence["draft_cells"].toObject();
-    if(field.isEmpty() && explicitCells.isEmpty())continue;
-    const auto message=field["message"].toObject();
-    const auto name=evidence["source_document"].toString(document["document"].toString());
-    QStringList cells;
-    for(int column=0;column<headers.size();++column)cells.append(QString());
-    cells[Rt]=QString::number(message["rt"].toInt());
-    cells[Sa]=QString::number(message["sa"].toInt());
-    cells[Direction]=message["direction"].toString();
-    cells[Count]=QString::number(message["word_count"].toInt());
-    cells[Word]=QString::number(field["word_first"].toInt());
-    const auto explicitFields=field["explicit"].toObject();
-    const auto documentedId=explicitCells["id"].toString(explicitFields["id"].toString());
-    cells[Id]=documentedId.isEmpty() && !evidence["needs_identity"].toBool()?QString("RT%1-SA%2-%3-W%4-%5-B%6")
-      .arg(cells[Rt],cells[Sa],cells[Direction],cells[Word])
-      .arg(field["word_last"].toInt()).arg(explicitFields["lsb"].toInt(0)):documentedId;
-    cells[Unit]=field["document_unit"].toString();
-    for(const auto &[column,key]:std::initializer_list<std::pair<int,const char *>>{
-      {Lsb,"lsb"},{Width,"width"},{Type,"representation"},{Signed,"signed"},
-      {Order,"order"},{Scale,"scale"},{Offset,"offset"}}) {
-      if(explicitFields.contains(key)) cells[column]=explicitFields[key].toVariant().toString();
-    }
-    if(!explicitCells.isEmpty()) {
-      for(int column=0;column<headers.size();++column)
-        cells[column]=explicitCells.value(headers[column]).toVariant().toString();
-      if(cells[Count].isEmpty())cells[Count]="0";
-    }
-    cells[Reference]=name;
-    QJsonObject mapping{{"id",cells[Id]},{"source_document",name},{"source_hash",evidence["source_hash"]},{"source_page",evidence["page"]},
-      {"subsystem",evidence["subsystem"]},{"message_id",evidence["message_id"]},{"source_signal_id",evidence["source_signal_id"]},{"icd_set_id",evidence["icd_set_id"]},{"icd_revision",evidence["icd_revision"]}};
-    const auto documentedCells=QJsonArray::fromStringList(cells);
-    if(evidence["source_hash"].toString()=="37e09d13f2863af4ab25507a14bbcc5fdcae8a1a176242153972a40225604937") {
-      if(cells[Type].startsWith("float") && cells[Order].isEmpty())cells[Order]="msw-first";
-      if(cells[Channel].isEmpty()) {
-        if(evidence["subsystem"].toString()=="Subsystem-1")cells[Channel]="1";
-        if(evidence["subsystem"].toString()=="Subsystem-3")cells[Channel]="2";
-      }
-    }
-    stage(QJsonObject{{"cells",QJsonArray::fromStringList(cells)},{"source_cells",documentedCells},{"mapping",mapping},{"pdf",pdfFor(evidence["source_hash"])},{"page",evidence["page"]},
-      {"evidence",evidence["text"].toString()+"\n"+evidence["reason"].toString()+(documentedId.isEmpty()?QString():"\nSignal ID extracted from the document.")},
-      {"draft_field",field},{"table_icd",evidence["table_icd"]},{"subsystem",evidence["subsystem"]}});
-  }
-  if(rows.isEmpty()){reviewSignals();return;}
-  reviewSignals(rows);
-}
-
 void Window::reviewSignals(QJsonArray rows,const QString &csv,bool replace) {
   if(backend.replaySource){toast("Replay uses its recorded profile. Return to the live workspace before reviewing mappings.");return;}
   if(signalReviewDialog) {signalReviewDialog->raise();return;}
@@ -296,7 +204,7 @@ void Window::reviewSignals(QJsonArray rows,const QString &csv,bool replace) {
   auto grid=form.signalGrid;
   grid->setColumnCount(Result+1);
   grid->setHorizontalHeaderLabels({"Signal ID","RT","Subaddress","Direction","Word count","Data word","LSB","Width",
-    "Representation","Signed","Word order","Scale","Offset","Unit","Channel","Bus","ICD / revision","Review result"});
+    "Representation","Signed","Word order","Scale","Offset","Unit","Channel","Bus","ICD / revision","Source word","Peer RT","Peer SA","Review result"});
   grid->horizontalHeaderItem(Word)->setToolTip("One-based data word number");
   grid->horizontalHeaderItem(Lsb)->setToolTip("Zero-based bit offset from the least significant bit");
   const auto choices=[grid](int column,QStringList options){
@@ -308,6 +216,7 @@ void Window::reviewSignals(QJsonArray rows,const QString &csv,bool replace) {
   choices(Order,{"msw-first","lsw-first"});
   choices(Channel,{"any","1","2"});
   choices(Bus,{"any","A","B"});
+  choices(SourceWord,{"payload","command1","command2","status1","status2"});
   form.reviewStatus->setProperty("tone","notice");
   grid->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);
   grid->horizontalHeader()->setDefaultSectionSize(105);
@@ -410,7 +319,7 @@ void Window::reviewSignals(QJsonArray rows,const QString &csv,bool replace) {
   auto advanced=new QToolButton(dialog);advanced->setText("Bit fields and calibration");advanced->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);advanced->setCheckable(true);advanced->setArrowType(Qt::RightArrow);advanced->setObjectName("advancedMapping");
   auto acceptChanged=new QPushButton("Accept selected changes",dialog);acceptChanged->setToolTip("Check the PDF and selected raw words before accepting a changed source definition.");
   filters->addWidget(groupFilter);filters->addWidget(unresolved);filters->addStretch();filters->addWidget(acceptChanged);filters->addWidget(advanced);form.layout->insertLayout(1,filters);
-  const QList<int> detailColumns{Rt,Sa,Direction,Count,Lsb,Signed,Order,Scale,Offset,Channel,Bus,Reference};
+  const QList<int> detailColumns{Rt,Sa,Direction,Count,Lsb,Signed,Order,Scale,Offset,Channel,Bus,Reference,PeerRt,PeerSa};
   for(const auto column:detailColumns)grid->setColumnHidden(column,true);
   grid->horizontalHeader()->setStretchLastSection(true);
   connect(advanced,&QToolButton::toggled,dialog,[grid,advanced,detailColumns](bool show){advanced->setArrowType(show?Qt::DownArrow:Qt::RightArrow);for(const auto column:detailColumns)grid->setColumnHidden(column,!show);});
@@ -565,15 +474,13 @@ void Window::reviewSignals(QJsonArray rows,const QString &csv,bool replace) {
       const auto pieces=form.hexWords->text().split(QRegularExpression("[ ,]+"),Qt::SkipEmptyParts);
       const auto count=(signal.lsb+signal.width+15)/16;
       if(pieces.size()!=count){form.reviewStatus->setText(QString("Enter exactly %1 field words in hex.").arg(count));return;}
-      record={};record.id=1;record.channel=signal.channel?signal.channel:1;record.bus=signal.bus<0?0:signal.bus;
-      record.words.resize(signal.expectedWordCount?signal.expectedWordCount:signal.word+count);
-      for(unsigned i=0;i<count;++i){bool ok;const auto word=pieces[i].toUInt(&ok,16);if(!ok || word>65535){form.reviewStatus->setText("Invalid 16-bit hexadecimal word.");return;}record.words[signal.word+i]=std::uint16_t(word);}
-      record.commandWord=(signal.rt<<11)|(signal.transmit<<10)|(signal.sa<<5)|(record.words.size()&31);
-      record.statusWord=signal.rt<<11;
+      std::vector<std::uint16_t> words;
+      for(const auto &piece:pieces){bool ok;const auto word=piece.toUInt(&ok,16);if(!ok || word>65535){form.reviewStatus->setText("Invalid 16-bit hexadecimal word.");return;}words.push_back(word);}
+      record=aero::previewSignalRecord(signal,words,signal.channel?signal.channel:1,signal.bus<0?0:signal.bus);
     }
-    if(!record.id){form.reviewStatus->setText("Select a captured or replayed record first.");return;}
+    if(!record.id){form.reviewStatus->setText("Select a captured record first.");return;}
     const auto protocol=aero::interpret(record);
-    const auto route=protocol.payloadCommand;
+    const auto route=aero::signalCommand(protocol,signal);
     const auto routeText=QString("RT %1 / SA %2 / %3 / %4 words · CH%5/%6")
       .arg(route.rt).arg(route.sa).arg(route.transmit?"Tx":"Rx").arg(route.count)
       .arg(record.channel).arg(record.bus?"B":"A");
@@ -651,8 +558,6 @@ void Window::reviewSignals(QJsonArray rows,const QString &csv,bool replace) {
     const auto selected=std::find_if(backend.profile.begin(),backend.profile.end(),[this](const auto &signal){return inWorkspace(signal);});
     if(selected!=backend.profile.end()){preferredSignalIndex=unsigned(selected-backend.profile.begin());if(selected->channel)analysisChannel=selected->channel;}
     dialog->accept();
-    if(documentDock)documentDock->hide();
-    if(documentDialog)documentDialog->hide();
     navigate(6);
     toast(QString("Published %1 signals. Select a signal to plot.").arg(rules.size()));
   });

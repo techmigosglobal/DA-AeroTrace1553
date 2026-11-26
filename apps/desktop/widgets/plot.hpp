@@ -59,6 +59,88 @@ class Plot : public QWidget {
   QwtPlotPanner *panner{};
   QwtPlotPicker *picker{};
   QList<QwtPlotMarker *> boundaries;
+  bool timeAxis{};
+  int interactionMode{};
+  void createGraph() {
+    graph = new QwtPlot(this);
+    graph->setMinimumSize(0, 0);
+    graph->setObjectName("analysisCanvas");graph->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    graph->setMinimumHeight(160);
+    graph->setCanvasBackground(Qt::white);
+    graph->canvas()->setStyleSheet("background:white;border:0;");
+    graph->enableAxis(QwtPlot::yLeft, true);
+    graph->setAxisMaxMajor(QwtPlot::yLeft, 4);
+    graph->setAxisScaleDraw(QwtPlot::yLeft,new EngineeringScaleDraw);graph->axisScaleDraw(QwtPlot::yLeft)->setMinimumExtent(76);
+    graph->setAxisMaxMajor(QwtPlot::xBottom, 6);
+    graph->setAxisFont(QwtPlot::xBottom, QFont("Segoe UI", 9));
+    graph->setAxisFont(QwtPlot::yLeft,QFont("Segoe UI",9));
+    graph->setAxisScale(QwtPlot::xBottom, 0, 300);
+    graph->setAxisScale(QwtPlot::yLeft, 0, 100);
+    auto grid = new QwtPlotGrid;
+    grid->setMajorPen(QColor("#f0f3ec"));
+    grid->attach(graph);
+    curve = new GapPlotCurve;
+    curve->setPen(color, 1.7);
+    curve->attach(graph);
+    if (two) {
+      curve2 = new GapPlotCurve;
+      curve2->setPen(QColor("#a4772e"), 1.7);
+      curve2->attach(graph);
+    }
+    panner=new QwtPlotPanner(graph->canvas());
+    zoomer=new QwtPlotZoomer(graph->canvas());
+    connect(panner,&QwtPlotPanner::panned,this,[this](int,int) {autoFollow=false;updateStatistics();});
+    connect(zoomer,&QwtPlotZoomer::zoomed,this,[this](const QRectF &) {autoFollow=zoomer->zoomRectIndex()==0;updateStatistics();});
+    picker = new QwtPlotPicker(QwtPlot::xBottom, QwtPlot::yLeft,
+                                    QwtPicker::CrossRubberBand,
+                                    QwtPicker::AlwaysOn, graph->canvas());
+    picker->setStateMachine(new QwtPickerClickPointMachine);
+    picker->setRubberBandPen(QColor("#626e60"));
+    picker->setTrackerPen(QColor("#326344"));
+    connect(picker, qOverload<const QPointF &>(&QwtPlotPicker::selected),
+            this, [this](const QPointF &point) {
+              if (onPick)
+                onPick(point);
+            });
+    static_cast<QVBoxLayout *>(layout())->addWidget(graph,1);
+    setTimeAxis(timeAxis);
+    setInteraction(interactionMode);
+  }
+  void renderGraph() {
+    curve->setSamples(samples);
+    if (curve2)
+      curve2->setSamples(secondary);
+    if((lowerLimit || upperLimit) && !excursions) {
+      excursions=new QwtPlotCurve("Outside configured limits");
+      excursions->setStyle(QwtPlotCurve::Dots);
+      excursions->setPen(QColor("#a73929"),5);
+      excursions->attach(graph);
+      const auto makeLimit=[this] {
+        auto marker=new QwtPlotMarker;
+        marker->setLineStyle(QwtPlotMarker::HLine);
+        marker->setLinePen(QPen(QColor("#a4772e"),1,Qt::DashLine));
+        marker->attach(graph);
+        return marker;
+      };
+      lowerLine=makeLimit();
+      upperLine=makeLimit();
+    }
+    if(excursions) {
+      QVector<QPointF> pointsOutside;
+      for(const auto &point:samples)if(outsideLimits(point.y()))pointsOutside.append(point);
+      excursions->setSamples(pointsOutside);
+      lowerLine->setVisible(lowerLimit.has_value() && pointCount()>0);
+      upperLine->setVisible(upperLimit.has_value() && pointCount()>0);
+      if(lowerLimit)lowerLine->setYValue(*lowerLimit);
+      if(upperLimit)upperLine->setYValue(*upperLimit);
+    }
+    if(autoFollow) { graph->setAxisAutoScale(QwtPlot::xBottom); graph->setAxisAutoScale(QwtPlot::yLeft); }
+    for(auto marker:boundaries){marker->detach();delete marker;}boundaries.clear();
+    std::optional<double> priorTime;
+    for(const auto &p:samples){if(!std::isfinite(p.y()))continue;if(priorTime && p.x()<*priorTime && boundaries.size()<32){auto marker=new QwtPlotMarker;marker->setLineStyle(QwtPlotMarker::VLine);marker->setLinePen(QPen(QColor("#a73929"),1,Qt::DashLine));marker->setXValue(p.x());if(boundaries.empty())marker->setLabel(QwtText("Time discontinuity"));marker->attach(graph);boundaries.append(marker);}priorTime=p.x();}
+    setProperty("timeDiscontinuities",boundaries.size());
+    graph->replot();
+  }
 #endif
   bool outsideLimits(double value) const {
     return std::isfinite(value) && ((lowerLimit && value<*lowerLimit) || (upperLimit && value>*upperLimit));
@@ -70,6 +152,7 @@ public:
   bool followsLive() const {return autoFollow;}
   void setInteraction(int mode) {
 #ifdef AEROTRACE_QWT
+    interactionMode=mode;
     if(panner)panner->setEnabled(mode==1);
     if(zoomer)zoomer->setEnabled(mode==2);
     if(picker)picker->setEnabled(mode==0);
@@ -133,6 +216,7 @@ public:
   }
   void setTimeAxis(bool enabled) {
 #ifdef AEROTRACE_QWT
+    timeAxis=enabled;
     if(graph) {graph->setAxisScaleDraw(QwtPlot::xBottom,enabled ? static_cast<QwtScaleDraw *>(new CardTimeScaleDraw) : new QwtScaleDraw);graph->setAxisMaxMajor(QwtPlot::xBottom,enabled ? 3 : 6);}
 #endif
   }
@@ -143,50 +227,19 @@ public:
     setMouseTracking(true);
     setToolTip("Move to inspect • Wheel to zoom • Double-click to reset");
 #ifdef AEROTRACE_QWT
-    if (!bars) {
-      auto l = new QVBoxLayout(this);
-      l->setContentsMargins(0, 0, 0, 0);
-      graph = new QwtPlot(this);
-      graph->setMinimumSize(0, 0);
-      graph->setObjectName("analysisCanvas");graph->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-      graph->setMinimumHeight(160);
-      graph->setCanvasBackground(Qt::white);
-      graph->canvas()->setStyleSheet("background:white;border:0;");
-      graph->enableAxis(QwtPlot::yLeft, true);
-      graph->setAxisMaxMajor(QwtPlot::yLeft, 4);
-      graph->setAxisScaleDraw(QwtPlot::yLeft,new EngineeringScaleDraw);graph->axisScaleDraw(QwtPlot::yLeft)->setMinimumExtent(76);
-      graph->setAxisMaxMajor(QwtPlot::xBottom, 6);
-      graph->setAxisFont(QwtPlot::xBottom, QFont("Segoe UI", 9));
-      graph->setAxisFont(QwtPlot::yLeft,QFont("Segoe UI",9));
-      graph->setAxisScale(QwtPlot::xBottom, 0, 300);
-      graph->setAxisScale(QwtPlot::yLeft, 0, 100);
-      auto grid = new QwtPlotGrid;
-      grid->setMajorPen(QColor("#f0f3ec"));
-      grid->attach(graph);
-      curve = new GapPlotCurve;
-      curve->setPen(color, 1.7);
-      curve->attach(graph);
-      if (two) {
-        curve2 = new GapPlotCurve;
-        curve2->setPen(QColor("#a4772e"), 1.7);
-        curve2->attach(graph);
-      }
-      panner=new QwtPlotPanner(graph->canvas());
-      zoomer=new QwtPlotZoomer(graph->canvas());
-      connect(panner,&QwtPlotPanner::panned,this,[this](int,int) {autoFollow=false;updateStatistics();});
-      connect(zoomer,&QwtPlotZoomer::zoomed,this,[this](const QRectF &) {autoFollow=zoomer->zoomRectIndex()==0;updateStatistics();});
-      picker = new QwtPlotPicker(QwtPlot::xBottom, QwtPlot::yLeft,
-                                      QwtPicker::CrossRubberBand,
-                                      QwtPicker::AlwaysOn, graph->canvas());
-      picker->setStateMachine(new QwtPickerClickPointMachine);
-      picker->setRubberBandPen(QColor("#626e60"));
-      picker->setTrackerPen(QColor("#326344"));
-      connect(picker, qOverload<const QPointF &>(&QwtPlotPicker::selected),
-              this, [this](const QPointF &point) {
-                if (onPick)
-                  onPick(point);
-              });
-      l->addWidget(graph,1);setInteraction(0);
+    if(!bars) {
+      auto box=new QVBoxLayout(this);
+      box->setContentsMargins(0,0,0,0);
+    }
+#endif
+  }
+  void showEvent(QShowEvent *event) override {
+    QWidget::showEvent(event);
+#ifdef AEROTRACE_QWT
+    if(!bars) {
+      if(!graph)createGraph();
+      renderGraph();
+      updateStatistics();
     }
 #endif
   }
@@ -200,43 +253,7 @@ public:
     lowerLimit=minimum;
     upperLimit=maximum;
 #ifdef AEROTRACE_QWT
-    if (graph) {
-      curve->setSamples(samples);
-      if (curve2)
-        curve2->setSamples(secondary);
-      if((lowerLimit || upperLimit) && !excursions) {
-        excursions=new QwtPlotCurve("Outside configured limits");
-        excursions->setStyle(QwtPlotCurve::Dots);
-        excursions->setPen(QColor("#a73929"),5);
-        excursions->attach(graph);
-        const auto makeLimit=[this] {
-          auto marker=new QwtPlotMarker;
-          marker->setLineStyle(QwtPlotMarker::HLine);
-          marker->setLinePen(QPen(QColor("#a4772e"),1,Qt::DashLine));
-          marker->attach(graph);
-          return marker;
-        };
-        lowerLine=makeLimit();
-        upperLine=makeLimit();
-      }
-      if(excursions) {
-        QVector<QPointF> pointsOutside;
-        for(const auto &point:samples)if(outsideLimits(point.y()))pointsOutside.append(point);
-        excursions->setSamples(pointsOutside);
-        lowerLine->setVisible(lowerLimit.has_value() && pointCount()>0);
-        upperLine->setVisible(upperLimit.has_value() && pointCount()>0);
-        if(lowerLimit)lowerLine->setYValue(*lowerLimit);
-        if(upperLimit)upperLine->setYValue(*upperLimit);
-      }
-      if(autoFollow) { graph->setAxisAutoScale(QwtPlot::xBottom); graph->setAxisAutoScale(QwtPlot::yLeft); }
-      for(auto marker:boundaries){marker->detach();delete marker;}boundaries.clear();
-      std::optional<double> priorTime;
-      for(const auto &p:samples){if(!std::isfinite(p.y()))continue;if(priorTime && p.x()<*priorTime && boundaries.size()<32){auto marker=new QwtPlotMarker;marker->setLineStyle(QwtPlotMarker::VLine);marker->setLinePen(QPen(QColor("#a73929"),1,Qt::DashLine));marker->setXValue(p.x());if(boundaries.empty())marker->setLabel(QwtText("Time discontinuity"));marker->attach(graph);boundaries.append(marker);}priorTime=p.x();}
-      setProperty("timeDiscontinuities",boundaries.size());
-      graph->replot();
-      updateStatistics();
-      return;
-    }
+    if(graph&&isVisible())renderGraph();
 #endif
     updateStatistics();update();
   }

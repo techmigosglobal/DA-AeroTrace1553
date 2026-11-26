@@ -16,21 +16,21 @@ qt_add_executable(aerotrace_desktop
   widgets/plot.hpp models/record_model.hpp models/rt_record_model.hpp forms/rt_channel_body.ui
   pages/workspace_pages.cpp pages/monitor_pages.cpp pages/session_pages.cpp pages/icd_pages.cpp pages/signal_reports.cpp
   pages/system_pages.cpp tests/gui_checks.cpp tests/stable_workspace.cpp tests/performance_qualification.cpp tests/session_gui.cpp
-  pages/form_support.cpp pages/document_pages.cpp pages/signal_review.cpp forms/signal_review.ui pages/operator_shell.cpp services/profile_io.cpp
-  pages/icd_workspace.cpp pages/engineering_setup.cpp pages/analysis_tools.cpp pages/icd_management.cpp pages/csv_tools.cpp forms/icd_workspace.ui services/local_inference.cpp services/local_inference.hpp
-  services/profile_io.hpp forms/document_dialog.ui
-  services/key_gate.hpp services/key_gate.cpp pages/key_pages.cpp
+  pages/form_support.cpp pages/signal_review.cpp forms/signal_review.ui pages/operator_shell.cpp services/profile_io.cpp
+  pages/profile_runtime.cpp pages/engineering_setup.cpp pages/analysis_tools.cpp pages/csv_tools.cpp services/local_inference.cpp services/local_inference.hpp
+  services/profile_io.hpp
+  pages/manual_mappings.cpp pages/live_engineering.cpp services/manual_mapping.cpp forms/manual_mappings.ui tests/manual_mapping_gui.cpp
   pages/support_pages.cpp services/session_store.cpp services/session_store.hpp pages/hardware_pages.cpp services/ddc_discovery.cpp services/ddc_discovery.hpp services/card_manager.cpp services/card_manager.hpp services/runtime_paths.hpp services/ui_observer.hpp
   tests/rt_monitor_gui.cpp
   pages/page_catalog.hpp
   forms/welcome_page.ui forms/device_page.ui forms/ddc_method.ui forms/dashboard_page.ui
-  forms/monitor_page.ui forms/inspector_page.ui forms/engineering_page.ui
-  forms/plots_page.ui forms/topology_page.ui forms/events_page.ui
-  forms/sessions_page.ui forms/replay_page.ui forms/icd_library_page.ui
-  forms/icd_editor_page.ui forms/exports_page.ui forms/security_page.ui
+  forms/monitor_page.ui forms/engineering_page.ui
+  forms/plots_page.ui
+  forms/sessions_page.ui forms/replay_page.ui
+  forms/exports_page.ui
   forms/diagnostics_page.ui forms/page_header.ui forms/trace_card.ui
   forms/workspace.ui forms/page_footer.ui
-  forms/main_window.ui forms/license_page.ui forms/preferences_page.ui)
+  forms/main_window.ui forms/preferences_page.ui)
 target_include_directories(aerotrace_desktop PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_precompile_headers(aerotrace_desktop PRIVATE <QtWidgets> <QtConcurrent>)
 string(REPLACE "\\" "/" document_python_path "${AEROTRACE_DOCUMENT_PYTHON}")
@@ -110,12 +110,8 @@ add_test(NAME gui_workflows COMMAND aerotrace_desktop --workflow-test ${CMAKE_BI
 set_tests_properties(gui_workflows PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 30)
 add_test(NAME gui_live_pipeline_stress COMMAND aerotrace_desktop --performance-test ${CMAKE_BINARY_DIR}/test-results)
 set_tests_properties(gui_live_pipeline_stress PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 60)
-add_test(NAME gui_operator_workflow COMMAND aerotrace_desktop --operator-workflow-test ${CMAKE_BINARY_DIR}/test-results/operator)
+add_test(NAME gui_operator_workflow COMMAND aerotrace_desktop --operator-workflow-test ${CMAKE_BINARY_DIR}/test-results/operator "${PROJECT_SOURCE_DIR}/examples/demo-icd/AeroTrace-Demo-ICD.pdf")
 set_tests_properties(gui_operator_workflow PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 45)
-add_test(NAME gui_demo_icd_live COMMAND aerotrace_desktop --demo-workflow-test ${CMAKE_BINARY_DIR}/test-results/demo ${PROJECT_SOURCE_DIR}/examples/demo-icd/AeroTrace-Demo-ICD.pdf)
-set_tests_properties(gui_demo_icd_live PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 150)
-add_test(NAME gui_example_pdf_review_and_plots COMMAND aerotrace_desktop --example-icd-workflow-test ${CMAKE_BINARY_DIR}/test-results/example-icd ${PROJECT_SOURCE_DIR}/examples/demo-icd/Engineering-32-Word-Example.pdf)
-set_tests_properties(gui_example_pdf_review_and_plots PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 150)
 
 add_executable(aerotrace_session_tests tests/session_tests.cpp services/session_store.cpp services/ddc_discovery.cpp services/card_manager.cpp)
 target_include_directories(aerotrace_session_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
@@ -140,6 +136,11 @@ add_test(NAME gui_session_stop_save_and_layout COMMAND aerotrace_desktop --sessi
 set_tests_properties(gui_session_stop_save_and_layout PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 90)
 
 if(TARGET aerotrace_ddc_test_runtime)
+  add_test(NAME gui_manual_mapping_live_ddc_fixture COMMAND aerotrace_desktop --manual-mapping-test
+    "${CMAKE_BINARY_DIR}/test-results/manual-mapping" "${PROJECT_SOURCE_DIR}/examples/demo-icd/AeroTrace-Demo-ICD.pdf"
+    "$<TARGET_FILE:aerotrace_ddc_test_runtime>")
+  set_tests_properties(gui_manual_mapping_live_ddc_fixture PROPERTIES TIMEOUT 150
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;AEROTRACE_DDC_PROVIDER=$<TARGET_FILE:aerotrace_ddc_fixture_provider>")
   add_test(NAME gui_hardware_connection_recording COMMAND aerotrace_desktop --hardware-connection-test "${CMAKE_BINARY_DIR}/test-results/hardware-connection" "$<TARGET_FILE:aerotrace_ddc_test_runtime>")
   set_tests_properties(gui_hardware_connection_recording PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 90)
   set_property(TEST gui_hardware_connection_recording APPEND PROPERTY ENVIRONMENT "AEROTRACE_DDC_PROVIDER=$<TARGET_FILE:aerotrace_ddc_fixture_provider>")
@@ -150,9 +151,6 @@ target_include_directories(aerotrace_model_tests PRIVATE ${CMAKE_CURRENT_SOURCE_
 target_link_libraries(aerotrace_model_tests PRIVATE Qt6::Widgets Qt6::Concurrent Qt6::Test aerotrace_acquisition)
 add_test(NAME qt_model_consistency COMMAND aerotrace_model_tests)
 set_tests_properties(qt_model_consistency PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 90)
-
-add_test(NAME gui_offline_icd_both_terminals COMMAND aerotrace_desktop --offline-icd-workflow-test ${CMAKE_BINARY_DIR}/test-results/offline-icd ${PROJECT_SOURCE_DIR}/examples/offline-icd/Offline-Simulation-ICD.pdf)
-set_tests_properties(gui_offline_icd_both_terminals PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 150)
 
 add_executable(aerotrace_inference_tests tests/inference_checks.cpp services/local_inference.cpp services/local_inference.hpp)
 target_include_directories(aerotrace_inference_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
@@ -170,3 +168,9 @@ target_link_libraries(aerotrace_csv_conversion_tests PRIVATE Qt6::Core aerotrace
 add_test(NAME csv_compact_and_radix_conversion COMMAND aerotrace_csv_conversion_tests)
 add_test(NAME gui_stable_subsystem_workspace COMMAND aerotrace_desktop --stable-workspace-test ${CMAKE_BINARY_DIR}/test-results/stable-workspace)
 set_tests_properties(gui_stable_subsystem_workspace PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 90)
+
+add_test(NAME gui_startup_overlay COMMAND aerotrace_desktop --startup-splash-test ${CMAKE_BINARY_DIR}/test-results/startup-normal)
+add_test(NAME gui_startup_overlay_slow COMMAND aerotrace_desktop --startup-splash-test ${CMAKE_BINARY_DIR}/test-results/startup-slow --slow-startup)
+add_test(NAME gui_startup_overlay_failure COMMAND aerotrace_desktop --startup-failure-test ${CMAKE_BINARY_DIR}/test-results/startup-failure)
+set_tests_properties(gui_startup_overlay gui_startup_overlay_slow gui_startup_overlay_failure
+  PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 25)

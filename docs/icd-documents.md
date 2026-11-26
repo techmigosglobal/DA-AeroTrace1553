@@ -14,6 +14,14 @@ Recognized headers include signal/name/parameter, RT, SA/subaddress, direction, 
 
 Types: signed/unsigned integer fields up to 64 bits, IEEE float32/64 and packed BCD. Optional channel 1/2 and bus A/B restrict matching. Scale/offset, signedness, direction and payload bounds are validated in C++ before activation.
 
+The review grid supports `source_word` values `payload`, `command1`,
+`command2`, `status1` and `status2`. Omit the field for a legacy payload
+mapping. Command and status fields must fit within 16 bits. On RT-to-RT
+routes, use `peer_rt` and `peer_sa` for the opposite command. Set the main
+RT/SA to the receiver for command 1 and status 2, and to the transmitter
+for payload, command 2 and status 1. Review a generic “response word” against
+the specific ICD layout before selecting a source.
+
 ## OCR
 
 Embedded text is preferred. Image-only pages render at bounded resolution and use local OCR. Ruled tables undergo cell segmentation before recognition, preserving isolated numeric columns. The worker corrects an averaging bias in the pinned RapidOCR CTC decoder without substituting OCR characters or artificially increasing character probabilities.
@@ -26,11 +34,15 @@ An import supports up to 64 PDFs, 100 MiB, 500 pages, and 20,000 searchable chun
 
 Original PDFs are copied to the per-user document store under SHA-256 names. SQLite retains ICD sets, extracted profiles, page text, and local 384-dimensional MiniLM vectors. Existing indexed JSON profiles remain readable. Search combines semantic cosine ranking and FTS5 BM25. Extractive answers show document names, pages, and supporting excerpts.
 
-An optional local OpenAI-compatible server may be configured by URL and model name in the dialog. Only loopback HTTP endpoints are accepted, redirects are disabled, and answers cannot activate ICD mappings. The server's own CPU/RAM budget and model quality require separate configuration and evaluation.
+The review package includes a local model for explanatory answers. Indexed
+questions use text and tables during recording. **Ask after recording**
+queues full retrieval and generation. New PDF imports also wait for
+recording and saving to finish. The Assistant cites source pages and can
+return excerpts when there is insufficient evidence for a generated answer.
 
 ## Provenance and persistence
 
-The active profile persists in per-user application data. Each capture saves its profile snapshot alongside raw data. Imported rules preserve document hash/name/page, representation, scaling and source constraints. Reopening a recording restores its saved profile when valid.
+The active profile persists in per-user application data. Each capture saves its profile snapshot alongside raw data. Imported rules preserve document hash/name/page, representation, scaling and source constraints.
 
 There is no autonomous retraining or model-directed modification of hardware modes. The import pipeline automates extraction and validated conversion; it does not guarantee that every arbitrary PDF contains a complete, unambiguous ICD.
 
@@ -48,6 +60,13 @@ Choose **Set table conversion** to confirm missing float word order, assign chan
 AeroTrace Assistant offers **ICD documents** for source evidence and **Published mappings** for the rules Engineering uses. A published rule can appear beside the extracted evidence when the operator has changed it. Mapping changes are applied separately through review.
 Save draft keeps unfinished rows separate from the active profile.
 
+To change a published rule, enter an explicit instruction such as
+`Set TEMP scale to 0.02` and select **Propose mapping**. Open it from
+**ICD Library → Assistant drafts** to compare the original and proposed
+rule, inspect the cited PDF, and try representative hex words with the
+native converter. Publish after reviewing the preview. Publication waits
+until capture and saving have finished.
+
 Copy CSV header from the grid or use the header below.
 
 ```csv
@@ -61,7 +80,7 @@ unrestricted channel or bus, and `receive` or `transmit` for direction.
 Supported representations are `integer`, `float32`, `float64` and `bcd`.
 The sample row illustrates syntax only. Verify real values against the ICD.
 
-Preview pasted hexadecimal words or a selected monitor or replay record.
+Preview pasted hexadecimal words or a selected monitor record.
 
 Flags, enumerated numeric fields, and contiguous mask/right-shift expressions can use the existing integer decoder. Expressions outside the supported grammar stay in review.
 Publish profile validates every staged row and saves the profile before use.
@@ -70,8 +89,7 @@ selectors to pick other signals. Plot time comes from the selected stream.
 
 For Engineering-32-Word-Example.pdf, select Fill example mappings, preview, publish,
 and select Offline simulation in Device Setup. Start recording explicitly.
-Demo conversions require example provenance, including when opening the
-saved recording. AeroTrace Assistant can answer message layout and word-range questions
+Demo conversions require example provenance. AeroTrace Assistant can answer message layout and word-range questions
 directly from extracted evidence. A chat answer never publishes a profile.
 
 

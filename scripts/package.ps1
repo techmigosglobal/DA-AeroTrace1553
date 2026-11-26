@@ -45,10 +45,11 @@ Copy-Item -LiteralPath "$projectRoot\README.md" -Destination $packageRoot
 Copy-Item -LiteralPath "$projectRoot\apps\desktop\icons\aerotrace.ico" -Destination "$packageRoot\aerotrace.ico" -Force
 Copy-Item -LiteralPath "$projectRoot\installer\Install-Notes.txt" -Destination "$packageRoot\Install-Notes.txt" -Force
 New-Item -ItemType Directory -Force "$packageRoot/docs","$packageRoot/examples" | Out-Null
-foreach($name in 'Operator-Guide.html','Operator-Guide.pdf','assets',"Release-$projectVersion.md",'icd-documents.md','sdk-compatibility.md','provider-contract.md','card-time-and-diagnostics.md','SES-Bench-Checklist.md'){
+foreach($name in 'Operator-Guide.html','Operator-Guide.pdf','Phase-Two.md','assets',"Release-$projectVersion.md",'icd-documents.md','sdk-compatibility.md','provider-contract.md','card-time-and-diagnostics.md','SES-Bench-Checklist.md'){
   Copy-Item -LiteralPath (Join-Path "$projectRoot/docs" $name) -Destination "$packageRoot/docs" -Recurse
 }
 Copy-Item -LiteralPath "$projectRoot/examples/offline-icd/Offline-Simulation-ICD.pdf" -Destination "$packageRoot/examples"
+Copy-Item -LiteralPath "$projectRoot/examples/thermal-bench" -Destination "$packageRoot/examples" -Recurse
 '<!doctype html><html lang="en"><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=docs/Operator-Guide.html"><title>AeroTrace guide</title><a href="docs/Operator-Guide.html">Open the AeroTrace operator guide</a></html>' | Set-Content -LiteralPath "$packageRoot/START-HERE.html" -Encoding UTF8
 New-Item -ItemType Directory -Force "$packageRoot\scripts" | Out-Null
 Copy-Item -LiteralPath "$projectRoot\scripts\collect-diagnostics.ps1" -Destination "$packageRoot\scripts" -Force
@@ -56,7 +57,9 @@ Copy-Item -LiteralPath "$projectRoot\scripts\collect-diagnostics.ps1" -Destinati
 Copy-Item -LiteralPath "$projectRoot\scripts\check-ddc.ps1" -Destination "$packageRoot\scripts" -Force
 New-Item -ItemType Directory -Force "$packageRoot\licenses" | Out-Null
 & "$PSScriptRoot/package-documents.ps1" -PackageRoot $packageRoot
-& "$PSScriptRoot/package-assistant.ps1" -PackageRoot $packageRoot
+if([version]$projectVersion -lt [version]'0.7.1'){
+  & "$PSScriptRoot/package-assistant.ps1" -PackageRoot $packageRoot
+}
 $privatePacks=Join-Path $packageRoot 'providers/packs'
 if(![IO.Path]::IsPathRooted($HelperPacksRoot)){$HelperPacksRoot=Join-Path $projectRoot $HelperPacksRoot}
 if(!(Test-Path -LiteralPath $HelperPacksRoot)){throw 'Build the x86 helper with scripts/build-ddc-helper.ps1 -Test before packaging'}

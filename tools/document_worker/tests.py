@@ -6,6 +6,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 # The embedded Windows Python can prefer the installed worker via python._pth.
 # Use the sibling source modules when this suite is run from a checkout.
@@ -91,7 +92,7 @@ class ReviewedActionTests(unittest.TestCase):
         result = propose("Set TEMP scale to 0.2", self.profile, "a"*64)
         self.assertEqual(self.profile["signals"][0]["scale"], .1)
         self.assertEqual(result["profile"]["signals"][0]["scale"], .2)
-        self.assertIn("Operator clarification", result["summary"])
+        self.assertIn("Operator instruction", result["summary"])
         self.assertEqual(propose("Plot TEMP", self.profile, "a"*64)["kind"], "plot")
         with self.assertRaises(ValueError):
             propose("Set TEMP scale to 0.2", self.profile, "b"*64)
@@ -278,6 +279,9 @@ class Documents(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)
+        offline = mock.patch("socket.socket.connect", side_effect=OSError("Network disabled for PDF tests"))
+        offline.start()
+        self.addCleanup(offline.stop)
 
     def tearDown(self):
         self.temp.cleanup()
@@ -285,6 +289,18 @@ class Documents(unittest.TestCase):
     def ingest(self, path):
         with contextlib.redirect_stdout(io.StringIO()):
             return worker.ingest({"pdf": str(path), "store": str(self.root / "store")})
+
+    def test_explicit_status_and_ambiguous_response_definition(self):
+        header = ["Signal", "RT", "SA", "Direction", "Source word", "Peer RT", "Peer SA",
+                  "LSB", "Width", "Type", "Unit", "Scale", "Offset"]
+        valid = ["TX_BUSY", "3", "2", "transmit", "Status 1", "", "", "3", "1", "uint", "flag", "1", "0"]
+        ambiguous = ["UNKNOWN", "3", "2", "transmit", "Response word", "", "", "3", "1", "uint", "flag", "1", "0"]
+        mapped, drafts = worker.parse_table([header, valid, ambiguous], 2, "digital", "digest", "")
+        self.assertEqual(len(mapped), 1)
+        self.assertEqual(mapped[0]["source_word"], "status1")
+        self.assertEqual(mapped[0]["word"], 0)
+        self.assertEqual(len(drafts), 1)
+        self.assertIn("explicitly", drafts[0]["reason"])
 
     def test_digital_pdf_mapping_retrieval_and_idempotence(self):
         path = self.root / "reference.pdf"
@@ -302,7 +318,13 @@ class Documents(unittest.TestCase):
         self.assertIn("degC", answer["answer"])
         self.assertEqual(answer["mode"], "extractive")
         self.assertEqual(answer["citations"][0]["hash"], profile["sha256"])
-        missing = worker.ask({"store": str(self.root / "store"), "question": "unfindable_xyz"})
+        fast = worker.ask({"store": str(self.root / "store"), "question": "Temperature TEMP unit",
+                           "fast_only": True, "prepare_generation": True})
+        self.assertEqual(fast["retrieval"], "Table evidence + BM25")
+        self.assertFalse(fast.get("needs_generation"))
+        self.assertIn("degC", fast["answer"])
+        self.assertEqual(fast["citations"][0]["hash"], profile["sha256"])
+        missing = worker.ask({"store": str(self.root / "store"), "question": "What is the unfindable_xyz?"})
         self.assertFalse(missing["citations"])
 
     def test_selected_icd_chat_isolation_followup_and_persistence(self):
@@ -432,6 +454,36 @@ class RetrievalContextTests(unittest.TestCase):
 
 
 class LibraryHistoryTests(unittest.TestCase):
+    def test_permanent_delete_keeps_history_and_shared_pdf(self):
+        with tempfile.TemporaryDirectory() as folder:
+            store = Path(folder)
+            from library_history import operate
+            db = worker.database(store)
+            first, shared, revision, other = ("a"*64, "b"*64, "c"*64, "d"*64)
+            for digest in (first, shared, revision, other):
+                db.execute("INSERT INTO documents VALUES(?,?,1)", (digest, digest))
+            for digest in (first, shared):
+                (store / (digest + ".pdf")).write_bytes(b"owned copy")
+                db.execute("INSERT INTO chunks VALUES(?,1,'indexed text')", (digest,))
+            for digest in (revision, other):
+                db.execute("INSERT INTO document_profiles VALUES(?,?)", (digest, "{}"))
+            db.executemany("INSERT INTO icd_set_members VALUES(?,?,?)",
+                           [(revision, first, 0), (revision, shared, 1), (other, shared, 0)])
+            db.commit()
+            chat = operate(db, dict(op="conversation_new", document_hash=revision))
+            db.close()
+            request = dict(store=folder, document_hash=revision)
+            self.assertEqual(worker.permanent_delete(request, preview=True)["purge_hashes"], [first])
+            self.assertFalse(worker.permanent_delete(request)["cleanup_pending"])
+            self.assertFalse((store / (first + ".pdf")).exists())
+            self.assertTrue((store / (shared + ".pdf")).exists())
+            worker.permanent_delete(request)
+            db = worker.database(store)
+            self.assertFalse(db.execute("SELECT 1 FROM chunks WHERE hash=?", (first,)).fetchone())
+            self.assertTrue(db.execute("SELECT 1 FROM chunks WHERE hash=?", (shared,)).fetchone())
+            self.assertTrue(operate(db, dict(op="conversation_load", conversation_id=chat["conversation_id"]))["source_deleted"])
+            db.close()
+
     def test_threads_archive_restore_and_legacy_migration(self):
         import sqlite3
         from library_history import operate, history

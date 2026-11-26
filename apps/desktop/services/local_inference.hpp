@@ -20,6 +20,8 @@ public:
   void release();
   void cancel();
   void pauseForCapture();
+  bool assetsPresent() const;
+  bool selectAssets(const QString &directory);
   qint64 processId() const {return server.processId();}
   QString status() const {return state;}
 private:

@@ -15,7 +15,6 @@ import shutil
 import sqlite3
 import sys
 import tempfile
-import heapq
 import urllib.request
 from datetime import datetime, timezone
 
@@ -34,6 +33,9 @@ ALIASES = {
     "sa": {"sa", "subaddress", "subaddr"},
     "direction": {"direction", "tr", "transmitreceive", "transferdirection"},
     "word": {"word", "wordindex", "wordindex0based", "wordindexzerobased", "wordnumber", "wordnumber1based", "dataword"},
+    "source_word": {"sourceword", "wordkind", "wordsource"},
+    "peer_rt": {"peerrt", "peerrtaddress"},
+    "peer_sa": {"peersa", "peersubaddress"},
     "word_count": {"wordcount", "wordcountwc", "wc"},
     "lsb": {"lsb", "bitoffset", "startbit"},
     "width": {"width", "bitwidth", "bitlength", "bits", "bitrange"},
@@ -348,13 +350,23 @@ def normalize_encoding(row):
     return row
 
 
+def source_word_kind(row):
+    reference = normal(row.get("source_word")) or normal(row.get("word"))
+    match = re.fullmatch(r"(command|status)(?:word)?([12])", reference)
+    if match:
+        return "".join(match.groups())
+    if row.get("source_word") and reference not in {"payload", "data", "dataword"}:
+        return None
+    return "payload"
+
+
 def partial_table_fields(row, word_label, context):
     result = {key: row[key] for key in ("id", "unit") if row.get(key)}
     directions = {"r": "receive", "rx": "receive", "receive": "receive", "bctort": "receive", "0": "receive",
                   "t": "transmit", "tx": "transmit", "transmit": "transmit", "rttobc": "transmit", "1": "transmit"}
     if direction := directions.get(normal(row.get("direction"))):
         result["direction"] = direction
-    for key in ("rt", "sa", "lsb", "width", "word_count", "channel", "scale", "offset"):
+    for key in ("rt", "sa", "lsb", "width", "word_count", "channel", "scale", "offset", "peer_rt", "peer_sa"):
         if not row.get(key):
             continue
         try:
@@ -368,7 +380,10 @@ def partial_table_fields(row, word_label, context):
         else:
             result.pop("lsb", None)
     base = word_index_base(word_label, context)
-    if base is not None:
+    source_word = source_word_kind(row)
+    if source_word and source_word != "payload":
+        result["source_word"] = source_word
+    elif base is not None:
         try:
             result["data_word"] = integer(row.get("word", "")) - base + 1
         except (ValueError, OverflowError):
@@ -407,10 +422,10 @@ def parse_table(rows, page, source, digest, context, confidence=1.0, table_state
             for key, names in ALIASES.items():
                 if normal(cell) in names:
                     found[key] = index
-        if {"rt", "sa", "word"}.issubset(found) and len(found) >= 4:
+        if {"rt", "sa"}.issubset(found) and {"word", "source_word"} & found.keys() and len(found) >= 4:
             columns, header = found, cells
             inherited = False
-            numbering = word_index_base(header[columns["word"]], context)
+            numbering = word_index_base(header[columns["word"]], context) if "word" in columns else None
             if table_state is not None:
                 table_state.update(header=(columns, header), numbering=numbering)
             continue
@@ -424,7 +439,12 @@ def parse_table(rows, page, source, digest, context, confidence=1.0, table_state
         try:
             normalize_encoding(row)
             normalized = True
-            required = {"id", "rt", "sa", "direction", "word", "width", "scale", "offset", "unit", "type"}
+            source_word = source_word_kind(row)
+            if not source_word:
+                raise ValueError("Specify payload, command 1/2, or status 1/2 explicitly")
+            required = {"id", "rt", "sa", "direction", "width", "scale", "offset", "unit", "type"}
+            if source_word == "payload":
+                required.add("word")
             missing = {key for key in required if not row.get(key)}
             if missing:
                 raise ValueError("Missing explicit columns: " + ", ".join(sorted(missing)))
@@ -438,7 +458,7 @@ def parse_table(rows, page, source, digest, context, confidence=1.0, table_state
             else:
                 raise ValueError("Ambiguous transfer direction: " + row["direction"])
             base = numbering
-            if base is None:
+            if base is None and source_word == "payload":
                 raise ValueError("Word indexing base is not explicit (0-based index or 1-based word number)")
             bits = re.fullmatch(r"\s*(\d+)\s*[:\-–]\s*(\d+)\s*", row["width"])
             if bits:
@@ -470,13 +490,22 @@ def parse_table(rows, page, source, digest, context, confidence=1.0, table_state
                 raise ValueError("Multiword value needs explicit word order")
             identity = " / ".join([*(group or []), row["id"]])
             mapping = {"schema": "aerotrace.icd.v1", "id": identity, "unit": row["unit"],
-                       "rt": integer(row["rt"]), "sa": integer(row["sa"]), "word": integer(row["word"]) - base,
+                       "rt": integer(row["rt"]), "sa": integer(row["sa"]), "word": integer(row["word"]) - base if source_word == "payload" else 0,
                        "lsb": lsb, "width": width, "expected_word_count": integer(row.get("word_count") or "0"), "scale": number(row["scale"]), "offset": number(row["offset"]),
                        "signed": signed, "transmit": transmit, "numeric_type": numeric_type,
                        "lsw_first": order in {"lswfirst", "littleendian"}, "channel": integer(row.get("channel", "0") or "0"),
                        "bus": {"A": 0, "B": 1, "": -1, "ANY": -1}.get(row.get("bus", "").upper(), -99),
                        "source_page": page, "source_hash": digest, "source_document": source,
                        "evidence": evidence}
+            if source_word != "payload" or row.get("peer_rt") or row.get("peer_sa"):
+                peer_rt, peer_sa = (integer(row[key]) if row.get(key) else -1 for key in ("peer_rt", "peer_sa"))
+                if not -1 <= peer_rt <= 31 or not -1 <= peer_sa <= 31 or ((peer_rt < 0) != (peer_sa < 0)):
+                    raise ValueError("Specify both RT-to-RT peer addresses")
+                if source_word in {"command2", "status2"} and peer_rt < 0:
+                    raise ValueError("Specify the opposite RT and subaddress")
+                if source_word != "payload" and lsb + width > 16:
+                    raise ValueError("Command and status fields must fit one 16-bit word")
+                mapping.update(source_word=source_word, peer_rt=peer_rt, peer_sa=peer_sa)
             if not 0 <= mapping["rt"] <= 31 or not 0 <= mapping["sa"] <= 31:
                 raise ValueError("RT/SA outside 0–31")
             if not 0 <= mapping["word"] < 32 or not 0 <= lsb < 16 or not 1 <= width <= 64 or width + lsb > 64 or mapping["word"] + (width + lsb + 15) // 16 > 32:
@@ -492,7 +521,7 @@ def parse_table(rows, page, source, digest, context, confidence=1.0, table_state
             else:
                 mappings.append(mapping)
         except (ValueError, ZeroDivisionError, OverflowError) as error:
-            word_label = header[columns["word"]] if numbering is None else f"Word index ({numbering}-based)"
+            word_label = (header[columns["word"]] if "word" in columns else "") if numbering is None else f"Word index ({numbering}-based)"
             fields = partial_table_fields(row, word_label, context)
             if fields.get("id"):
                 fields["id"] = " / ".join([*(group or []), fields["id"]])
@@ -511,6 +540,9 @@ def database(store):
     db = sqlite3.connect(store / "documents.sqlite")
     db.execute("PRAGMA journal_mode=WAL")
     db.execute("CREATE TABLE IF NOT EXISTS documents(hash TEXT PRIMARY KEY, name TEXT, pages INTEGER)")
+    db.execute("CREATE TABLE IF NOT EXISTS document_page_source(hash TEXT, page INTEGER, method TEXT, confidence REAL, PRIMARY KEY(hash,page))")
+    db.execute("CREATE TABLE IF NOT EXISTS deleted_icds(hash TEXT PRIMARY KEY)")
+    db.execute("CREATE TABLE IF NOT EXISTS icd_purge(owner TEXT, name TEXT, PRIMARY KEY(owner,name))")
     db.execute("CREATE TABLE IF NOT EXISTS document_profiles(hash TEXT PRIMARY KEY, profile_json TEXT NOT NULL)")
     db.execute("CREATE TABLE IF NOT EXISTS signal_entries(profile_hash TEXT, position INTEGER, subsystem TEXT, encoding TEXT, row_json TEXT, PRIMARY KEY(profile_hash,position))")
     db.execute("CREATE INDEX IF NOT EXISTS signal_scope ON signal_entries(profile_hash,subsystem,encoding)")
@@ -629,7 +661,7 @@ def correct_ctc_confidence(engine):
     engine.text_recognizer.postprocess_op = Decoder()
 
 
-def extract_pages(path, digest, context):
+def extract_pages(path, digest, context, page_sources=None):
     import pdfplumber
     import pypdfium2 as pdfium
 
@@ -739,6 +771,8 @@ def extract_pages(path, digest, context):
             all_mappings.extend(page_mappings)
             all_pending.extend(page_pending)
             pages.append(text)
+            if page_sources is not None:
+                page_sources.append((digest,index+1,method,float(confidence)))
             emit("progress", page=index + 1, total=len(pdf.pages), method=method, mapped=len(all_mappings), review=len(all_pending))
     return pages, all_mappings, all_pending
 
@@ -775,24 +809,23 @@ def validate_candidates(all_mappings, all_pending):
                                for mapping in candidates)
         else:
             unique.append(first)
-    if len(unique) > 512:
-        raise ValueError("More than 512 signals; split the ICD into selected profiles")
     return unique
 
 
-def index_import(db, store, documents, digest, name, is_set, profile):
+def index_import(db, store, documents, digest, name, is_set, profile, page_sources=()):
     profile_json = json.dumps(profile, ensure_ascii=False, allow_nan=False)
     if len(profile_json.encode()) > 3 * 1024 * 1024:
         raise ValueError("ICD review exceeds 3 MB. Import the subsystems as smaller sets.")
     with db:
-        from embedding import Encoder, VERSION
-        encoder = Encoder()
         chunks = [(source, index + 1, text[start:start + 2000])
                   for _, source, pages in documents for index, text in enumerate(pages)
                   for start in range(0, len(text), 1800)]
         if len(chunks) > 20000:
             raise ValueError("ICD set exceeds 20000 searchable chunks")
         for path, source, pages in documents:
+            if db.execute("SELECT 1 FROM icd_purge WHERE name=?", (source + ".pdf",)).fetchone():
+                raise ValueError("Finish pending ICD deletion before importing this PDF.")
+            db.execute("DELETE FROM deleted_icds WHERE hash=?", (source,))
             destination = store / (source + ".pdf")
             if not destination.exists():
                 temporary = destination.with_suffix(".pdf.tmp")
@@ -807,16 +840,15 @@ def index_import(db, store, documents, digest, name, is_set, profile):
             db.execute("DELETE FROM icd_set_members WHERE set_hash=?", (digest,))
             db.executemany("INSERT INTO icd_set_members VALUES(?,?,?)",
                            [(digest, source, index) for index, (_, source, _) in enumerate(documents)])
+        if db.execute("SELECT 1 FROM icd_purge WHERE owner=?", (digest,)).fetchone():
+            raise ValueError("Finish pending ICD deletion before importing this revision.")
+        db.execute("DELETE FROM deleted_icds WHERE hash=?", (digest,))
         db.execute("INSERT OR REPLACE INTO document_profiles VALUES(?,?)", (digest, profile_json))
         index_rows(db, digest, profile)
         retrieval_context.index(db, digest, signal_entries(profile))
-        for start in range(0, len(chunks), 16):
-            batch = chunks[start:start + 16]
-            vectors = encoder.encode([text for _, _, text in batch])
-            for (source, page, text), vector in zip(batch, vectors):
-                cursor = db.execute("INSERT INTO chunks(hash,page,text) VALUES(?,?,?)", (source, page, text))
-                db.execute("INSERT INTO embeddings VALUES(?,?,?,?)", (cursor.lastrowid, source, VERSION, vector.tobytes()))
-            emit("progress", page=min(start + len(batch), len(chunks)), total=len(chunks), method="local embeddings")
+        db.executemany("INSERT INTO chunks(hash,page,text) VALUES(?,?,?)", chunks)
+        db.executemany("INSERT OR REPLACE INTO document_page_source VALUES(?,?,?,?)",page_sources)
+        emit("progress", page=len(chunks), total=len(chunks), method="local text index")
 
 
 def ingest(request):
@@ -828,7 +860,7 @@ def ingest(request):
         raise ValueError("Name the ICD set")
     if len(set_name) > 120:
         raise ValueError("ICD set name exceeds 120 characters")
-    documents, all_mappings, all_pending = [], [], []
+    documents, all_mappings, all_pending, page_sources = [], [], [], []
     context, seen = {}, set()
     page_count, total_bytes = 0, 0
     for entry in paths:
@@ -841,7 +873,7 @@ def ingest(request):
         if source in seen:
             continue
         seen.add(source)
-        pages, mappings, pending = extract_pages(path, source, context)
+        pages, mappings, pending = extract_pages(path, source, context, page_sources)
         page_count += len(pages)
         if page_count > MAX_PAGES:
             raise ValueError("ICD set exceeds 500 pages")
@@ -857,7 +889,7 @@ def ingest(request):
     store = Path(request["store"]).resolve()
     db = database(store)
     try:
-        index_import(db, store, documents, digest, name, is_set, profile)
+        index_import(db, store, documents, digest, name, is_set, profile, page_sources)
     finally:
         db.close()
     result = library({"store": str(store), "document_hash": digest})
@@ -872,7 +904,9 @@ def chat_history(db, digest, conversation_id=None):
 
 def document_scope(db, request):
     digest = str(request.get("document_hash", ""))
-    if digest and (not re.fullmatch(r"[0-9a-f]{64}", digest) or not db.execute("SELECT 1 FROM documents WHERE hash=?", (digest,)).fetchone()):
+    if digest and (not re.fullmatch(r"[0-9a-f]{64}", digest)
+                   or db.execute("SELECT 1 FROM deleted_icds WHERE hash=?", (digest,)).fetchone()
+                   or not db.execute("SELECT 1 FROM documents WHERE hash=?", (digest,)).fetchone()):
         db.close()
         raise ValueError("Selected ICD is not indexed. Import the PDF first.")
     return digest
@@ -888,13 +922,78 @@ def stored_profile(db, store, digest):
     return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
 
 
+def permanent_delete(request, preview=False):
+    """Remove a revision and unshared app-owned search data. Keep chat history."""
+    digest = str(request.get("document_hash", ""))
+    if not re.fullmatch(r"[0-9a-f]{64}", digest):
+        raise ValueError("Select an indexed ICD revision.")
+    store = Path(request["store"]).resolve()
+    db = database(store)
+    try:
+        with db:
+            db.execute("BEGIN IMMEDIATE")
+            already_deleted = db.execute("SELECT 1 FROM deleted_icds WHERE hash=?", (digest,)).fetchone()
+            exists = db.execute("SELECT 1 FROM documents WHERE hash=?", (digest,)).fetchone()
+            if not exists and not already_deleted:
+                raise ValueError("This ICD revision is no longer in the library.")
+            members = [row[0] for row in db.execute(
+                "SELECT document_hash FROM icd_set_members WHERE set_hash=?", (digest,))]
+            purge = []
+            if not already_deleted:
+                for source in sorted(set(members or [digest])):
+                    if not re.fullmatch(r"[0-9a-f]{64}", source):
+                        raise ValueError("Invalid ICD member identity.")
+                    shared = db.execute(
+                        "SELECT 1 FROM icd_set_members WHERE document_hash=? AND set_hash<>?", (source, digest)).fetchone()
+                    independent = source != digest and db.execute(
+                        "SELECT 1 FROM document_profiles WHERE hash=?", (source,)).fetchone()
+                    if not shared and not independent:
+                        purge.append(source)
+            if preview:
+                return dict(document_hash=digest, purge_hashes=purge)
+            expected = request.get("purge_hashes")
+            if not already_deleted and expected is not None and sorted(expected) != purge:
+                raise ValueError("The ICD set membership changed. Review the deletion scope again.")
+            if not already_deleted:
+                db.execute("INSERT INTO deleted_icds VALUES(?)", (digest,))
+                db.execute("DELETE FROM icd_set_members WHERE set_hash=?", (digest,))
+                db.execute("DELETE FROM document_profiles WHERE hash=?", (digest,))
+                db.execute("DELETE FROM signal_entries WHERE profile_hash=?", (digest,))
+                db.execute("DELETE FROM icd_table_evidence WHERE profile_hash=?", (digest,))
+                db.execute("DELETE FROM icd_table_evidence_ready WHERE hash=?", (digest,))
+                for source in purge:
+                    db.execute("INSERT OR IGNORE INTO deleted_icds VALUES(?)", (source,))
+                    db.execute("DELETE FROM chunks WHERE hash=?", (source,))
+                    db.execute("DELETE FROM document_page_source WHERE hash=?", (source,))
+                    db.execute("DELETE FROM embeddings WHERE hash=?", (source,))
+                    db.execute("DELETE FROM documents WHERE hash=?", (source,))
+                    db.execute("INSERT OR IGNORE INTO icd_purge VALUES(?,?)", (digest, source + ".pdf"))
+                if members:
+                    db.execute("DELETE FROM documents WHERE hash=?", (digest,))
+                db.execute("INSERT OR IGNORE INTO icd_purge VALUES(?,?)", (digest, digest + ".profile.json"))
+        cleanup_pending = False
+        for filename, in db.execute("SELECT name FROM icd_purge WHERE owner=?", (digest,)).fetchall():
+            if not re.fullmatch(r"[0-9a-f]{64}\.(?:pdf|profile\.json)", filename):
+                raise ValueError("Invalid pending ICD cleanup filename.")
+            try:
+                (store / filename).unlink(missing_ok=True)
+            except OSError:
+                cleanup_pending = True
+            else:
+                with db:
+                    db.execute("DELETE FROM icd_purge WHERE owner=? AND name=?", (digest, filename))
+        return dict(document_hash=digest, purge_hashes=purge, cleanup_pending=cleanup_pending, source_deleted=True)
+    finally:
+        db.close()
+
+
 def library(request):
     db = database(request["store"])
     store = Path(request["store"])
     from library_history import state, conversations
     documents = [dict(hash=digest, name=state(db,digest)["display_name"] or name, pages=pages, archived=state(db,digest)["archived"],icd_set_id=state(db,digest)["set_id"]) for digest, name, pages, indexed in db.execute(
         "SELECT d.hash,d.name,d.pages,p.hash IS NOT NULL FROM documents d LEFT JOIN document_profiles p ON d.hash=p.hash ORDER BY d.rowid DESC LIMIT 500")
-                 if (indexed or (store / (digest + ".profile.json")).is_file()) and (request.get("include_archived") or not state(db,digest)["archived"])]
+                 if (indexed or (store / (digest + ".profile.json")).is_file()) and not db.execute("SELECT 1 FROM deleted_icds WHERE hash=?", (digest,)).fetchone() and (request.get("include_archived") or not state(db,digest)["archived"])]
     digest = document_scope(db, request)
     if not digest and any(item["hash"]==request.get("preferred_hash") for item in documents):
         digest = request["preferred_hash"]
@@ -973,7 +1072,10 @@ def mapping_text(signal):
     channel = f'CH{signal["channel"]}' if signal.get("channel") else "any channel"
     bus = {0: "bus A", 1: "bus B"}.get(signal.get("bus"), "either bus")
     count = f'{signal["expected_word_count"]} data words' if signal.get("expected_word_count") else "any payload length"
-    return (f'RT {signal["rt"]} / SA {signal["sa"]}, {direction}; word {signal["word"]} (zero-based), '
+    source = signal.get("source_word", "payload")
+    word = f'word {signal["word"]} (zero-based)' if source == "payload" else source[:-1] + " " + source[-1]
+    peer = f'; peer RT {signal["peer_rt"]} / SA {signal["peer_sa"]}' if signal.get("peer_rt", -1) >= 0 else ""
+    return (f'RT {signal["rt"]} / SA {signal["sa"]}, {direction}{peer}; {word}, '
             f'LSB {signal["lsb"]}, width {signal["width"]}, {encoding}, {order}. '
             f'{channel}, {bus}, {count}. '
             f'Engineering = extracted value * {signal["scale"]} + {signal["offset"]} {signal["unit"]}.')
@@ -982,7 +1084,7 @@ def mapping_text(signal):
 def mapping_rule(signal):
     keys = ("rt", "sa", "transmit", "word", "lsb", "width", "numeric_type", "signed", "lsw_first",
             "scale", "offset", "unit", "expected_word_count", "channel", "bus")
-    return tuple(signal.get(key) for key in keys)
+    return tuple(signal.get(key) for key in keys) + (signal.get("source_word", "payload"),signal.get("peer_rt", -1),signal.get("peer_sa", -1))
 
 
 def mapping_answer(request, digest, query, history, profile):
@@ -1103,6 +1205,26 @@ def draft_layout_answer(profile, digest, query, history):
                 citations=[dict(document=source_name or profile["document"], hash=citation_hash, page=page, excerpt=excerpt, rank=1)])
 
 
+def label_pdf_sources(db, citations):
+    for item in citations:
+        row = db.execute("SELECT method,confidence FROM document_page_source WHERE hash=? AND page=?",
+                         (item.get("hash"),item.get("page"))).fetchone()
+        if row:
+            item.update(source_method=row[0], source_confidence=row[1])
+            if row[0]=="ocr":
+                item["context"] = " · ".join(filter(None, (item.get("context"), "OCR evidence")))
+
+
+def answer_or_prepare(request, digest, question, result, history):
+    sources = [item for item in result.get("citations", [])
+               if item.get("page", 0) and item.get("excerpt") and item.get("hash")]
+    if not request.get("prepare_generation") or request.get("fast_only") or not sources:
+        return remember_answer(request, digest, question, result)
+    return dict(result, citations=sources[:5], document_hash=digest, question=question,
+                conversation_id=request.get("conversation_id"), history=history[-4:],
+                needs_generation=True)
+
+
 def ask(request):
     query = str(request.get("question", "")).strip()[:2000]
     terms = re.findall(r"[\w]+", query, re.UNICODE)[:32]
@@ -1113,6 +1235,10 @@ def ask(request):
     if request.get("conversation_id") == "":
         from library_history import operate
         request["conversation_id"]=operate(db,dict(request,op="conversation_new",document_hash=digest))["conversation_id"]
+    native_example = request.get("native_example")
+    if isinstance(native_example, dict) and native_example.get("answer"):
+        db.close()
+        return remember_answer(request,digest,query,dict(native_example,mode="native-preview"))
     history = chat_history(db,digest,request.get("conversation_id")) if digest or request.get("conversation_id") else []
     profile = stored_profile(db, request["store"], digest)
     selected = request.get("subsystem", "")
@@ -1134,21 +1260,30 @@ def ask(request):
         request=dict(request,active_profile=active)
     from engineering_reference import answer as reference_answer
     reference=reference_answer(request)
-    if reference:
+    if reference and (not digest or reference.get("mode")=="native-preview"):
         db.close()
         return remember_answer(request,digest,query,reference)
-    direct = structured_query(request,profile,history,db) or mapping_answer(dict(request,subsystem=selected),digest,query,history,visible_profile)
+    hex_example = bool(re.search(r"\b(?:0x[0-9a-f]{1,4}|[0-9a-f]{4})\b", query, re.I))
+    direct = None if hex_example and request.get("answer_source") != "published" else (
+        structured_query(request,profile,history,db) or
+        mapping_answer(dict(request,subsystem=selected),digest,query,history,visible_profile))
     if request.get("answer_source") == "published":
         db.close()
         return remember_answer(request,digest,query,direct or {
             "answer": "No matching published mapping. Enter the signal ID or switch to ICD documents.",
             "citations": [], "mode": "published-mapping"})
-    direct = direct or draft_layout_answer(visible_profile,digest,query,history)
+    if not hex_example:
+        direct = direct or draft_layout_answer(visible_profile,digest,query,history)
     if direct:
+        label_pdf_sources(db,direct.get("citations",[]))
         db.close()
-        return remember_answer(request,digest,query,direct)
+        return answer_or_prepare(request,digest,query,direct,history)
     retrieval_query = retrieval_context.followup(query, history)
-    retrieval_terms = list(dict.fromkeys(terms + [term for term in re.findall(r"[A-Za-z0-9_]+", retrieval_query) if len(term) > 2]))[:30]
+    common = {"what", "which", "where", "when", "why", "how", "does", "do", "is",
+              "are", "the", "a", "an", "of", "for", "to", "in", "and", "this",
+              "it", "its", "with", "can", "please", "show", "explain", "tell", "me"}
+    retrieval_terms = list(dict.fromkeys(term for term in
+        terms + re.findall(r"[A-Za-z0-9_]+", retrieval_query) if term.lower() not in common))[:30]
     expression = " OR ".join('"' + term.replace('"', '""') + '"' for term in retrieval_terms)
     scope = " AND (hash=? OR hash IN (SELECT document_hash FROM icd_set_members WHERE set_hash=?))" if digest else ""
     scoped_args = (digest, digest) if digest else ()
@@ -1162,37 +1297,12 @@ def ask(request):
         db.executemany("INSERT INTO scoped_chunks VALUES(?)",[(identifier,) for identifier,source,page in candidates
                        if (source,page) in selected_pages or (source,page) not in all_pages])
         subset=" AND rowid IN (SELECT id FROM scoped_chunks)"
-    lexical = db.execute("SELECT rowid FROM chunks WHERE chunks MATCH ?"+scope+subset+" ORDER BY bm25(chunks) LIMIT 20", (expression,*scoped_args)).fetchall()
-    from embedding import Encoder, VERSION
-    import numpy as np
-    encoder = Encoder()
-    query_vector = encoder.encode([retrieval_query])[0]
-    nearest = []
-    vector_subset=" AND chunk_id IN (SELECT id FROM scoped_chunks)" if selected else ""
-    cursor = db.execute("SELECT chunk_id, vector FROM embeddings WHERE version=?"+scope+vector_subset+" LIMIT 100000", (VERSION,*scoped_args))
-    while True:
-        batch = cursor.fetchmany(512)
-        if not batch:
-            break
-        matrix = np.stack([np.frombuffer(blob, dtype="<f4") for _, blob in batch])
-        for (chunk_id, _), score in zip(batch, matrix @ query_vector):
-            if score < .25:
-                continue
-            entry = (float(score), chunk_id)
-            if len(nearest) < 20:
-                heapq.heappush(nearest, entry)
-            elif entry > nearest[0]:
-                heapq.heapreplace(nearest, entry)
-    ranking = {}
-    for rank, (chunk_id,) in enumerate(lexical):
-        ranking[chunk_id] = ranking.get(chunk_id, 0) + 1/(60+rank)
-    for rank, (_, chunk_id) in enumerate(sorted(nearest, reverse=True)):
-        ranking[chunk_id] = ranking.get(chunk_id, 0) + 1/(60+rank)
+    lexical = db.execute("SELECT rowid FROM chunks WHERE chunks MATCH ?"+scope+subset+" ORDER BY bm25(chunks) LIMIT 5", (expression,*scoped_args)).fetchall() if expression else []
     rows = []
-    for chunk_id, score in sorted(ranking.items(), key=lambda item: item[1], reverse=True)[:5]:
+    for rank, (chunk_id,) in enumerate(lexical):
         row = db.execute("SELECT hash,page,text FROM chunks WHERE rowid=?", (chunk_id,)).fetchone()
         if row:
-            rows.append((*row, score))
+            rows.append((*row, 1/(60+rank)))
     citations = []
     indexed_fields=signal_entries(profile)
     for document_hash, page, text, rank in rows:
@@ -1202,7 +1312,8 @@ def ask(request):
         citations.append({"document": name, "hash": document_hash, "page": int(page), "excerpt": text[:2000],
                           "context": " · ".join(filter(None,headings))[:400], "rank": rank})
     table_citations = []
-    for source, page, excerpt, group, message, signal in retrieval_context.lookup(db, digest, indexed_fields, expression, selected, retrieval_query):
+    relevant_tables = retrieval_context.lookup(db, digest, indexed_fields, expression, selected, retrieval_query) if expression else ()
+    for source, page, excerpt, group, message, signal in relevant_tables:
         name_row = db.execute("SELECT name FROM documents WHERE hash=?", (source,)).fetchone()
         if not name_row:
             continue
@@ -1219,24 +1330,42 @@ def ask(request):
             if len(picked) == 5:
                 break
         citations = picked
+    label_pdf_sources(db,citations)
     db.close()
     if not citations:
         return remember_answer(request,digest,query,{"answer": "No supporting passage found in the selected ICD." if digest else "No supporting passage found in the imported ICDs. No conversion rule was inferred.", "citations": [], "mode": "extractive"})
     # Deterministic extractive answer: the retrieved evidence is the answer.
-    # A local language model can synthesize prose when explicitly configured.
     # Keep complete evidence in citations, while displaying only compact relevant sentences.
     snippets = []
+    important = {term.lower() for term in terms if term.lower() not in common}
+    raw_terms = {term.lower() for term in terms if re.fullmatch(r"(?:0x)?[0-9a-f]{4}", term, re.I)}
+    contextual = set(term.lower() for term in retrieval_terms) if re.search(r"\b(?:its|it|that|same)\b", query, re.I) else set()
     for index, item in enumerate(citations[:3]):
-        sentences = re.split(r"(?<=[.!?])\s+|\n", item["excerpt"])
-        ranked = sorted(enumerate(sentences), key=lambda pair: (-sum(term.lower() in pair[1].lower() for term in terms), pair[0]))
-        excerpt = next((sentence.strip() for _, sentence in ranked if sentence.strip()), item["excerpt"])
-        snippets.append(f'[{index+1}] {excerpt[:240]}'+("…" if len(excerpt)>240 else ""))
+        sentences = [sentence.strip() for sentence in re.split(r"(?<=[.!?])\s+|\n", item["excerpt"]) if sentence.strip()]
+        if not sentences:
+            continue
+        def score(sentence):
+            words = set(re.findall(r"[\w]+", sentence.lower()))
+            matched = len(important & words)
+            numeric = bool(re.search(r"(?<!\w)[+-]?\d+(?:\.\d+)?", sentence))
+            return 12 * len(raw_terms & words) + 3 * matched + (2 if matched and numeric else 0) + len(contextual & words)
+        ranked = sorted(range(len(sentences)), key=lambda n: score(sentences[n]), reverse=True)
+        picks = ranked[:(2 if index == 0 else 1)]
+        if index == 0 and raw_terms and ranked[0] > 0:
+            previous = ranked[0] - 1
+            before = sentences[previous].casefold()
+            if any(word in before for word in ("formula", "most significant", "least significant", "complement")):
+                picks.append(previous)
+        if index == 0 and any(word in query.casefold() for word in ("formula", "defined", "calculated", "convert")):
+            following = ranked[0] + 1
+            if following < len(sentences) and sentences[following].casefold().startswith("formula:"):
+                picks.append(following)
+        excerpt = " ".join(sentences[n] for n in sorted(set(picks)))
+        snippets.append(f'[{index+1}] {excerpt[:570]}'+("…" if len(excerpt)>570 else ""))
     answer = "\n".join(snippets)
     mode = "extractive"
-    prepared = {"answer": answer, "citations": citations, "mode": mode, "retrieval": "Table evidence + BM25 + local MiniLM"}
-    if request.get("prepare_generation"):
-        return {**prepared, "needs_generation": True, "document_hash": digest, "question": query, "history": history[-4:],"conversation_id":request.get("conversation_id","")}
-    return remember_answer(request,digest,query,prepared)
+    return answer_or_prepare(request,digest,query,{"answer":answer,"citations":citations,"mode":mode,
+                                                   "retrieval":"Table evidence + BM25"},history)
 
 
 def complete_generation(request):
@@ -1260,7 +1389,10 @@ def complete_generation(request):
     if result.get("generation_note"):
         result["events"]=[dict(event="generation_unavailable",message=result["generation_note"])]
         result["answer"] += "\n\n"+result["generation_note"]
-    return remember_answer(request,prepared.get("document_hash",""),request["question"],result)
+    result.pop("history",None)
+    result.pop("question",None)
+    return remember_answer(dict(request,conversation_id=prepared.get("conversation_id")),
+                           prepared.get("document_hash",""),request["question"],result)
 
 
 
@@ -1284,15 +1416,18 @@ def main():
         db.close()
         if not digest:
             raise ValueError("Select an indexed ICD first")
-        result = {"proposal": propose(str(request.get("question", ""))[:2000], request.get("active_profile", {}), digest), "document_hash": digest}
+        proposal = propose(str(request.get("question", ""))[:2000], request.get("active_profile", {}), digest)
+        result = {"proposal": proposal, "document_hash": digest, "citations": proposal.get("citations", [])}
     elif operation == "library":
         result = library(request)
-    elif operation in {"conversations","conversation_new","conversation_load","library_rename","library_archive","library_restore","library_revision"}:
+    elif operation in {"library_delete_preview","library_delete"}:
+        result = permanent_delete(request, preview=operation.endswith("_preview"))
+    elif operation in {"conversations","conversation_new","conversation_load","conversation_message_archive","conversation_message_restore","conversation_message_delete","library_rename","library_archive","library_restore","library_revision"}:
         from library_history import operate
         db=database(request["store"])
         try:
             result=operate(db,request)
-            if operation=="conversation_load" and result.get("document_hash"):
+            if operation=="conversation_load" and result.get("document_hash") and not result.get("source_deleted"):
                 context=library(dict(request,document_hash=result["document_hash"]))
                 context.update(result);result=context
         finally:
@@ -1300,9 +1435,7 @@ def main():
     elif operation == "health":
         import pypdfium2
         import rapidocr_onnxruntime
-        from embedding import Encoder
-        shape = Encoder().encode(["ICD engineering conversion"]).shape
-        result = {"pdf": True, "ocr": True, "embedding_dimensions": int(shape[1]), "network_required": False}
+        result = {"pdf": True, "ocr": True, "retrieval": "table and text", "network_required": False}
     else:
         raise ValueError("Unsupported document operation")
     emit("done", **result)

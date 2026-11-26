@@ -15,6 +15,8 @@ def migrate(db):
     columns = {row[1] for row in db.execute("PRAGMA table_info(chat_messages)")}
     if "conversation_id" not in columns:
         db.execute("ALTER TABLE chat_messages ADD COLUMN conversation_id TEXT")
+    if "archived" not in columns:
+        db.execute("ALTER TABLE chat_messages ADD COLUMN archived INTEGER NOT NULL DEFAULT 0")
     db.execute("CREATE INDEX IF NOT EXISTS conversation_messages ON chat_messages(conversation_id,id)")
     for digest, in db.execute("SELECT DISTINCT hash FROM chat_messages WHERE conversation_id IS NULL").fetchall():
         cid = "legacy-" + digest
@@ -56,7 +58,7 @@ def history(db, digest, cid=None, before=0, limit=60):
     cid = resolve(db,digest,cid)
     clause = " AND m.id<?" if before else ""
     args = (cid,int(before),min(100,int(limit))) if before else (cid,min(100,int(limit)))
-    rows = db.execute("SELECT m.id,m.role,m.content,m.utc,r.result_json FROM chat_messages m LEFT JOIN chat_results r ON r.message_id=m.id WHERE m.conversation_id=?"+clause+" ORDER BY m.id DESC LIMIT ?",args).fetchall()
+    rows = db.execute("SELECT m.id,m.role,m.content,m.utc,r.result_json FROM chat_messages m LEFT JOIN chat_results r ON r.message_id=m.id WHERE m.conversation_id=? AND m.archived=0"+clause+" ORDER BY m.id DESC LIMIT ?",args).fetchall()
     selected=[];size=0
     for row in rows:
         cost=len((row[2]+(row[4] or "")).encode("utf-8"))
@@ -77,8 +79,16 @@ def operate(db, request):
         if not row:
             raise ValueError("Conversation no longer exists")
         digest,subsystem,source = row
+        deleted = bool(db.execute("SELECT 1 FROM deleted_icds WHERE hash=?", (digest,)).fetchone())
+        turns = history(db,digest,cid,request.get("before",0))
+        for turn in turns:
+            for citation in turn["result"].get("citations", []):
+                source = citation.get("hash")
+                if source and (deleted or not db.execute("SELECT 1 FROM documents WHERE hash=?", (source,)).fetchone()):
+                    citation["source_deleted"] = True
         return dict(document_hash=digest,conversation_id=cid,subsystem=subsystem,answer_source=source,
-                    history=history(db,digest,cid,request.get("before",0)),append_history=bool(request.get("before")),conversations=conversations(db),archived=state(db,digest)["archived"])
+                    history=turns,append_history=bool(request.get("before")),conversations=conversations(db),
+                    archived=state(db,digest)["archived"],source_deleted=deleted)
     if op == "conversation_new":
         if digest and not db.execute("SELECT 1 FROM documents WHERE hash=?",(digest,)).fetchone():
             raise ValueError("Select an indexed ICD")
@@ -86,6 +96,22 @@ def operate(db, request):
         db.execute("INSERT INTO conversations VALUES(?,?,?,?,?,?)",(cid,digest,"New conversation",str(request.get("subsystem",""))[:200],request.get("answer_source","documents"),now()))
         db.commit()
         return dict(document_hash=digest,conversation_id=cid,history=[],subsystem=str(request.get("subsystem","")),answer_source=request.get("answer_source","documents"),conversations=conversations(db))
+    if op in {"conversation_message_archive","conversation_message_restore","conversation_message_delete"}:
+        cid = str(request.get("conversation_id", ""))
+        try:
+            message_id = int(request.get("message_id", 0))
+        except (TypeError, ValueError):
+            raise ValueError("Select a valid conversation message")
+        row = db.execute("SELECT id FROM chat_messages WHERE id=? AND conversation_id=?", (message_id,cid)).fetchone()
+        if not row:
+            raise ValueError("Conversation message no longer exists")
+        if op == "conversation_message_delete":
+            db.execute("DELETE FROM chat_results WHERE message_id=?", (message_id,))
+            db.execute("DELETE FROM chat_messages WHERE id=? AND conversation_id=?", (message_id,cid))
+        else:
+            db.execute("UPDATE chat_messages SET archived=? WHERE id=? AND conversation_id=?", (int(op.endswith("archive")),message_id,cid))
+        db.commit()
+        return dict(message_changed=True,conversation_id=cid,message_id=message_id,conversations=conversations(db))
     if not re.fullmatch(r"[0-9a-f]{64}",digest) or not db.execute("SELECT 1 FROM documents WHERE hash=?",(digest,)).fetchone():
         raise ValueError("Select an indexed ICD")
     current = state(db,digest)

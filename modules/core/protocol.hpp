@@ -23,6 +23,12 @@ struct ProtocolInfo {
   std::string_view transaction{"Unsupported"}, direction{"Unsupported"}, modeName{}, reason{"Unsupported message type"};
 };
 ProtocolInfo interpret(const Record &);
+inline const Command &signalCommand(const ProtocolInfo &protocol,const Signal &signal) {
+  return signal.sourceWord==SignalWord::Command1 || signal.sourceWord==SignalWord::Status2
+    ? protocol.first : protocol.payloadCommand;
+}
+std::optional<std::uint16_t> capturedHeaderWord(const Record &,const ProtocolInfo &,SignalWord);
+Record previewSignalRecord(const Signal &,std::span<const std::uint16_t>,unsigned channel,unsigned bus);
 // Independent typed observations: one early interpret() rejection must not hide
 // another issue on the same command. Unsupported SDK details stay unavailable.
 struct ProtocolIssues {

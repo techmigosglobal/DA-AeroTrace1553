@@ -27,9 +27,23 @@ bool LocalInference::memoryAvailable(quint64 minimum) {
 }
 QString LocalInference::assetDirectory() const {
   if(!options.assetsDirectory.isEmpty())return options.assetsDirectory;
+  const auto personal=QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation)+"/assistant-runtime";
+  if(QFileInfo::exists(personal+"/manifest.json"))return personal;
   QString root=QCoreApplication::applicationDirPath()+"/assistant-runtime";
   if(!QFileInfo::exists(root+"/manifest.json") && !QFileInfo::exists(QCoreApplication::applicationDirPath()+"/deployment.json"))root=QString::fromUtf8(AEROTRACE_ASSISTANT_ASSETS);
   return root;
+}
+bool LocalInference::assetsPresent() const {
+  const auto root=assetDirectory();
+  return QFileInfo::exists(root+"/manifest.json")&&QFileInfo::exists(root+"/runtime/llama-server.exe");
+}
+bool LocalInference::selectAssets(const QString &directory) {
+  if(busy||!QFileInfo::exists(directory+"/manifest.json")||
+     !QFileInfo::exists(directory+"/runtime/llama-server.exe"))return false;
+  const auto root=QDir(directory).canonicalPath();
+  if(root.isEmpty())return false;
+  if(root!=options.assetsDirectory){stop();options.assetsDirectory=root;}
+  return true;
 }
 bool LocalInference::hasMemory(quint64 minimum) const {return options.availableMemory?options.availableMemory(minimum):memoryAvailable(minimum);}
 LocalInference::LocalInference(QObject *parent):LocalInference(parent,Options{}){}

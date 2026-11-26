@@ -1,3 +1,46 @@
+# AeroTrace 0.7.1 manual engineering development
+
+The manual mapping editor stores subsystem commands, payload fields and raw
+examples. After publication, **Monitor & Record → Live Engineering** displays
+values and synchronized field plots from the selected command and stream.
+The independent PDF Assistant uses text and tables with source-page citations.
+See [the 0.7.1 release record](Release-0.7.1.md) for the workflow and the
+installer’s verification scope.
+
+# Prior capture and ICD workspace development
+
+- **Monitor & Record** writes raw ATD, available native packets, the integrity
+  sidecars, and paired External/Internal CSVs into the selected output folder.
+  For an interrupted save, use Recover Recordings in the sidebar and
+  select that folder. The recovery operation preserves the original ATD bytes.
+- **ICD Library** keeps PDFs, page-cited answers, and mapping review together.
+  During capture, the Assistant answers from indexed tables and text. Use
+  **Ask after recording** to queue a full answer. PDF indexing also waits until
+  recording and saving finish. **Propose mapping** accepts explicit conversion
+  edits, such as `Set TEMP scale to 0.02`. Saved drafts list their subsystem
+  and source word. Review the cited definition, enter representative raw words,
+  and publish the validated result from **Assistant drafts**.
+- Mapping source words include payload, command 1/2, and status 1/2. In review,
+  specify both sides of an RT-to-RT route with RT/SA and Peer RT/SA. Payload uses
+  the transmitting route. Command 1 and status 2 refer to the receiving route.
+  Confirm the actual word placement, encoding and calibration against the ICD.
+- Physical BU-67113U qualification requires independent counts and timestamps
+  for simultaneous CH1 A/B and CH2 A/B with responding RTs. See the
+  [bench checklist](SES-Bench-Checklist.md).
+
+The [75-second software fixture](../out/test-results/capture-icd/acceptance-four-stream/performance.json)
+checkpointed all 3,765,504 generated records at 49,998 records/s. The four
+stream counts, ATD contents, and paired CSV rows matched. A cited indexed answer
+completed during capture, and the queued PDF import completed after capture.
+GUI heartbeat was 27 ms at p95 and 92 ms at maximum. This measures the
+software fixture on the development computer. Physical qualification is pending.
+
+The native suite passed all 39 distinct checks across the suite and focused
+reruns. The packaged document worker passed 18 checks. The portable Windows
+review build is in `dist/AeroTrace1553-Capture-ICD-Review`. It passed the
+packaged save/recovery, workspace and ICD workflows at 100% and 150% scaling.
+See the [portable verification receipt](../out/test-results/capture-icd/final-portable-verification.json).
+
 # AeroTrace 0.7.0 bench candidate
 
 See [0.7.0 release status](Release-0.7.0.md) for Recorded CSV Analysis, reliable

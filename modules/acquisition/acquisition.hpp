@@ -14,6 +14,10 @@
 namespace aero {
 struct CaptureMetrics {
   std::uint64_t recorded{}, displayDrops{}, hardwareLost{}, hardwareOverflows{}, batches{};
+  std::uint64_t checkpointed{},writerRejected{},analysisSkipped{};
+  std::size_t writerQueueBytes{},writerQueueHighWater{};
+  bool analysisUnavailable{};
+  std::uint64_t diagnosticSkipped{},peakIngressBytesPerSecond{};
   std::size_t queueDepth{}, queueHighWater{};
   double maxBatchMilliseconds{};
   std::array<TimingHistogram,TimingStageCount> timings{};
@@ -32,8 +36,7 @@ struct CaptureMetrics {
   std::uint64_t checkCount{};
   std::vector<CheckEvent> checkEvents; // Most recent 512; complete log remains on disk.
 };
-// One I/O owner: SDK handles, original packets and recorder. The GUI only
-// consumes bounded batches. Display backpressure never drops raw disk records.
+// SDK polling, durable writes, and live analysis have independent owners.
 class Acquisition {
   mutable std::mutex mutex;
   std::jthread worker;
@@ -42,6 +45,7 @@ class Acquisition {
   std::vector<Signal> requestedProfile;
   std::uint64_t profileRevision{};
   std::vector<unsigned> requestedTraces{0,1,2,3,4,5,6,7};
+  CommandPlotSelection requestedCommandPlot;
   std::uint64_t traceRevision{};
   std::shared_ptr<const LiveFrame> live;
   std::shared_ptr<const RtMonitorFrame> rtLive;
@@ -70,6 +74,7 @@ public:
   CaptureMetrics metrics(bool includeEvents=true) const;
   std::string setProfile(std::vector<Signal>);
   void setTraceSignals(std::vector<unsigned>);
+  void setCommandPlot(CommandPlotSelection);
   std::shared_ptr<const LiveFrame> liveFrame() const;
   std::shared_ptr<const RtMonitorFrame> rtFrame() const;
 };

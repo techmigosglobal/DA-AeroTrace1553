@@ -106,16 +106,17 @@ inline RecordedCsvResult readRecordedCsv(const RecordedCsvRequest &request,const
       const auto record=csv.record(cells,request.radix,request.channel,row);
       const auto protocol=aero::interpret(record);
       const auto &command=protocol.payloadCommand;
-      if(command.rt!=request.route.rt||command.sa!=request.route.sa||command.transmit!=request.route.transmit||command.mode!=request.route.mode)continue;
+      if(command.rt!=request.route.rt||command.sa!=request.route.sa||command.transmit!=request.route.transmit||command.mode!=request.route.mode||(request.route.count&&command.count!=request.route.count))continue;
       if((request.first&&record.timestampNs<*request.first)||(request.last&&record.timestampNs>*request.last))continue;
       const auto x=record.timestampNs/1e9;
       const auto slot=qint64((static_cast<long double>(offset-envelopeStart)*2048)/std::max<qint64>(1,envelopeBytes));
       for(size_t i=0;i<request.traces.size();++i){
         auto &series=result.series[i];auto &b=buckets[i];const auto &trace=request.traces[i];
+        if(trace.mapping && !aero::matchesSignalRoute(record,*trace.mapping,aero::signalCommand(protocol,*trace.mapping)))continue;
         if(b.previous&&record.timestampNs<*b.previous){++series.statistics.boundaries;breakTrace(i,x);}
         b.previous=record.timestampNs;
         std::optional<double> value;
-        if(trace.mapping)value=aero::decode(record,*trace.mapping,false);
+        if(trace.mapping)value=aero::decodePayload(record,*trace.mapping,protocol,false);
         else if(trace.word>=0&&size_t(trace.word)<record.words.size())value=record.words[trace.word];
         if(!value||!std::isfinite(*value)){breakTrace(i,x);continue;}
         series.statistics.add(*value);

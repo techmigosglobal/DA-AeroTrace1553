@@ -1,6 +1,46 @@
 #include "protocol.hpp"
+#include <algorithm>
 
 namespace aero {
+std::optional<std::uint16_t> capturedHeaderWord(const Record &record,const ProtocolInfo &protocol,SignalWord word) {
+  switch(word) {
+    case SignalWord::Command1: if(protocol.commandPresent)return record.commandWord;break;
+    case SignalWord::Command2: if(protocol.command2Present)return record.commandWord2;break;
+    case SignalWord::Status1: if(protocol.statuses[0].present)return record.statusWord;break;
+    case SignalWord::Status2: if(protocol.statuses[1].present)return record.statusWord2;break;
+    case SignalWord::Payload: break;
+  }
+  return {};
+}
+
+Record previewSignalRecord(const Signal &signal,std::span<const std::uint16_t> words,unsigned channel,unsigned bus) {
+  Record record;
+  if(!validate(signal).empty() || words.size()!=(signal.lsb+signal.width+15)/16)return record;
+  const auto count=signal.expectedWordCount?signal.expectedWordCount:signal.word+words.size();
+  record.id=1;record.channel=channel;record.bus=bus;record.words.resize(count);
+  const auto layout=[count](unsigned rt,unsigned sa,bool transmit){
+    return std::uint16_t((rt<<11)|(unsigned(transmit)<<10)|(sa<<5)|(count&31));
+  };
+  record.commandWord=layout(signal.rt,signal.sa,signal.transmit);
+  record.statusWord=std::uint16_t(signal.rt<<11);
+  record.validity=1|4;
+  if(signal.peerRt>=0) {
+    const bool receive=!signal.transmit;
+    record.commandWord2=receive?layout(signal.peerRt,signal.peerSa,true):record.commandWord;
+    if(!receive)record.commandWord=layout(signal.peerRt,signal.peerSa,false);
+    record.statusWord=std::uint16_t(command(record.commandWord2).rt<<11);
+    record.statusWord2=std::uint16_t(command(record.commandWord).rt<<11);
+    record.validity|=2|8;
+  }
+  switch(signal.sourceWord) {
+    case SignalWord::Payload: std::copy(words.begin(),words.end(),record.words.begin()+signal.word);break;
+    case SignalWord::Command1: record.commandWord=words.front();break;
+    case SignalWord::Command2: record.commandWord2=words.front();break;
+    case SignalWord::Status1: record.statusWord=words.front();break;
+    case SignalWord::Status2: record.statusWord2=words.front();break;
+  }
+  return record;
+}
 namespace {
 struct Mode { unsigned code; std::string_view name; bool transmit, data, broadcast; };
 constexpr Mode modes[]{

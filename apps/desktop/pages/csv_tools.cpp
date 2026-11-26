@@ -1,6 +1,7 @@
 #include "main_window.hpp"
 #include "services/csv_conversion.hpp"
 #include "services/session_store.hpp"
+#include "services/operator_style.hpp"
 #include "ui_plots_page.h"
 
 namespace {
@@ -23,28 +24,65 @@ void Window::csvTools(const QString &recording) {
     if(!set.empty()&&!s.icdSetId.empty()&&s.icdSetId!=set)continue;
     if(workspaceSubsystem.isEmpty()||(s.subsystem.empty()?QString("Unassigned"):QString::fromStdString(s.subsystem))==workspaceSubsystem)mappings.push_back(s);
   }
+  auto headerNote=new QLabel("Preview raw 1553 words, inspect hex/octal/binary conversion, plot columns, or send any row's RT/SA directly into Signal Mappings.",dialog);
+  headerNote->setWordWrap(true);headerNote->setProperty("tone","muted");layout->insertWidget(0,headerNote);
   auto confirm=new QCheckBox(QString("Use %1 published rules in %2; imported CSV capture provenance is unverified").arg(mappings.size()).arg(workspaceSubsystem.isEmpty()?"all subsystems":workspaceSubsystem));confirm->setObjectName("confirmCsvRules");confirm->hide();layout->addWidget(confirm);
+  auto noRulesHint=new QFrame(dialog);noRulesHint->setProperty("card",true);auto hintLay=new QHBoxLayout(noRulesHint);hintLay->setContentsMargins(10,8,10,8);
+  auto hintLbl=new QLabel("No active signal mappings published yet. Define Word 0–31 rules first to export Engineering CSV.",noRulesHint);hintLbl->setWordWrap(true);
+  auto openMapBtn=new QPushButton("Open Signal Mappings…",noRulesHint);desktop::actionIcon(openMapBtn,"edit");
+  hintLay->addWidget(hintLbl,1);hintLay->addWidget(openMapBtn);noRulesHint->hide();layout->addWidget(noRulesHint);
+  connect(openMapBtn,&QPushButton::clicked,this,[this,dialog]{dialog->close();navigate(12);});
+  connect(mode,&QComboBox::currentIndexChanged,dialog,[mode,noRulesHint,mappings](int idx){noRulesHint->setVisible(idx==1 && mappings.empty());});
   auto table=new QTableWidget(dialog);table->setObjectName("csvPreview");table->setEditTriggers(QAbstractItemView::NoEditTriggers);table->setWordWrap(false);table->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);layout->addWidget(table,1);
   auto footer=new QHBoxLayout;auto previous=new QPushButton("Previous"),next=new QPushButton("Next 100"),preview=new QPushButton("Preview"),save=new QPushButton("Export new copy…"),cancel=new QPushButton("Cancel"),close=new QPushButton("Close");
-  preview->setObjectName("previewCsv");save->setObjectName("convertCsv");cancel->setObjectName("cancelCsv");
+  preview->setObjectName("previewCsv");save->setObjectName("convertCsv");cancel->setObjectName("cancelCsv");cancel->setEnabled(false);
+  auto mapRow=new QPushButton("Map row RT/SA in ICD →");mapRow->setObjectName("mapCsvRoute");mapRow->setEnabled(false);
   auto plot=new QPushButton("Plot selected");plot->setObjectName("plotCsvSelection");plot->setEnabled(false);
-  for(auto b:{previous,next,preview,plot,save,cancel,close})footer->addWidget(b);layout->addLayout(footer);
+  for(auto b:{previous,next,preview,mapRow,plot,save,cancel,close})footer->addWidget(b);layout->addLayout(footer);
   auto status=new QLabel("Choose a compact 11-column or legacy 42-column CSV. Select the base for unprefixed input words. Originals are never changed.");status->setObjectName("csvConversionStatus");status->setWordWrap(true);layout->addWidget(status);
   auto page=std::make_shared<quint64>(0);auto generation=std::make_shared<quint64>(0);auto cancellation=std::make_shared<std::shared_ptr<std::atomic_bool>>(std::make_shared<std::atomic_bool>(false));
   auto run=std::make_shared<std::function<void(bool)>>();
   struct Preview {QString path;int radix{};quint64 offset{};bool compact{};QList<QStringList> raw;unsigned verifiedChannel{};};
   auto shown=std::make_shared<Preview>();
-  connect(table,&QTableWidget::currentCellChanged,dialog,[plot,mode,shown](int row,int,int,int){plot->setEnabled(mode->currentIndex()==0&&row>=0&&row<shown->raw.size());});
-  *run=[this,dialog,path,inputBase,outputBase,mode,channel,confirm,table,status,page,generation,cancellation,preview,save,previous,next,mappings,shown,plot,sources](bool exporting){
+  connect(table,&QTableWidget::currentCellChanged,dialog,[plot,mapRow,mode,shown](int row,int,int,int){
+    const bool validRow=row>=0&&row<shown->raw.size();
+    plot->setEnabled(mode->currentIndex()==0&&validRow);
+    mapRow->setEnabled(mode->currentIndex()==0&&validRow);
+  });
+  connect(mapRow,&QPushButton::clicked,dialog,[this,dialog,table,shown,channel]{
+    const int r=table->currentRow();
+    if(r<0||r>=shown->raw.size())return;
+    const auto &rawCols=shown->raw[r];
+    PreFillMappingRoute route;route.valid=true;
+    route.channel=shown->verifiedChannel ? int(shown->verifiedChannel) : (channel->currentIndex()+1);
+    bool ok=false;
+    route.rt=rawCols.value(4).trimmed().toInt(&ok);if(!ok)route.rt=1;
+    route.sa=rawCols.value(5).trimmed().toInt(&ok);if(!ok)route.sa=1;
+    const auto dir=rawCols.value(6).trimmed();
+    route.tx=dir.contains("RT→BC") || dir.compare("Tx",Qt::CaseInsensitive)==0 || dir=="1";
+    const auto wc=rawCols.value(7).trimmed().toInt(&ok);
+    route.wordCount=ok&&wc>0?wc:32;
+    const QString wStr=rawCols.value(8).trimmed();
+    const auto parts=wStr.split(QRegularExpression("\\s+"),Qt::SkipEmptyParts);
+    for(int w=0;w<parts.size()&&w<32;++w){
+      bool wOk=false;
+      const auto cleaned=parts[w].startsWith("0x",Qt::CaseInsensitive)?parts[w].mid(2):parts[w];
+      const unsigned val=cleaned.toUInt(&wOk,shown->radix==16||parts[w].startsWith("0x",Qt::CaseInsensitive)?16:shown->radix?shown->radix:16);
+      if(wOk && val<=0xFFFFu){route.sampleWords[w]=std::uint16_t(val);route.hasSample=true;}
+    }
+    dialog->close();
+    openSignalMappingForRoute(route);
+  });
+  *run=[this,dialog,path,inputBase,outputBase,mode,channel,confirm,table,status,page,generation,cancellation,preview,save,previous,next,cancel,mappings,shown,plot,mapRow,sources](bool exporting){
     if(path->text().trimmed().isEmpty())return;
-    if(exporting&&mode->currentIndex()==1&&(!confirm->isChecked()||mappings.empty())){status->setText("Explicitly confirm the published mapping set and channel before engineering conversion.");return;}
+    if(exporting&&mode->currentIndex()==1&&(!confirm->isChecked()||mappings.empty())){status->setText("Define and publish active signals first, and confirm the mapping checkbox before engineering conversion.");return;}
     QString output;
     if(exporting){const QFileInfo input(path->text());output=QFileDialog::getSaveFileName(dialog,"Export a new CSV",input.dir().filePath(input.completeBaseName()+(mode->currentIndex()?"_engineering":"_base"+QString::number(outputBase->currentData().toInt()))+".csv"),"CSV (*.csv)");if(output.isEmpty())return;if(QFileInfo::exists(output)){status->setText("Choose a new filename. Existing files are preserved.");return;}}
     (*cancellation)->store(true);*cancellation=std::make_shared<std::atomic_bool>(false);const auto stopped=*cancellation;const auto token=++*generation;
-    for(auto b:{preview,save,previous,next,plot})b->setEnabled(false);status->setText(exporting?"Converting the full CSV in the background…":"Loading 100 preview rows…");
+    for(auto b:{preview,save,previous,next,plot,mapRow})b->setEnabled(false);cancel->setEnabled(true);status->setText(exporting?"Converting the full CSV in the background…":"Loading 100 preview rows…");
     auto watcher=new QFutureWatcher<CsvJobResult>(dialog);
     const auto input=path->text().trimmed();const auto radix=inputBase->currentData().toInt();const auto offset=*page*100;
-    connect(watcher,&QFutureWatcher<CsvJobResult>::finished,dialog,[watcher,token,generation,table,status,preview,save,previous,next,page,exporting,output,input,radix,offset,shown,plot,inputBase,channel]{auto result=watcher->result();watcher->deleteLater();if(token!=*generation)return;for(auto b:{preview,save,previous,next})b->setEnabled(true);previous->setEnabled(*page>0);next->setEnabled(result.more);if(!result.error.isEmpty()){status->setText(result.error);return;}if(result.cancelled){status->setText("Cancelled. No converted file was published.");return;}if(exporting){status->setText(QString("Exported %1 source rows to %2. Original CSV preserved.").arg(result.processed).arg(output));plot->setEnabled(!shown->raw.empty()&&table->currentRow()>=0);return;}if(result.verifiedChannel){inputBase->setCurrentIndex(inputBase->findData(result.radix));channel->setCurrentIndex(int(result.verifiedChannel)-1);}
+    connect(watcher,&QFutureWatcher<CsvJobResult>::finished,dialog,[watcher,token,generation,table,status,preview,save,previous,next,cancel,page,exporting,output,input,radix,offset,shown,plot,mapRow,inputBase,channel]{auto result=watcher->result();watcher->deleteLater();if(token!=*generation)return;for(auto b:{preview,save,previous,next})b->setEnabled(true);cancel->setEnabled(false);previous->setEnabled(*page>0);next->setEnabled(result.more);if(!result.error.isEmpty()){status->setText(result.error);return;}if(result.cancelled){status->setText("Cancelled. No converted file was published.");return;}if(exporting){status->setText(QString("Exported %1 source rows to %2. Original CSV preserved.").arg(result.processed).arg(output));plot->setEnabled(!shown->raw.empty()&&table->currentRow()>=0);mapRow->setEnabled(!shown->raw.empty()&&table->currentRow()>=0);return;}if(result.verifiedChannel){inputBase->setCurrentIndex(inputBase->findData(result.radix));channel->setCurrentIndex(int(result.verifiedChannel)-1);}
       *shown={input,result.radix?result.radix:radix,offset,result.compact,result.raw,result.verifiedChannel};table->clear();table->setColumnCount(result.header.size());table->setHorizontalHeaderLabels(result.header);table->setRowCount(result.rows.size());
       QStringList labels;for(int r=0;r<result.rows.size();++r){labels<<QString::number(offset+r+1);for(int c=0;c<result.header.size();++c){auto item=new QTableWidgetItem(result.rows[r].value(c));item->setToolTip(result.raw.value(r).value(c,item->text()));table->setItem(r,c,item);}}
       table->setVerticalHeaderLabels(labels);for(int c=0;c<result.header.size();++c)table->setColumnWidth(c,c==8?320:150);if(table->rowCount())table->setCurrentCell(0,0);
@@ -74,7 +112,13 @@ void Window::csvTools(const QString &recording) {
           if(!engineering)converted<<format.convert(cells,inputRadix,outputRadix);
           else {
             const auto record=format.record(cells,inputRadix,selectedChannel,result.processed);bool matched=false;
-            for(const auto &s:mappings){const auto p=aero::interpret(record);if(!aero::matchesSignalRoute(record,s,p.payloadCommand))continue;matched=true;const auto value=aero::decode(record,s,false);converted<<QStringList{QString::number(result.processed),cells[0],QString::number(selectedChannel),cells[4],QString::fromStdString(s.id),value?QString::number(*value,'g',17):QString(),QString::fromStdString(s.unit),value?"Decoded from CSV; capture provenance unverified":"No eligible decoded value; inspect mapping / message quality"};}
+            const auto protocol=aero::interpret(record);
+            for(const auto &s:mappings){
+              if(!aero::matchesSignalRoute(record,s,aero::signalCommand(protocol,s)))continue;
+              if(s.sourceWord==aero::SignalWord::Payload && s.expectedWordCount &&
+                 (protocol.mode || protocol.payloadCommand.count!=s.expectedWordCount))continue;
+              matched=true;const auto value=aero::decodePayload(record,s,protocol,false);converted<<QStringList{QString::number(result.processed),cells[0],QString::number(selectedChannel),cells[4],QString::fromStdString(s.id),value?QString::number(*value,'g',17):QString(),QString::fromStdString(s.unit),value?"Decoded from CSV; capture provenance unverified":"No eligible decoded value; inspect mapping / message quality"};
+            }
             if(!matched)converted<<QStringList{QString::number(result.processed),cells[0],QString::number(selectedChannel),cells[4],{},{},{},"No matching published mapping"};
           }
           for(const auto &row:converted)if(exporting){const auto encoded=desktop::csvLine(row);if(destination.write(encoded)!=encoded.size())throw std::runtime_error("CSV output write failed");}else result.rows<<row;
@@ -97,13 +141,14 @@ void Window::csvTools(const QString &recording) {
     try{
       auto commandCell=cells[6].trimmed();if(commandCell.isEmpty())commandCell=cells[5].trimmed();
       const auto command=aero::command(desktop::csvWord(commandCell.section(desktop::csvWhitespace(),0,0),shown->radix));
+      const auto firstCommand=aero::command(desktop::csvWord(cells[5].trimmed().isEmpty()?commandCell.section(desktop::csvWhitespace(),0,0):cells[5].trimmed().section(desktop::csvWhitespace(),0,0),shown->radix));
       if(commandCell.isEmpty()||command.mode){toast("Select a data message row to plot.");return;}
       QDialog choose(dialog);choose.setObjectName("recordedCsvSelection");choose.setWindowTitle("Plot recorded CSV");auto form=new QFormLayout(&choose);
       auto stream=new QComboBox(&choose);stream->addItems({"Select channel","External / CH1","Internal / CH2"});
       stream->setObjectName("recordedCsvChannel");const auto name=QFileInfo(shown->path).completeBaseName();stream->setCurrentIndex(shown->verifiedChannel?int(shown->verifiedChannel):name.endsWith("_EXT",Qt::CaseInsensitive)?1:name.endsWith("_INT",Qt::CaseInsensitive)?2:0);
       form->addRow("Channel",stream);form->addRow("Route",new QLabel(QString("Bus %1 · RT %2 / SA %3 · %4").arg(cells[4]).arg(command.rt).arg(command.sa).arg(command.transmit?"Transmit":"Receive"),&choose));
       std::array<QComboBox *,4> picks{};
-      for(int i=0;i<4;++i){auto combo=picks[i]=new QComboBox(&choose);combo->addItem("None");for(unsigned w=0;w<command.count;++w)combo->addItem(QString("Raw word %1").arg(w),int(w));for(int m=0;m<int(mappings.size());++m){const auto &s=mappings[m];if(s.rt==command.rt&&s.sa==command.sa&&s.transmit==command.transmit&&!s.simulationOnly)combo->addItem(QString::fromStdString(s.id+" · "+s.unit),32+m);}form->addRow(QString("Trace %1").arg(i+1),combo);}picks[0]->setCurrentIndex(1);
+      for(int i=0;i<4;++i){auto combo=picks[i]=new QComboBox(&choose);combo->addItem("None");for(unsigned w=0;w<command.count;++w)combo->addItem(QString("Raw word %1").arg(w),int(w));for(int m=0;m<int(mappings.size());++m){const auto &s=mappings[m];const auto &route=s.sourceWord==aero::SignalWord::Command1||s.sourceWord==aero::SignalWord::Status2?firstCommand:command;if(s.rt==route.rt&&s.sa==route.sa&&s.transmit==route.transmit&&(!s.expectedWordCount||s.expectedWordCount==route.count)&&!s.simulationOnly)combo->addItem(QString::fromStdString(s.id+" · "+s.unit),32+m);}form->addRow(QString("Trace %1").arg(i+1),combo);}picks[0]->setCurrentIndex(1);
       auto first=new QLineEdit(&choose),last=new QLineEdit(&choose);form->addRow("Start card seconds (optional)",first);form->addRow("End card seconds (optional)",last);
       auto error=new QLabel(&choose);form->addRow(error);auto buttons=new QDialogButtonBox(QDialogButtonBox::Ok|QDialogButtonBox::Cancel,&choose);form->addRow(buttons);
       desktop::RecordedCsvRequest request;request.path=shown->path;request.radix=shown->radix;request.route=command;request.bus=cells[4]=="B";
@@ -147,10 +192,11 @@ void Window::recordedCsvPage() {
   auto range=new QWidget(content);auto row=new QHBoxLayout(range);row->setContentsMargins(0,0,0,0);
   auto start=new QLineEdit(range),end=new QLineEdit(range);start->setPlaceholderText("Start (card seconds)");end->setPlaceholderText("End (card seconds)");start->setAccessibleName("Start card seconds");end->setAccessibleName("End card seconds");
   if(request->first)start->setText(QString::number(*request->first/1e9,'g',17));if(request->last)end->setText(QString::number(*request->last/1e9,'g',17));
-  auto rescan=new QPushButton("Scan range",range),cancel=new QPushButton("Cancel scan",range),statsButton=new QPushButton("Statistics",range);
-  statsButton->setCheckable(true);
+  auto rescan=new QPushButton("Scan range",range),cancel=new QPushButton("Cancel scan",range),statsButton=new QPushButton("Statistics",range),rangeToggle=new QPushButton("Range",range);
+  statsButton->setCheckable(true);rangeToggle->setCheckable(true);
   row->addWidget(start);row->addWidget(end);row->addWidget(rescan);
-  form.actionBarLayout->addWidget(cancel);form.actionBarLayout->addWidget(statsButton);range->hide();
+  form.actionBarLayout->addWidget(rangeToggle);form.actionBarLayout->addWidget(cancel);form.actionBarLayout->addWidget(statsButton);cancel->setEnabled(false);cancel->hide();range->hide();
+  connect(rangeToggle,&QPushButton::toggled,range,&QWidget::setVisible);
   form.bodyLayout->insertWidget(1,range);
   auto status=new QLabel("CSV source; capture provenance is not verified.",content);status->setObjectName("recordedCsvStatus");status->setWordWrap(true);status->setSizePolicy(QSizePolicy::Ignored,QSizePolicy::Preferred);status->setMaximumHeight(42);form.bodyLayout->addWidget(status);
   auto stats=new QLabel(content);stats->setObjectName("recordedCsvStatistics");stats->setWordWrap(true);stats->hide();form.bodyLayout->addWidget(stats);

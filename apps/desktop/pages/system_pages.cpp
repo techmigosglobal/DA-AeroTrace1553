@@ -1,37 +1,38 @@
 #include "main_window.hpp"
-#include "services/key_gate.hpp"
+#include "services/operator_style.hpp"
 #include "services/runtime_paths.hpp"
-#include "ui_security_page.h"
 #include "ui_diagnostics_page.h"
 #include "ui_preferences_page.h"
 
-void Window::security() {
-  auto form=showForm<Ui::SecurityPage>();
-  form.status->setText("Not verified");form.operation->setText("Local workspace access");form.entitlement->setText("License adapter not configured");
-  if(desktop::keyRequired()){form.status->setText(applicationKeyVerified?"PIV key verified":"Key required");form.operation->setText("Fresh key proof every 5 seconds; locks within 10 seconds without proof");form.entitlement->setText(applicationKeyMessage);}else form.entitlement->setText("Application key enforcement disabled in this build; enrollment pending");
-  form.monitor->setText("Receive-only source selection");form.decoder->setText("Validated ICD profiles");form.replay->setText("Local recordings");form.exports->setText("Local datasets");
-  form.removeKeyButton->setText("Lock workspace and stop capture");
-  connect(form.removeKeyButton,&QPushButton::clicked,this,[this] { removeKey(); });
-}
-
-
-void Window::removeKey(){
-    if(savingSession){toast("Wait for Stop & save to finish before locking the workspace.");return;}
-    automaticHeld=true;
-    backend.stopRecording();
-    backend.replayPlaying = false;
-    unlocked = false;
-    licenseBadge->setText("● LOCKED");
-    footerBadge->setText("● Missing");
-    stateBadge->setText("○ STANDBY");
-    eventText = "Workspace locked: capture stopped and file closed";
-    navigate(0);
-    toast(eventText);
-  }
-
 void Window::preferences() {
     auto form = showForm<Ui::PreferencesPage>();
-    connect(form.restoreButton, &QPushButton::clicked, this, [this] { settings.clear(); navigate(16); });
+    form.interfaceLayout->insertWidget(0,desktop::sectionHeading("Interface Preferences","device"));
+    form.captureCardLayout->insertWidget(0,desktop::sectionHeading("Capture & Plotting","activity",true));
+    form.safetyLayout->insertWidget(0,desktop::sectionHeading("Advanced Safety","shield"));
+    form.pathsLayout->insertWidget(0,desktop::sectionHeading("Session Paths","folder",true));
+    const bool spacious=height()>=850;
+    form.preferencesGrid->setRowStretch(1,3);
+    form.preferencesGrid->setRowStretch(2,2);
+    form.preferencesGrid->setContentsMargins(0,0,0,spacious?52:0);
+    form.interfaceGroup->setMinimumHeight(spacious?324:232);
+    form.safetyGroup->setMinimumHeight(spacious?186:132);
+    form.interfaceLayout->setContentsMargins(14,12,14,12);
+    form.safetyLayout->setContentsMargins(14,12,14,12);
+    form.captureCardLayout->setContentsMargins(14,12,14,12);
+    form.pathsLayout->setContentsMargins(14,12,14,12);
+    form.interfaceLayout->addStretch();
+    form.safetyLayout->addStretch();
+    for(auto card:{form.interfaceGroup,form.captureGroup,form.safetyGroup,form.pathsGroup})
+      desktop::addCardShadow(card);
+    desktop::actionIcon(form.restoreButton,"restore");
+    desktop::actionIcon(form.saveButton,"save",true);
+    desktop::actionIcon(form.browsePreferencesFolder,"folder");
+    connect(form.restoreButton, &QPushButton::clicked, this, [this] {
+    if (QMessageBox::question(this, "Restore defaults", "Reset all workspace preferences, channel selections, and layout settings to defaults?",
+          QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel) != QMessageBox::Yes) return;
+    settings.clear();
+    navigate(16);
+  });
     connect(form.saveButton, &QPushButton::clicked, this, [this] { savePreferences(); });
     preferenceChecks = {form.autoScrollCheck, form.denseCheck, form.reduceMotionCheck};
     const QStringList keys = {"autoscroll", "dense", "reduceMotion"};
@@ -40,26 +41,30 @@ void Window::preferences() {
       preferenceChecks[i]->setChecked(settings.value(keys[i], i == 0).toBool());
     }
     auto layoutRow=new QHBoxLayout;layoutRow->addWidget(new QLabel("Monitor layout"));
-    monitorLayoutEdit=new QComboBox;monitorLayoutEdit->setObjectName("monitorLayoutSetting");monitorLayoutEdit->addItem("Movable workspace windows","windows");monitorLayoutEdit->addItem("Tabs","tabs");monitorLayoutEdit->setCurrentIndex(settings.value("monitorLayout","windows").toString()=="tabs"?1:0);layoutRow->addWidget(monitorLayoutEdit,1);pageLayout->addLayout(layoutRow);
+    monitorLayoutEdit=new QComboBox;monitorLayoutEdit->setObjectName("monitorLayoutSetting");monitorLayoutEdit->addItem("Movable workspace windows","windows");monitorLayoutEdit->addItem("Tabs","tabs");monitorLayoutEdit->setCurrentIndex(settings.value("monitorLayout","windows").toString()=="tabs"?1:0);layoutRow->addWidget(monitorLayoutEdit,1);form.captureCardLayout->addLayout(layoutRow);
+    form.captureCardLayout->addStretch();
     fpsEdit = form.fpsEdit;
     fpsEdit->setValue(settings.value("fps", 20).toInt());
-    recordFolder = form.recordFolder;
-    recordFolder->setText(sessionDir);
     exportFolder = form.exportFolder;
-    exportFolder->setText(settings.value("exportFolder", desktop::defaultExportDirectory()).toString());
+    exportFolder->setAccessibleName("Recording output folder");
+    exportFolder->setText(settings.value("exportFolder",desktop::defaultExportDirectory()).toString());
+    exportFolder->setToolTip(exportFolder->text());
+    connect(exportFolder,&QLineEdit::textChanged,exportFolder,&QLineEdit::setToolTip);
+    connect(form.browsePreferencesFolder,&QPushButton::clicked,exportFolder,[this] {
+      const auto path=QFileDialog::getExistingDirectory(this,"Recording output folder",exportFolder->text());
+      if(!path.isEmpty())exportFolder->setText(path);
+    });
 }
 
 void Window::savePreferences(){
-    auto dir = recordFolder->text().trimmed();
-    if (!QDir().mkpath(dir)) {
-      toast("Cannot create recording directory.");
-      return;
+    if(backend.acquisition.active() || connecting || savingSession){
+      toast("Finish recording and saving before changing the output folder.");return;
     }
     auto csvDir=exportFolder->text().trimmed();
-    if(csvDir.isEmpty()||!QDir().mkpath(csvDir)){toast("Choose a writable CSV output folder.");return;}
-    sessionDir = QDir(dir).absolutePath();
+    if(csvDir.isEmpty()||!QDir().mkpath(csvDir)){toast("Choose a writable recording output folder.");return;}
+    sessionDir = QDir(csvDir).absolutePath();
     settings.setValue("recordFolder", sessionDir);
-    settings.setValue("exportFolder", QDir(csvDir).absolutePath());
+    settings.setValue("exportFolder",sessionDir);
     settings.setValue("fps", fpsEdit->value());
     settings.setValue("monitorLayout",monitorLayoutEdit->currentData());
     for (auto c : preferenceChecks)
@@ -72,8 +77,33 @@ void Window::savePreferences(){
 void Window::diagnostics() {
   auto form=showForm<Ui::DiagnosticsPage>();
   form.version->setText(QCoreApplication::applicationVersion());
-  auto rescan=new QPushButton("Rescan DDC devices / drivers");auto manager=new QPushButton("Open DDC Card Manager");
-  pageLayout->addWidget(rescan,0,Qt::AlignLeft);pageLayout->addWidget(manager,0,Qt::AlignLeft);
+  auto rescan=new QPushButton("Rescan DDC devices / drivers",content);auto manager=new QPushButton("Open DDC Card Manager",content);
+  desktop::actionIcon(rescan,"search");
+  desktop::actionIcon(manager,"device");
+  if(titleActions){titleActions->addWidget(rescan);titleActions->addWidget(manager);}
+  auto guideCard=new QFrame(content);
+  guideCard->setProperty("card",true);
+  auto guideLayout=new QVBoxLayout(guideCard);
+  guideLayout->setContentsMargins(18,14,18,14);
+  guideLayout->setSpacing(6);
+  auto guideHeading=new QLabel("5-Step Guided Workflow",guideCard);
+  guideHeading->setProperty("sectionTitle",true);
+  auto guideText=new QLabel(
+    "Step 1 · Device Setup: Select DDC hardware or offline simulator, channels, and recording folder.\n"
+    "Step 2 · Monitor & Record: Inspect frames, switch between RT Statistics / Message Routes / Chronological / RT Matrix 00–31, click Details or Map in ICD →.\n"
+    "Step 3 · Signal Mappings: Define RT/SA/Tx commands and 0-based Word 0–31 fields manually or import JSON/CSV.\n"
+    "Step 4 · Engineering & Plots: Inspect live converted engineering values, preview raw words, or analyze Qwt charts.\n"
+    "Step 5 · Sessions & Exports: Browse/replay saved .atd files, run streaming CSV Viewer, and export time-bounded datasets.",
+    guideCard);
+  guideText->setWordWrap(true);
+  guideLayout->addWidget(guideHeading);
+  guideLayout->addWidget(guideText);
+  pageLayout->insertWidget(1,guideCard);
+  desktop::actionIcon(form.exportDiagnosticsButton,"download");
+  desktop::actionIcon(form.selfTestButton,"activity");
+  desktop::actionIcon(form.collectBundleButton,"folder");
+  desktop::actionIcon(form.openLogsButton,"file");
+  desktop::actionIcon(form.openGuideButton,"help");
   connect(rescan,&QPushButton::clicked,this,[this]{rescanDdc();});connect(manager,&QPushButton::clicked,this,&Window::openCardManager);
   const auto runtime=aero::inspectDdcRuntime(backend.captureConfig.runtime);
   form.sdk->setText(runtime.available ? "Runtime ready" : "Unavailable");form.sdk->setToolTip(QString::fromStdString(runtime.message));
@@ -129,7 +159,6 @@ void Window::exportDiagnostics(){
                   {"records", qint64(backend.archive.size())},
                   {"display_drops", qint64(backend.acquisition.displayDrops())},
                   {"hardware_qualified", false},
-                  {"physical_license_verified", applicationKeyVerified}, {"application_key_required",desktop::keyRequired()},
                   {"run_id",applicationRunId()},{"application_log",applicationLogPath()},{"logging_error",applicationLogError()},{"capture_path",currentFile},{"recording_directory",sessionDir}};
     QSaveFile f(p);
     if (!f.open(QIODevice::WriteOnly)) {

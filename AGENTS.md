@@ -43,9 +43,9 @@ or impact audit was performed for this setup task.
 
 ## Source of truth and project shape
 
-- Root `CMakeLists.txt` declares version **0.7.0**, despite the checkout folder's
+- Root `CMakeLists.txt` declares version **0.7.1**, despite the checkout folder's
   0.5.5 name. Read `README.md`, `docs/current-status.md`, and
-  `docs/Release-0.7.0.md` first for current behavior and qualification scope.
+  `docs/Release-0.7.1.md` first for current behavior and qualification scope.
   `docs/Release-0.6.0.md` retains the earlier software measurements.
 - Preserve **C++20, Qt 6 Widgets, Qt Designer, Qwt, CMake, and Ninja**. This is a
   native Windows x64 application with an isolated Python document worker.
@@ -480,3 +480,171 @@ SHA-256 `C813261760C15862F8AA3060E2A2D1D2B09364C6BBFB17854285DF5784ADB492`.
 Its `.sha256` and `.receipt.json` retain artifact and software-verification
 evidence. Installer compression/verification took 254.072 seconds. No actual
 installation was performed. The preserved 0.6.11 installer hash was rechecked.
+
+## Capture and ICD workspace development — 20 November 2026
+
+The two operator destinations are Monitor & Record and ICD Library. The
+selected output folder holds raw ATD, native packets where available, integrity
+sidecars and the paired CSVs. Recovery is explicit and folder-scoped. Preserve
+existing recordings and the ATD reader. Legacy playback UI is confined to the
+existing recording fixtures.
+
+Acquisition keeps DDC polling, the durable writer and live analysis on separate
+owners. The 64 MiB writer queue stops capture on saturation and preserves a
+prefix. Display and analysis skips have separate counters. Checkpoint counts
+describe successful storage flushes. Use independent wire-reference evidence
+to qualify capture completeness, and preserve independent channel clocks.
+
+Indexed ICD questions remain available during recording. PDF indexing and full
+generation wait for recording and saving to finish. Assistant edits persist
+as drafts with operator provenance. Review and publish through the native
+decoder before the next recording. Older mappings default to payload words.
+Use explicit command/status selection and peer addresses for RT-to-RT layouts.
+
+See [current status](docs/current-status.md) and the
+[bench checklist](docs/SES-Bench-Checklist.md). Software reports are under
+`out/test-results/capture-icd/`. The current machine's Windows inventory
+returned no matching DDC device. Physical qualification remains pending.
+
+The [final sustained fixture](out/test-results/capture-icd/acceptance-four-stream/performance.json)
+passed with 3,765,504 checkpointed records, exact four-stream and paired CSV
+reconciliation, 27 ms p95 / 92 ms maximum GUI heartbeat, a cited indexed answer
+during capture, and PDF ingestion after capture. The final short stress run
+passed in [CTest](out/test-results/capture-icd/final-latency.xml).
+Keep filesystem probes out of the periodic monitor refresh. The UI checks
+that the recording exists when the operator saves it.
+
+The final portable review build is in `dist/AeroTrace1553-Capture-ICD-Review`.
+The [verification receipt](out/test-results/capture-icd/final-portable-verification.json)
+records the executable hash and six passing package checks at 100% and 150%.
+The CTest receipts cover 39 distinct passing checks across the suite and
+focused reruns. The final packaged document worker passed 18/18. This build
+is staged for local bench use.
+
+## 0.7.1 bench installer — 23 November 2026
+
+Manual command mappings require a passing raw example per field before
+publication. A separate live view plots every field for the selected command
+and stream. The PDF Assistant uses text and table retrieval with local OCR.
+The installer omits the generative and embedding assets.
+
+The [release record](docs/Release-0.7.1.md) links the 40 passing regression
+checks and the 75-second four-stream fixture. All 3,770,509 records reconciled
+with paired CSVs while 32 chart histories were active. GUI heartbeat was
+33 ms at p95 and 160 ms maximum.
+
+The [installer receipt](dist/installers/AeroTrace1553-0.7.1-Bench-Setup-x64.exe.receipt.json)
+records the 126,350,896-byte Windows x64 bench artifact. Its SHA-256 matched the
+sidecar and receipt. The packaged manual workflow, PDF Assistant, and startup
+passed at 100% and 150% scaling. All 18 packaged worker tests, three native
+provider packs, and the x86 helper checks passed. Physical DDC and actual
+install/upgrade acceptance remain pending. Staging resumed under PowerShell 7
+after a nested Windows PowerShell process dropped an empty Git config value.
+
+
+## 0.7.1 desktop UI Review — 23 November 2026
+
+Monitor & Record, ICD Library, Device Setup and Preferences are direct
+destinations in the native Qt shell. More tools expands inside the same
+sidebar. AeroTrace Assistant runs in a persistent page that keeps document jobs
+alive across navigation. Live Engineering remains a separate window by user
+choice. Device Setup combines discovery and diagnostics on one scrolling page.
+Treat absent devices, unverified checks and disconnected recording controls
+according to actual state, even when a reference shows a different badge.
+
+The startup overlay waits five seconds from its first paint and hands off
+when the workspace is ready. Windows and app reduced-motion preferences keep
+the overlay static. Keep the PDF worker isolated and preserve the receive-only
+capture and save paths.
+
+Use the release helper's OutputBaseName option for UI review artifacts so that
+the prior bench artifact remains available. A local log for the previous
+0.7.1 upgrade recorded 165.817 seconds from launch to Ready. Benchmark this
+candidate separately on a disposable Windows installation. The current host
+has no disposable Windows VM.
+
+The first UI Review build passed [all 43 checks](out/test-results/071-20261123-135328/native.xml).
+The staged executable matched that build by SHA-256. Packaged startup, mapping,
+Assistant and operator checks passed at 100% and 150% scaling. Both window
+sizes passed at each scale. The splash stayed visible for 5,006 ms and
+5,009 ms respectively. The [five-screen comparison](out/test-results/ui-review-comparison.jpg)
+uses renders from this package.
+
+The final [75-second fixture](out/test-results/071-20261123-135328/capture/performance.json)
+reconciled 3,769,419 raw records, RT records, analysis records and paired CSV
+rows. All 32 field histories received data. The GUI heartbeat gap peaked at
+182 ms against the 250 ms gate. The installed baseline measured 85 ms on the
+same fixture. Earlier candidate runs missed the gate. Recording Setup now
+suppresses its shadow during capture and save, and the channel count labels
+update only when displayed text changes. Physical DDC qualification remains
+pending.
+
+The final icon pass adds labelled outline icons to operator actions and keeps
+the More tools ellipsis with a separate disclosure arrow. See the
+[final comparison](out/test-results/ui-review-final-comparison.jpg) for all
+five states rendered by the staged app. The installed baseline and original
+0.7.1 bench installer hashes were verified after staging the UI Review build.
+
+The [final installer receipt](dist/installers/AeroTrace1553-0.7.1-UI-Review-Setup-x64.exe.receipt.json)
+records 43 distinct native checks across the suite and focused reruns. The
+short stress case initially missed the heartbeat gate and then passed at 94 ms.
+The 75-second fixture initially reached 292 ms. Its retry passed at 244 ms
+with all 3,767,839 records and paired CSV rows reconciled. Package checks
+passed in both window sizes at 100% and 150% scaling. Startup measured
+5,003 ms and 5,007 ms. The document worker passed all 18 packaged tests.
+The UI Review installer is 126,398,351 bytes. Actual clean installation,
+upgrade timing and physical DDC qualification remain pending.
+
+## Phase Two ICD workspace — 24 November 2026
+
+See [Phase Two](docs/Phase-Two.md) for the operator workflow and
+[the synthetic Thermal Bench answer key](examples/thermal-bench/Answer-Key.md).
+The sidebar opens the tools directly and can collapse to icons. Focus view
+preserves the selected raw stream and exposes a large live plot view.
+
+The guided Qt editor verifies native linear or custom conversions before
+publication. Version 3 profile JSON stores formulas and the reader still
+accepts earlier profiles. The same bounded expression evaluator serves
+native preview and live decoding. ICD deletion uses a resumable journal and
+retains recordings, chat history, external files and shared PDF copies.
+
+The optional pinned local model remains outside the base installer. Exact
+packaged Cited lookup and Local RAG were exercised with the synthetic ICD.
+The grounded answer cites revision B, page 2. The document worker passed
+19 tests and all 13 PDF cases, including scan OCR, revision isolation and
+missing evidence. See [software verification](out/test-results/phase-two-20261124/)
+and the [installer receipt](dist/installers/AeroTrace1553-0.7.1-Phase-Two-Setup-x64.exe.receipt.json).
+
+The 75-second capture fixture compared 3,804,573 records across raw capture,
+RT, engineering, indexed replay and paired CSV, with 32 live field histories
+and a 230 ms maximum UI heartbeat gap against a 250 ms gate. A subsequent
+editor-only compact layout and icon pass is covered by focused GUI checks.
+Physical DDC and Windows clean-install or upgrade behavior remain unqualified.
+
+## Application UI optimization — 24 November 2026
+
+The current native shell is optimized around the two primary viewing surfaces:
+Monitor & Record keeps the live table and filters as the largest continuous
+workspace, while Live Plot Analysis has a visible Focus view that hides the
+surrounding navigation and context panels until the operator exits focus.
+Layouts remain Qt Designer/Widgets based with expanding policies and no fixed
+desktop-only canvas assumptions; 100% and 150% packaged visual acceptance still
+requires a fresh run after this change.
+
+The startup overlay now measures its five-second minimum from the first painted
+frame, so the startup check cannot hand off early when initialization finishes
+quickly. Device Setup contains a compact Recording setup card, and the live
+monitor no longer spends canvas height on a second recording setup card. CSV
+Viewer is a separate sidebar destination from Exports & Reports.
+
+Bus Analysis, the in-app ICD Assistant, and License & Security are retired from
+the operator-visible shell, including their header/sidebar entry points and
+shortcuts. Legacy page handlers remain source-compatible for existing fixture
+routing and are not user-visible; this is not a claim that every historical
+internal page implementation has been deleted. The application resource
+description now uses Capture and ICD Workspace terminology.
+
+The current codebase-memory index and graphify review artifacts must be
+refreshed after material UI edits. Keep `.codebase-memory` and `graphify-out`
+metadata tied to the same checkout, and treat older release sections above as
+historical evidence rather than current shell behavior.

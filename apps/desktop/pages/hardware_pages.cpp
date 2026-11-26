@@ -1,4 +1,5 @@
 #include "main_window.hpp"
+#include "services/operator_style.hpp"
 #include "services/csv_conversion.hpp"
 #include "services/ddc_discovery.hpp"
 #include "services/card_manager.hpp"
@@ -59,9 +60,22 @@ void Window::beginSaveProgress() {
     auto panel=new QDialog(this,Qt::Dialog|Qt::CustomizeWindowHint|Qt::WindowTitleHint);
     panel->setObjectName("saveProgressPanel");panel->setWindowTitle("Saving recording");panel->setModal(false);panel->setMinimumWidth(360);
     auto body=new QVBoxLayout(panel);saveProgressLabel=new QLabel(sessionSaveState,panel);body->addWidget(saveProgressLabel);
-    if(desktop::startupMotionEnabled()){auto indicator=new QProgressBar(panel);indicator->setRange(0,0);indicator->setTextVisible(false);body->addWidget(indicator);}
-    auto note=new QLabel("The raw recording is retained for replay.",panel);note->setWordWrap(true);body->addWidget(note);
+    const bool animate=desktop::startupMotionEnabled();
+    if(animate) {
+      auto indicator=new QProgressBar(panel);
+      indicator->setProperty("operatorBusy",true);
+      indicator->setRange(0,0);
+      indicator->setTextVisible(false);
+      body->addWidget(indicator);
+      panel->setWindowOpacity(0);
+    }
+    auto note=new QLabel("The raw recording stays in the output folder.",panel);note->setWordWrap(true);body->addWidget(note);
     saveProgress=panel;panel->setAttribute(Qt::WA_DeleteOnClose);panel->show();
+    if(animate){
+      auto fade=new QPropertyAnimation(panel,"windowOpacity",panel);
+      fade->setDuration(desktop::operatorTransitionMs);fade->setStartValue(0.0);fade->setEndValue(1.0);
+      fade->setEasingCurve(QEasingCurve::OutCubic);fade->start(QAbstractAnimation::DeleteWhenStopped);
+    }
   });
 }
 void Window::finishSaveProgress() {
@@ -70,22 +84,25 @@ void Window::finishSaveProgress() {
   saveProgress.clear();saveProgressLabel.clear();
 }
 void Window::findUnsavedRecordings() {
-  auto roots=settings.value("legacySessionRoots").toStringList();roots<<sessionDir<<desktop::dataDirectory()+"/Sessions";roots.removeDuplicates();
+  const auto folder=QFileDialog::getExistingDirectory(this,"Find unfinished recordings",settings.value("exportFolder",desktop::defaultExportDirectory()).toString());
+  if(!folder.isEmpty())scanUnfinishedRecordings(folder);
+}
+void Window::scanUnfinishedRecordings(const QString &folder) {
   auto watcher=new QFutureWatcher<QStringList>(this);
   connect(watcher,&QFutureWatcher<QStringList>::finished,this,[this,watcher]{
     auto files=watcher->result();watcher->deleteLater();files.removeAll(currentFile);
-    if(files.isEmpty()||closingCapture)return;
+    if(closingCapture)return;
+    if(files.isEmpty()){toast("No unfinished recordings found in this folder.");return;}
     auto dialog=new QDialog(this);dialog->setAttribute(Qt::WA_DeleteOnClose);dialog->setObjectName("unsavedRecordings");dialog->setWindowTitle("Recordings awaiting CSV export");dialog->resize(620,360);
     auto body=new QVBoxLayout(dialog);auto note=new QLabel("These recordings are already on disk. Select one to save its CSVs, or return to it later.",dialog);note->setWordWrap(true);body->addWidget(note);
     auto list=new QListWidget(dialog);body->addWidget(list,1);
     for(const auto &file:files){auto item=new QListWidgetItem(desktop::sessionDisplayName(file)+" · "+QFileInfo(file).lastModified().toString("dd MMM yyyy HH:mm"),list);item->setData(Qt::UserRole,file);item->setToolTip(file);}
     list->setCurrentRow(0);
-    auto buttons=new QDialogButtonBox(dialog);auto save=buttons->addButton("Save CSVs",QDialogButtonBox::AcceptRole);auto review=buttons->addButton("Review in Sessions",QDialogButtonBox::ActionRole);auto later=buttons->addButton("Later",QDialogButtonBox::RejectRole);body->addWidget(buttons);
-    connect(save,&QPushButton::clicked,dialog,[this,dialog,list]{if(!list->currentItem()||!unlocked){toast("Unlock AeroTrace and review the recording in Sessions.");return;}if(backend.acquisition.active()||savingSession||connecting){toast("Finish the active operation before exporting recovered data.");return;}const auto file=list->currentItem()->data(Qt::UserRole).toString();dialog->close();stopAndSave(file,true);});
-    connect(review,&QPushButton::clicked,dialog,[this,dialog,list]{const auto file=list->currentItem()?list->currentItem()->data(Qt::UserRole).toString():QString();dialog->close();navigate(10);const auto row=sessionPaths.indexOf(file);if(page==10&&sessionTable&&row>=0)sessionTable->selectRow(row);});
+    auto buttons=new QDialogButtonBox(dialog);auto save=buttons->addButton("Save CSVs",QDialogButtonBox::AcceptRole);auto later=buttons->addButton("Later",QDialogButtonBox::RejectRole);body->addWidget(buttons);
+    connect(save,&QPushButton::clicked,dialog,[this,dialog,list]{if(!list->currentItem()||!unlocked)return;if(backend.acquisition.active()||savingSession||connecting){toast("Finish the active operation before exporting recovered data.");return;}const auto file=list->currentItem()->data(Qt::UserRole).toString();dialog->close();stopAndSave(file,true);});
     connect(later,&QPushButton::clicked,dialog,&QDialog::close);dialog->show();
   });
-  watcher->setFuture(QtConcurrent::run([roots]{return desktop::recoverableSessions(roots);}));
+  watcher->setFuture(QtConcurrent::run([folder]{return desktop::recoverableSessions({folder});}));
 }
 void Window::stopAndSave(QString recording,bool retry) {
   if(savingSession){toast("Stop & save is already running");return;}
@@ -102,9 +119,16 @@ void Window::stopAndSave(QString recording,bool retry) {
     if(!error.isEmpty()){disconnectAfterSave=false;savingSession=false;finishSaveProgress();toast(error);refreshOperatorState();return;}
     finishSaveProgress();
     sessionSaveState="Finalized — awaiting export destination";
-    QFile descriptor(path+".session.json");if(descriptor.open(QIODevice::ReadOnly)){const auto o=QJsonDocument::fromJson(descriptor.readAll()).object();if(!o.value("export_directory").toString().isEmpty()){
-      settings.setValue("exportFolder",o.value("export_directory").toString());settings.setValue("nextRunName",o.value("run_name").toString("run"+o.value("run_number").toString()));
-      const auto allocatedFolder=o.value("export_directory").toString(),allocatedName=o.value("run_name").toString("run"+o.value("run_number").toString());if(runNameEdit)runNameEdit->setText(allocatedName);if(csvFolderEdit)csvFolderEdit->setText(allocatedFolder);settings.setValue("exportFolder",allocatedFolder);settings.setValue("nextRunName",allocatedName);}}
+    QFile descriptor(path+".session.json");if(descriptor.open(QIODevice::ReadOnly)){
+      const auto o=QJsonDocument::fromJson(descriptor.readAll()).object();
+      const auto allocatedFolder=o["export_directory"].toString();
+      const auto allocatedName=o["run_name"].toString(o["requested_run_name"].toString());
+      if(!allocatedFolder.isEmpty()&&!allocatedName.isEmpty()&&(wasRecording || retry || o.contains("run_name"))){
+        if(runNameEdit)runNameEdit->setText(allocatedName);
+        if(csvFolderEdit)csvFolderEdit->setText(allocatedFolder);
+        settings.setValue("exportFolder",allocatedFolder);settings.setValue("nextRunName",allocatedName);
+      }
+    }
     descriptor.close();
     const auto dir=settings.value("exportFolder").toString().trimmed(),name=settings.value("nextRunName").toString().trimmed();
     if((dir.isEmpty()||!desktop::validateRunName(name).isEmpty())&&!chooseSaveDestination()){savingSession=false;if(disconnectAfterSave){disconnectAfterSave=false;backend.acquisition.stop();applicationEvent("devices_disconnected");}sessionSaveState="Recording retained — CSV save cancelled";toast(sessionSaveState);refreshOperatorState();return;}
@@ -114,7 +138,16 @@ void Window::stopAndSave(QString recording,bool retry) {
 }
 void Window::exportFinalizedSession(const QString &path,bool retry) {
   const auto dir=settings.value("exportFolder").toString().trimmed(),name=settings.value("nextRunName").toString().trimmed();
-  const auto options=desktop::csvOptions(settings);
+  auto options=desktop::csvOptions(settings);
+  QFile marker(path+".session.json");
+  if(retry && marker.open(QIODevice::ReadOnly)){
+    const auto saved=QJsonDocument::fromJson(marker.readAll()).object();
+    if(!saved.contains("run_name")&&saved.contains("requested_csv_layout")) {
+      options.layout=saved["requested_csv_layout"]=="legacy42"?aero::CsvLayout::Legacy42:aero::CsvLayout::Compact11;
+      options.radix=static_cast<aero::NumericRadix>(saved["requested_csv_radix"].toInt(16));
+    }
+    marker.close();
+  }
   const auto intent=retry?desktop::SessionExportIntent::Retry:desktop::SessionExportIntent::SelectedFormat;
   const auto target=desktop::sessionExportTarget(path,dir,name,options,intent);
   const auto outputs=target.name+"_EXT.csv\n"+target.name+"_INT.csv";
@@ -123,9 +156,9 @@ void Window::exportFinalizedSession(const QString &path,bool retry) {
   }
   sessionSaveState="Writing CSVs…";statusBar()->showMessage(outputs.simplified());beginSaveProgress();if(csvFolderEdit)csvFolderEdit->setEnabled(false);if(runNameEdit)runNameEdit->setEnabled(false);
   auto watcher=new QFutureWatcher<desktop::SessionSaveResult>(this);
-  connect(watcher,&QFutureWatcher<desktop::SessionSaveResult>::finished,this,[this,watcher,dir=target.directory]{const auto result=watcher->result();savingSession=false;finishSaveProgress();sessionSaveState=result.error.isEmpty()?"Complete":"Save failed";
+  connect(watcher,&QFutureWatcher<desktop::SessionSaveResult>::finished,this,[this,watcher,dir=target.directory]{const auto result=watcher->result();savingSession=false;finishSaveProgress();sessionSaveState=result.error.isEmpty()?(result.incomplete?"Incomplete · CSVs saved":"Complete"):"Save failed";
     if(csvFolderEdit)csvFolderEdit->setEnabled(true);if(runNameEdit)runNameEdit->setEnabled(true);
-    toast(result.error.isEmpty()?QString("%1%2 saved: %3 Internal, %4 External records. CSVs: %5. Replay recording retained.%6")
+    toast(result.error.isEmpty()?QString("%1%2 saved: %3 Internal, %4 External records. Output: %5. Raw recording retained.%6")
       .arg(result.incomplete?"INCOMPLETE / recovered: ":"").arg(result.runName).arg(result.internal).arg(result.external).arg(dir).arg(!result.internal||!result.external?" Empty channels have header-only CSVs.":""):result.error+" — recording retained; retry save.");
     if(result.error.isEmpty()){settings.setValue("nextRunName",desktop::suggestedRunName(dir));if(runNameEdit)runNameEdit->setText(settings.value("nextRunName").toString());}
     if(disconnectAfterSave){disconnectAfterSave=false;backend.acquisition.stop();applicationEvent("devices_disconnected");}
@@ -152,13 +185,85 @@ void Window::buildMonitorPanes(QTableView *original) {
   layout->insertWidget(layout->indexOf(original),monitorWorkspace,1);
   const auto rowMode=settings.value("monitorRowMode","statistics").toString();
   rtGrouped=rowMode!="raw";rtStatistics=rowMode!="rt";
-  auto rowTools=new QHBoxLayout;auto grouping=new QComboBox;grouping->setObjectName("monitorRowMode");grouping->setAccessibleName("Live monitor row grouping");grouping->addItems({"RT statistics","Message routes","Chronological records"});grouping->setCurrentIndex(rtGrouped?(rtStatistics?0:1):2);
-  auto pause=new QPushButton("Pause RT display");pause->setObjectName("pauseRtDisplay");rowTools->addWidget(grouping);rowTools->addWidget(pause);rowTools->addStretch();layout->insertLayout(layout->indexOf(monitorWorkspace),rowTools);
+  auto rowTools=new QHBoxLayout;
+  auto grouping=new QComboBox;
+  grouping->setObjectName("monitorRowMode");
+  grouping->setAccessibleName("Live monitor row grouping");
+  grouping->addItem(desktop::operatorIcon("chart"),"RT statistics");
+  grouping->addItem(desktop::operatorIcon("mapping"),"Message routes");
+  grouping->addItem(desktop::operatorIcon("columns"),"Chronological records");
+  grouping->setCurrentIndex(rtGrouped?(rtStatistics?0:1):2);
+  auto matrixToggle=new QPushButton("RT Matrix (00–31)");matrixToggle->setObjectName("monitorRtMatrixToggle");matrixToggle->setCheckable(true);desktop::actionIcon(matrixToggle,"grid");
+  auto pause=new QPushButton("Pause RT display");pause->setObjectName("pauseRtDisplay");desktop::actionIcon(pause,"pause");rowTools->addWidget(grouping);rowTools->addWidget(matrixToggle);rowTools->addWidget(pause);rowTools->addStretch();layout->insertLayout(layout->indexOf(monitorWorkspace),rowTools);
   if(recordButton)rowTools->addWidget(recordButton);
-  connect(grouping,&QComboBox::currentIndexChanged,container,[this,pause](int mode){
+
+  auto matrixPanel=new QFrame(container);
+  matrixPanel->setObjectName("monitorRtMatrixPanel");
+  matrixPanel->setProperty("card",true);
+  auto matrixOuter=new QVBoxLayout(matrixPanel);
+  matrixOuter->setContentsMargins(12,10,12,10);matrixOuter->setSpacing(8);
+  auto matrixHead=new QHBoxLayout;
+  auto matrixTitle=new QLabel("Live RT 00–31 Matrix (click any terminal to filter Monitor)",matrixPanel);
+  matrixTitle->setProperty("heading",true);
+  auto matrixCh=new QComboBox(matrixPanel);matrixCh->addItems({"External / CH1","Internal / CH2"});
+  matrixCh->setCurrentIndex(settings.value("activeMonitorChannel",0).toInt()==1?1:0);
+  matrixHead->addWidget(matrixTitle,1);matrixHead->addWidget(matrixCh);
+  matrixOuter->addLayout(matrixHead);
+  auto matrixGrid=new QGridLayout;matrixGrid->setSpacing(6);
+  std::array<QPushButton *,32> rtTiles{};
+  for(int r=0;r<32;++r) {
+    auto tile=new QPushButton(QString("RT %1\n—").arg(r,2,10,QChar('0')),matrixPanel);
+    tile->setMinimumHeight(46);
+    tile->setProperty("rtNumber",r);
+    tile->setStyleSheet("text-align:left;padding:6px 8px;border:1px solid #d4e0e9;border-radius:6px;background:#f8fbfd;");
+    rtTiles[r]=tile;
+    matrixGrid->addWidget(tile,r/8,r%8);
+  }
+  matrixOuter->addLayout(matrixGrid,1);
+  matrixPanel->hide();
+  layout->insertWidget(layout->indexOf(monitorWorkspace),matrixPanel,1);
+
+  const auto refreshMatrix=[this,matrixPanel,matrixCh,rtTiles] {
+    if(!matrixPanel->isVisible()) return;
+    const int ch=matrixCh->currentIndex();
+    const auto frame=displayedRtFrame;
+    for(int r=0;r<32;++r) {
+      std::uint64_t n=0;
+      if(frame && ch>=0 && ch<2) {
+        const auto it=frame->channels[ch].find(unsigned(r));
+        if(it!=frame->channels[ch].end()) n=it->second.buses[0].count+it->second.buses[1].count;
+      }
+      const bool active=n>0;
+      rtTiles[r]->setText(QString("RT %1\n%2 msg").arg(r,2,10,QChar('0')).arg(n));
+      rtTiles[r]->setStyleSheet(active
+        ? "text-align:left;padding:6px 8px;border:1px solid #8ac7a6;border-radius:6px;background:#e6f4ed;color:#12593a;font-weight:600;"
+        : "text-align:left;padding:6px 8px;border:1px solid #dbe5ed;border-radius:6px;background:#f8fbfd;color:#62788a;");
+    }
+  };
+  connect(matrixCh,&QComboBox::currentIndexChanged,matrixPanel,[refreshMatrix](int){refreshMatrix();});
+  connect(&tick,&QTimer::timeout,matrixPanel,refreshMatrix);
+  connect(matrixToggle,&QPushButton::toggled,container,[this,matrixPanel,refreshMatrix](bool on){
+    const bool windows=settings.value("monitorLayout","windows").toString()!="tabs";
+    matrixPanel->setVisible(on);
+    if(monitorWorkspace) monitorWorkspace->setVisible(!on && windows);
+    if(tabMonitor) tabMonitor->setVisible(!on && !windows);
+    if(on) refreshMatrix();
+  });
+  for(int r=0;r<32;++r) {
+    connect(rtTiles[r],&QPushButton::clicked,container,[this,matrixToggle,r,original]{
+      matrixToggle->setChecked(false);
+      model.rtFilter=r;model.refresh();
+      for(int c=0;c<2;++c){paneModels[c].rtFilter=r;settings.setValue(QString("pane%1Rt").arg(c),r);}
+      if(auto rtCombo=content->findChild<QComboBox *>("rtFilter")) rtCombo->setCurrentIndex(r+1);
+      refreshMonitorPanes();
+    });
+  }
+
+  connect(grouping,&QComboBox::currentIndexChanged,container,[this,pause,matrixToggle](int mode){
+    if(matrixToggle->isChecked()) matrixToggle->setChecked(false);
     if(viewingReplayStatistics&&mode==2){viewingReplayStatistics=false;navigate(11);return;}
     rtGrouped=mode!=2;rtStatistics=mode==0;settings.setValue("monitorRowMode",mode==0?"statistics":mode==1?"rt":"raw");pause->setEnabled(rtGrouped);refreshMonitorPanes();});
-  connect(pause,&QPushButton::clicked,container,[this,pause]{rtDisplayPaused=!rtDisplayPaused;pause->setText(rtDisplayPaused?"Resume RT display":"Pause RT display");refreshRtMonitor();refreshOperatorState();});
+  connect(pause,&QPushButton::clicked,container,[this,pause]{rtDisplayPaused=!rtDisplayPaused;pause->setText(rtDisplayPaused?"Resume RT display":"Pause RT display");desktop::actionIcon(pause,rtDisplayPaused?"play":"pause");refreshRtMonitor();refreshOperatorState();});
   pause->setEnabled(rtGrouped);
   if(replayRtFrame){auto source=new QPushButton(viewingReplayStatistics?"Return to live monitor":"Recorded session RT statistics");source->setObjectName("monitorStatisticsSource");rowTools->addWidget(source);
     connect(source,&QPushButton::clicked,container,[this]{viewingReplayStatistics=!viewingReplayStatistics;rtDisplayPaused=false;settings.setValue("monitorRowMode","statistics");settings.setValue("monitorLayout","windows");navigate(4);});}
@@ -178,7 +283,7 @@ void Window::buildMonitorPanes(QTableView *original) {
     rtForm.rtTree->header()->setSectionResizeMode(QHeaderView::Interactive);rtForm.rtTree->setIndentation(14);
     connect(rtForm.rtTree->selectionModel(),&QItemSelectionModel::currentChanged,panel,[this,channel](const QModelIndex &i){if(const auto record=rtModels[channel].recordFor(i)){settings.setValue("activeMonitorChannel",channel);backend.selected=*record;selectedMonitorId=record->id;refreshOperatorState();}});
     connect(rtForm.rtTree,&QTreeView::clicked,panel,[this,channel](const QModelIndex &i){if(const auto record=rtModels[channel].recordFor(i)){settings.setValue("activeMonitorChannel",channel);backend.selected=*record;selectedMonitorId=record->id;refreshOperatorState();}});
-    connect(rtForm.rtTree,&QTreeView::doubleClicked,panel,[this,channel](const QModelIndex &i){if(const auto record=rtModels[channel].recordFor(i)){settings.setValue("activeMonitorChannel",channel);backend.selected=*record;inspectSelection();}});
+      connect(rtForm.rtTree,&QTreeView::doubleClicked,panel,[this,channel](const QModelIndex &i){if(const auto record=rtModels[channel].recordFor(i)){settings.setValue("activeMonitorChannel",channel);backend.selected=*record;openRecordDetailsDialog(*record);}});
     const QList<int> widths{42,145,65,38,36,36,72,42,220,80,70};
     auto menu=new QMenu(columns);columns->setMenu(menu);
     for(int i=0;i<source.columnCount();++i){const auto key=QString("pane%1Column%2").arg(channel).arg(i);view->setColumnWidth(i,i<widths.size()?widths[i]:100);view->setColumnHidden(i,!settings.value(key,i<11&&i!=2&&i!=7&&i!=9).toBool());auto action=menu->addAction(source.headerData(i,Qt::Horizontal,Qt::DisplayRole).toString());action->setCheckable(true);action->setChecked(!view->isColumnHidden(i));connect(action,&QAction::toggled,view,[this,view,key,i](bool on){view->setColumnHidden(i,!on);settings.setValue(key,on);});}
@@ -189,7 +294,7 @@ void Window::buildMonitorPanes(QTableView *original) {
     connect(view->selectionModel(),&QItemSelectionModel::currentChanged,panel,[this,view,channel](const QModelIndex &i){
       if(const auto r=paneModels[channel].at(i.row())){monitor=view;paneSelection[channel]=r->id;paneColumns[channel]=i.column();backend.selected=*r;selectedMonitorId=r->id;selectedMonitorColumn=i.column();settings.setValue("activeMonitorChannel",channel);refreshOperatorState();}});
     connect(view,&QTableView::clicked,panel,[this,view,channel](const QModelIndex &i){if(const auto r=paneModels[channel].at(i.row())){monitor=view;backend.selected=*r;selectedMonitorId=r->id;selectedMonitorColumn=i.column();settings.setValue("activeMonitorChannel",channel);refreshOperatorState();}});
-    connect(view,&QTableView::doubleClicked,panel,[this,view](const QModelIndex &i){monitor=view;if(i.column()>=17)plotMonitorSelection();else inspectSelection();});
+      connect(view,&QTableView::doubleClicked,panel,[this,view](const QModelIndex &i){monitor=view;if(i.column()>=17)plotMonitorSelection();else if(const auto record=selectedMonitorRecord()){backend.selected=*record;openRecordDetailsDialog(*record);}});
     auto window=monitorWorkspace->addSubWindow(panel,Qt::SubWindow|Qt::CustomizeWindowHint|Qt::WindowTitleHint|Qt::WindowMinMaxButtonsHint);
     // Child windows stay inside the workspace; neither window can stop capture.
     channelWindows[channel]=window;window->setWindowTitle(viewingReplayStatistics?QString("%1 / Recorded Channel %2").arg(channel?"Internal":"External").arg(channel+1):QString("%1 / Channel %2 / Logical %3").arg(channel?"Internal":"External").arg(channel+1).arg(backend.captureConfig.logicalDevices[channel]));window->setMinimumSize(320,220);window->show();

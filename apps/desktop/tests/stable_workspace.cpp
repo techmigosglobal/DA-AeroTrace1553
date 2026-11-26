@@ -10,7 +10,7 @@ bool Window::stableWorkspaceTest(const QString &directory) {
   aero::Signal s;s.id="Subsystem-1 / 04102 / ID_1";s.sourceSignalId="ID_1";s.subsystem="Subsystem-1";s.messageId="04102";s.rt=4;s.sa=2;s.transmit=true;s.width=32;s.numericType="float32";s.scale=1;s.offset=0;s.unit="Rad";s.channel=1;s.expectedWordCount=32;s.icdSetId="fixture";s.icdRevision="revision";
   backend.profile={s};preferredSignalIndex=0;setSidebarCollapsed(false);resize(1366,768);show();navigate(6);settle();
   setProperty("icdArchivePending",true);check(!publishProfile({}).isEmpty()&&backend.profile.size()==1&&backend.profile.front().id==s.id,"A pending archive prevents another publication from replacing its rollback context");setProperty("icdArchivePending",false);
-  check(!nav[6]->isVisible()&&!nav[7]->isVisible()&&nav[12]->text()=="ICD && Analysis"&&nav[12]->isChecked(),"One sidebar destination represents all workspace tabs");
+  check(nav[6]->isVisible()&&(!nav[7]||!nav[7]->isVisible())&&nav[12]->text()=="Signal Mappings"&&nav[6]->isChecked(),"Engineering & Plots and Signal Mappings share guided sidebar structure");
   check(!sidebarCollapsed&&sidebar->width()==220,"Entering the workspace preserves the operator's expanded navigation");
   auto raw=content->findChild<QPlainTextEdit *>("rawWords");auto preview=content->findChild<QPushButton *>("previewButton");auto result=content->findChild<QPlainTextEdit *>("previewResult");
   check(raw&&preview&&result&&plots.empty(),"Engineering shows mapping setup and preview without a live trend or numeric tiles");
@@ -31,12 +31,15 @@ bool Window::stableWorkspaceTest(const QString &directory) {
     plots.front()->setInteraction(1);plots.front()->setInteraction(0);
 #endif
     plots.front()->setAxes(0,.5);check(!plots.front()->followsLive(),"Manual axes disable live follow");plots.front()->resetView();check(plots.front()->followsLive(),"Follow restores automatic axes");
-    auto focus=content->findChild<QAction *>("focusPlot");if(focus){focus->setChecked(true);settle();check(!sidebar->isVisible(),"Focus plot hides surrounding navigation");focus->setChecked(false);settle();check(sidebar->isVisible()&&!sidebarCollapsed,"Leaving focus restores the operator's navigation state");}else check(false,"Focus action exists");
+    auto focus=content->findChild<QPushButton *>("focusPlot");if(focus){focus->click();settle();check(!sidebar->isVisible(),"Focus plot hides surrounding navigation");focus->click();settle();check(sidebar->isVisible()&&!sidebarCollapsed,"Leaving focus restores the operator's navigation state");}else check(false,"Focus action exists");
   }
   if(auto compare=content->findChild<QPushButton *>("restorePlotsButton")){compare->setChecked(true);settle();check(plots.size()==4&&std::all_of(plots.begin(),plots.end(),[](auto plot){return plot->isVisible();}),"Comparison exposes four separate signal panes");compare->setChecked(false);settle();}
   if(plots.size()>1){plots[0]->onPick(QPointF(0,0));plots[1]->setSeries({{0,42},{1,43}});plots[1]->onPick(QPointF(0,42));check(cursorAValue&&cursorAValue->y()==42&&cursorDeltaLabel->text()=="Δt / ΔY","Switching comparison traces starts a new cursor pair");const auto originalChannel=plots[1]->property("sourceChannel");plots[1]->setProperty("sourceChannel",2);plots[1]->onPick(QPointF(1,43));check(cursorAValue&&cursorAValue->y()==43&&cursorDeltaLabel->text()=="Δt / ΔY","Switching channels never subtracts unrelated device clocks");plots[1]->setProperty("sourceChannel",originalChannel);cursorAValue.reset();}
-  grab().save(directory+"/analysis.png");const auto windowSize=size();documentCenter();settle();check(documentDialog&&documentDialog->isWindow()&&size()==windowSize&&!documentDock,"Assistant is a separate window without resizing the main application");
-  if(documentDialog){auto panel=documentDialog->findChild<QWidget *>("conversationSidebar");auto composer=documentDialog->findChild<QPlainTextEdit *>("chatComposer");check(panel&&composer&&composer->mapTo(documentDialog,QPoint()).x()>=panel->geometry().right(),"Conversation content occupies its own column without overlapping history");check(documentDialog->findChild<QListWidget *>("conversationList")&&documentDialog->findChild<QPlainTextEdit *>("chatComposer"),"Assistant exposes conversation history and a multiline composer");documentDialog->grab().save(directory+"/assistant.png");documentDialog->close();settle();}
+  grab().save(directory+"/analysis.png");
+  check(nav[2]->isVisible()&&nav[16]->isVisible()&&!findChild<QPushButton *>("assistantNavigation")&&
+        !findChild<QPushButton *>("icdChatButton"),
+        QString("Device Setup and Preferences remain direct destinations while the Assistant is retired (Device Setup=%1, Preferences=%2)")
+          .arg(nav[2]->isVisible()).arg(nav[16]->isVisible()));
   navigate(12);settle();check(nav[12]->isChecked()&&!sidebarCollapsed,"Mapping tab retains shared navigation selection and expansion");
   // Exercise the real streaming CSV workflow on a file larger than the old
   // 32 MiB batch limit, while measuring the GUI's event-loop heartbeat.
@@ -62,7 +65,7 @@ bool Window::stableWorkspaceTest(const QString &directory) {
     choose(cancelled);save->click();QTimer::singleShot(20,csvDialog,[csvDialog]{csvDialog->findChild<QPushButton *>("cancelCsv")->click();});
     check(wait([&]{return save->isEnabled();})&&status->text().startsWith("Cancelled")&&!QFileInfo::exists(cancelled),"Cancellation leaves no partially published CSV");
     auto mode=csvDialog->findChild<QComboBox *>("csvConversionMode");mode->setCurrentIndex(1);csvDialog->findChild<QCheckBox *>("confirmCsvRules")->setChecked(true);preview->click();
-    check(wait([&]{return preview->isEnabled();})&&table->columnCount()==8&&table->rowCount()==100&&table->item(0,5)->text()=="1", "CSV engineering preview agrees with the same native float conversion");
+    check(wait([&]{return preview->isEnabled();})&&table->columnCount()==8&&table->rowCount()==100&&table->item(0,5)&&table->item(0,5)->text()=="1", "CSV engineering preview agrees with the same native float conversion");
     check(hash(source)==originalHash,"Raw source CSV remains byte-for-byte unchanged");csvDialog->grab().save(directory+"/csv-tools.png");
     mode->setCurrentIndex(0);preview->click();check(wait([&]{return preview->isEnabled();}),"Raw CSV preview is ready for plotting");
     QTimer chooseTrace;chooseTrace.setInterval(20);

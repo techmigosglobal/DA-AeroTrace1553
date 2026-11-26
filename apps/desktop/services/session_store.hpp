@@ -4,7 +4,7 @@
 #include "record_csv.hpp"
 namespace desktop {
 bool verifiedOfflineFixture(const QString &recording,QString *source=nullptr);
-QString describeSession(const QString &,const aero::CaptureConfig &);
+QString describeSession(const QString &,const aero::CaptureConfig &,const QString &runName={},aero::CsvExportOptions={});
 struct SessionSaveResult { QString error,manifest,runName;quint64 run{},external{},internal{};bool recovered{},incomplete{}; };
 enum class SessionExportIntent { Retry, SelectedFormat };
 enum class SessionSavePhase { Writing, Verifying };

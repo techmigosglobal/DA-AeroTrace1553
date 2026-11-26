@@ -1,5 +1,5 @@
 #include "main_window.hpp"
-#include "services/key_gate.hpp"
+#include "services/operator_style.hpp"
 #include "services/ddc_discovery.hpp"
 #include "ui_welcome_page.h"
 #include "ui_device_page.h"
@@ -11,30 +11,6 @@
 #include "ui_trace_card.h"
 #include "ui_topology_page.h"
 #include "ui_events_page.h"
-#include "ui_license_page.h"
-
-void Window::licensePage() {
-    pageLayout->addSpacing(23);
-    auto panel = new QFrame;
-    Ui::LicensePage form;
-    form.setupUi(panel);
-    panel->setProperty("designerSource", desktop::pages.at(0).form);
-    if (pendingPage != 1)
-      form.error->setText(names[pendingPage] + " is locked. Open the local workspace to continue.");
-    if(desktop::keyRequired()){form.primary->setText("Verify application key");form.error->setText(applicationKeyMessage);}
-    connect(form.primary, &QPushButton::clicked, this, [this] {
-      if(desktop::keyRequired()){verifyApplicationKey(true);return;}
-      unlocked = true;
-      licenseBadge->setText("KEY NOT VERIFIED");
-      licenseBadge->setStyleSheet("color:#008663;background:#edf9f4;border-radius:14px;padding:6px 10px;font-size:10px");
-      footerBadge->setText("● Local workspace");
-      footerBadge->setStyleSheet("color:#008663;font-size:11px");
-      navigate(pendingPage);
-    });
-    connect(form.exitButton, &QPushButton::clicked, this, &QWidget::close);
-    pageLayout->addWidget(panel, 0, Qt::AlignHCenter);
-    pageLayout->addStretch();
-}
 
 qsizetype Window::countBus(int bus){
     const auto metrics=backend.acquisition.metrics(false);return metrics.sourceCounts[bus]+metrics.sourceCounts[2+bus];
@@ -50,10 +26,24 @@ QString Window::fileSize(QString p){
 
 
 
+void Window::setMonitorFocus(bool enabled) {
+  if(monitorFocused==enabled)return;
+  monitorFocused=enabled;
+  if(enabled) {
+    sidebarBeforeFocus=sidebarCollapsed;
+    setSidebarCollapsed(true);
+    settings.setValue("sidebarCollapsed",sidebarBeforeFocus);
+  } else setSidebarCollapsed(sidebarBeforeFocus);
+}
+
 void Window::liveMonitor() {
   if(!viewingReplayStatistics)backend.replaySource=false;
   if(!settings.contains("monitorRowMode")){settings.setValue("monitorRowMode","statistics");settings.setValue("monitorLayout","windows");}
   auto form = showForm<Ui::MonitorPage>();
+  if(width()<1550) {
+    form.bodyLayout->setSpacing(7);
+    form.selectionLayout->setContentsMargins(12,5,12,5);
+  }
   deviceTabs=form.deviceTabs;selectedSummary=form.selectedSummary;monitorCsv=form.csvButton;
   deviceTitles={form.deviceTitle0,form.deviceTitle1};deviceStatuses={form.deviceStatus0,form.deviceStatus1};
   deviceTabs->addTab("Both channels");
@@ -69,11 +59,148 @@ void Window::liveMonitor() {
     model.refresh();refreshOperatorState();
   });
   form.pauseButton->hide();
+  // Keep connection failures visible after returning to the monitor without
+  // restoring the retired full recording-setup card. The panel is hidden
+  // during healthy capture and only expands for actionable hardware feedback.
+  auto connectionPanel=connectionResultPanel(false);
+  form.bodyLayout->insertWidget(0,connectionPanel);
   recordButton=new QPushButton("Start recording");recordButton->setObjectName("startRecordingButton");
+  recordButton->setProperty("primary",true);
   form.bodyLayout->insertWidget(0,recordButton);connect(recordButton,&QPushButton::clicked,this,[this]{if(backend.acquisition.active())stopAndSave();else startCapture();});
-  form.bodyLayout->insertWidget(0,saveControls());
-  form.bodyLayout->insertWidget(0,connectionResultPanel());
-  connect(form.inspectButton, &QPushButton::clicked, this, [this] { inspectSelection(); });
+  auto focus=new QPushButton("Focus view");
+  focus->setObjectName("monitorFocusMode");
+  auto charts=new QPushButton("Plots");
+  charts->setObjectName("monitorFocusPlots");
+  desktop::actionIcon(charts,"chart");
+  form.actionBarLayout->addWidget(charts);
+  form.actionBarLayout->addWidget(focus);
+  auto layoutLabel=new QLabel("Layout");
+  layoutLabel->setObjectName("monitorLayoutLabel");
+  auto layoutMode=new QComboBox;
+  layoutMode->setObjectName("workspaceLayout");
+  layoutMode->setAccessibleName("Monitor layout");
+  layoutMode->addItem("Movable windows","windows");
+  layoutMode->addItem("Tabs","tabs");
+  layoutMode->setCurrentIndex(settings.value("monitorLayout","windows").toString()=="tabs"?1:0);
+  auto tile=new QPushButton("Tile");
+  tile->setObjectName("tileMonitorWindows");
+  desktop::actionIcon(tile,"grid",false,15);
+  auto cascade=new QPushButton("Cascade");
+  cascade->setObjectName("cascadeMonitorWindows");
+  desktop::actionIcon(cascade,"layers",false,15);
+  form.actionBarLayout->addWidget(layoutLabel);
+  form.actionBarLayout->addWidget(layoutMode);
+  form.actionBarLayout->addWidget(tile);
+  form.actionBarLayout->addWidget(cascade);
+  const auto updateLayoutActions=[layoutMode,tile,cascade] {
+    const bool windows=layoutMode->currentData().toString()=="windows";
+    tile->setVisible(windows);cascade->setVisible(windows);
+    tile->setEnabled(windows);cascade->setEnabled(windows);
+  };
+  updateLayoutActions();
+  connect(layoutMode,&QComboBox::currentIndexChanged,this,[this,layoutMode](int){
+    persistMonitorWorkspace();settings.setValue("monitorLayout",layoutMode->currentData());applyMonitorLayout();
+  });
+  connect(layoutMode,&QComboBox::currentIndexChanged,this,[updateLayoutActions](int){updateLayoutActions();});
+  connect(tile,&QPushButton::clicked,this,[this]{
+    if(monitorWorkspace){for(auto w:channelWindows)w->showNormal();monitorWorkspace->tileSubWindows();}
+  });
+  connect(cascade,&QPushButton::clicked,this,[this]{
+    if(monitorWorkspace){for(auto w:channelWindows)w->showNormal();monitorWorkspace->cascadeSubWindows();}
+  });
+  const auto resizeContent=[=,this] {
+    form.deviceReadiness->setVisible(!monitorFocused);
+    charts->setVisible(monitorFocused);
+    const bool windows=layoutMode->currentData().toString()=="windows";
+    layoutLabel->setVisible(true);layoutMode->setVisible(true);tile->setVisible(windows);cascade->setVisible(windows);
+    focus->setText(monitorFocused?"Exit focus":"Focus view");
+    desktop::actionIcon(focus,monitorFocused?"collapse":"expand");
+  };
+  connect(focus,&QPushButton::clicked,focus,[=,this]{
+    setMonitorFocus(!monitorFocused);
+    resizeContent();refreshOperatorState();
+  });
+  connect(charts,&QPushButton::clicked,this,&Window::liveEngineering);
+  resizeContent();
+  desktop::actionIcon(recordButton,"record",true);
+  desktop::actionIcon(form.columnsButton,"columns");
+  desktop::actionIcon(form.allBusButton,"layers",false,15);
+  desktop::actionIcon(form.busAButton,"bus",false,15);
+  desktop::actionIcon(form.busBButton,"bus",false,15);
+  desktop::actionIcon(form.inspectButton,"search");
+  desktop::actionIcon(form.engineeringButton,"sliders");
+  desktop::actionIcon(form.plotButton,"chart");
+  form.hexSearch->addAction(desktop::operatorIcon("search"),QLineEdit::LeadingPosition);
+  form.hexSearch->setPlaceholderText("Search hex words…");
+  for(int index=0;index<2;++index) {
+    auto frame=index?form.deviceState1:form.deviceState0;
+    auto column=qobject_cast<QVBoxLayout *>(frame->layout());
+    auto icon=new QLabel(frame);
+    icon->setProperty("deviceIcon",index?"internal":"external");
+    desktop::labelIcon(icon,"device",25);
+    auto text=new QVBoxLayout;
+    text->setContentsMargins(0,0,0,0);
+    text->setSpacing(3);
+    text->addWidget(deviceTitles[index]);
+    text->addWidget(deviceStatuses[index]);
+    auto badge=new QLabel(frame);
+    badge->setProperty("channelBadge",true);
+    badge->setObjectName(QString("deviceBadge%1").arg(index));
+    auto row=new QHBoxLayout;
+    row->addWidget(icon,0,Qt::AlignVCenter);
+    row->addLayout(text,1);
+    row->addWidget(badge,0,Qt::AlignTop);
+    column->addLayout(row);
+  }
+  form.inspectButton->setText("Details");
+  form.inspectButton->show();
+  connect(form.inspectButton,&QPushButton::clicked,this,[this]{
+    if(const auto r=selectedMonitorRecord())openRecordDetailsDialog(*r);
+    else if(!backend.selected.words.empty())openRecordDetailsDialog(backend.selected);
+    else toast("Select a captured record first to inspect words and signals.");
+  });
+  if(auto mapBtn=content->findChild<QPushButton *>("mapRouteButton")) {
+    desktop::actionIcon(mapBtn,"edit");
+    connect(mapBtn,&QPushButton::clicked,this,[this]{
+      const aero::Record *r=selectedMonitorRecord();
+      aero::Record fallback;
+      if(!r && !backend.selected.words.empty()) r=&backend.selected;
+      if(!r){toast("Select a captured record first to pre-fill Signal Mappings.");return;}
+      const auto p=aero::interpret(*r);
+      const auto cmd=p.payloadCommand.count ? p.payloadCommand : aero::command(r->commandWord);
+      PreFillMappingRoute route;route.valid=true;
+      route.rt=cmd.rt;route.sa=cmd.sa;route.tx=cmd.transmit;
+      route.wordCount=cmd.count ? int(cmd.count) : 32;
+      route.channel=int(r->channel);route.bus=r->bus;
+      for(size_t i=0;i<r->words.size()&&i<32;++i)route.sampleWords[i]=r->words[i];
+      route.hasSample=!r->words.empty();
+      openSignalMappingForRoute(route);
+    });
+  }
+
+  auto postBanner=new QFrame(content);
+  postBanner->setObjectName("postSaveBanner");
+  auto bannerLay=new QHBoxLayout(postBanner);
+  bannerLay->setContentsMargins(12,8,12,8);bannerLay->setSpacing(8);
+  auto bannerText=new QLabel("Recording finalized and CSVs saved. Next step:",postBanner);
+  bannerText->setStyleSheet("font-weight:600;color:#12593a;");
+  auto bannerCsv=new QPushButton("Open CSV Viewer",postBanner);desktop::actionIcon(bannerCsv,"file");
+  auto bannerMap=new QPushButton("Map Signals →",postBanner);desktop::actionIcon(bannerMap,"edit");
+  auto bannerExp=new QPushButton("Exports & Reports",postBanner);desktop::actionIcon(bannerExp,"download");
+  auto bannerHide=new QPushButton("Dismiss",postBanner);
+  bannerLay->addWidget(bannerText,1);bannerLay->addWidget(bannerCsv);bannerLay->addWidget(bannerMap);bannerLay->addWidget(bannerExp);bannerLay->addWidget(bannerHide);
+  postBanner->hide();
+  form.bodyLayout->insertWidget(1,postBanner);
+  auto bannerDismissed=std::make_shared<bool>(false);
+  connect(bannerCsv,&QPushButton::clicked,this,[this]{csvTools(currentFile);});
+  connect(bannerMap,&QPushButton::clicked,this,[this]{navigate(12);});
+  connect(bannerExp,&QPushButton::clicked,this,[this]{navigate(14);});
+  connect(bannerHide,&QPushButton::clicked,postBanner,[postBanner,bannerDismissed]{*bannerDismissed=true;postBanner->hide();});
+  connect(&tick,&QTimer::timeout,postBanner,[this,postBanner,bannerDismissed]{
+    if(backend.acquisition.active()) *bannerDismissed=false;
+    const bool ready=!*bannerDismissed && !savingSession && sessionSaveState=="Complete" && !currentFile.isEmpty();
+    if(postBanner->isVisible()!=ready) postBanner->setVisible(ready);
+  });
   const QList<QPushButton *> buses = {form.allBusButton,form.busAButton,form.busBButton};
   for (int i=0;i<buses.size();++i) connect(buses[i], &QPushButton::clicked, this, [this,i] {
     model.busFilter = i==0 ? "" : i==1 ? "A" : "B"; model.refresh();
@@ -105,76 +232,173 @@ void Window::liveMonitor() {
   connect(form.csvButton,&QPushButton::clicked,this,[this]{stopAndSave();});
   form.csvButton->setText("Stop && save");
   form.csvButton->setToolTip("Stop, drain and finalize the session, then save complete Internal and External CSVs. Display filters do not restrict this export.");
-  connect(form.engineeringButton,&QPushButton::clicked,this,[this]{if(monitor) if(auto record=selectedMonitorRecord()) {backend.selected=*record;analysisChannel=record->channel;analysisBus=record->bus;}navigate(6);});
+  form.engineeringButton->setText("Live Engineering");
+  connect(form.engineeringButton,&QPushButton::clicked,this,&Window::liveEngineering);
   connect(form.plotButton,&QPushButton::clicked,this,[this]{plotMonitorSelection();});
   connect(monitor->selectionModel(),&QItemSelectionModel::currentChanged,this,[this](const QModelIndex &index){
     if(const auto record=model.at(index.row())) {selectedMonitorId=record->id;selectedMonitorColumn=index.column();backend.selected=*record;}
     refreshOperatorState();
   });
   (model.busFilter=="A" ? form.busAButton : model.busFilter=="B" ? form.busBButton : form.allBusButton)->setChecked(true);
-  connect(monitor, &QTableView::doubleClicked, this, [this](const QModelIndex &index) {if(index.column()>=17) plotMonitorSelection();else inspectSelection();});
+  connect(monitor, &QTableView::doubleClicked, this, [this](const QModelIndex &index) {if(index.column()>=17) plotMonitorSelection();});
   if (model.rowCount()) monitor->selectRow(0);
   monitor->horizontalHeader()->restoreState(settings.value("monitorHeader").toByteArray());
   buildMonitorPanes(form.monitor);
+  form.bodyLayout->setStretchFactor(form.monitor,1);
+  auto empty=new desktop::TableNotice(form.monitor,"monitor-empty",60);
+  empty->setObjectName("emptyMonitorNotice");
+  const auto refreshEmpty=[this,empty,form] {
+    const bool hasRecords=!model.records.empty()||backend.acquisition.active()||viewingReplayStatistics;
+    form.monitorStatus->setVisible(hasRecords);
+    form.selectedSummary->parentWidget()->setVisible(hasRecords&&!monitorFocused);
+    if(model.rowCount()!=0) {
+      empty->showState(false,{},{});
+      return;
+    }
+    const bool active=backend.acquisition.active();
+    const bool filtered=!model.busFilter.isEmpty()||model.rtFilter>=0||!model.search.isEmpty();
+    const bool connected=!backend.captureConfig.hardware||backend.acquisition.connected();
+    const auto title=active?(filtered?"No matching records":"Waiting for bus traffic"):
+      connected?"Ready to record":"Connect a device to record";
+    const auto detail=active?(filtered?"Change the bus, RT, or search filter.":"Incoming records will appear here."):
+      connected?"Click Start recording to begin capturing bus traffic.":
+                "Connect devices, then click Start recording.";
+    empty->showState(true,title,detail);
+  };
+  connect(&model,&QAbstractItemModel::modelReset,empty,refreshEmpty);
+  connect(&tick,&QTimer::timeout,empty,refreshEmpty);
+  refreshEmpty();
   form.csvButton->hide();
 }
 
 
-void Window::inspectSelection(){
-    if (monitor) {
-      auto r = selectedMonitorRecord();
-      if (r)
-        backend.selected = *r;
-    }
-    navigate(5);
-  }
+void Window::openRecordDetailsDialog(const aero::Record &record) {
+  backend.selected = record;
+  auto dialog = new QDialog(this);
+  dialog->setObjectName("recordDetailsDialog");
+  dialog->setAttribute(Qt::WA_DeleteOnClose);
+  dialog->setWindowTitle(record.id ? QString("Frame #%1 Details").arg(record.id) : QString("Frame Details"));
+  const auto available = screen()->availableGeometry();
+  dialog->resize(qMin(960, available.width() - 48), qMin(680, available.height() - 60));
 
-void Window::inspector() {
-  auto form = showForm<Ui::InspectorPage>();
-  connect(form.previousButton, &QPushButton::clicked, this, [this] { selectRelative(-1); });
-  connect(form.nextButton, &QPushButton::clicked, this, [this] { selectRelative(1); });
-  const auto command = aero::command(backend.selected.commandWord);
-  const auto protocol=aero::interpret(backend.selected);
-  form.clock->setText(!backend.selected.id ? "No captured frame" : backend.selected.source ? (backend.selected.source==2 ? "Legacy MT 2 us ticks; rollover ambiguity flagged" : "DDC Chapter 10 device time") : "Simulator time");
-  form.selectedRecord->setText("#"+QString::number(backend.selected.id));
-  form.selectedRecordHint->setText(stamp(backend.selected.timestampNs));
-  form.selectedSource->setText(QString("%1 / %2").arg(backend.selected.channel).arg(backend.selected.bus ? "B" : "A"));
-  form.transaction->setText(QString::fromUtf8(protocol.transaction.data(),qsizetype(protocol.transaction.size())));
-  form.transactionHint->setText(QString("Payload RT %1 · SA %2 · expected/actual %3/%4").arg(protocol.payloadCommand.rt).arg(protocol.payloadCommand.sa).arg(protocol.expectedWords).arg(protocol.actualWords));
-  form.transactionHint->setToolTip(QString::fromStdString(aero::protocolDiagnostics(backend.selected,protocol)));
-  form.selectedIntegrity->setText(!backend.selected.id ? "No frame" : !protocol.supported ? "Unsupported / insufficient evidence" : !protocol.valid ? "Review message structure" : (protocol.terminalBusy || protocol.terminalFault || protocol.terminalMessageError) ? "Received · RT status reported" : !protocol.sdkEvidenceAvailable ? "Structure inferred · SDK evidence unavailable" : "Structure checks passed");
-  form.selectedIntegrity->setToolTip(QString::fromStdString(aero::protocolDiagnostics(backend.selected,protocol)));
-  form.commandWord->setText("0x"+hexword(backend.selected.commandWord));
-  form.rt->setText(QString::number(command.rt)); form.direction->setText(QString::number(command.transmit));
-  form.sa->setText(QString::number(command.sa)); form.count->setText(QString::number(command.count));
-  form.countCaption->setText(command.mode ? "MODE" : "WC");
-  form.rtHint->setText(QString::number(command.rt,2).rightJustified(5,'0'));
-  form.saHint->setText(QString::number(command.sa,2).rightJustified(5,'0'));
-  form.timestamp->setText(stamp(backend.selected.timestampNs));
-  form.recordSource->setText(QString("Channel %1 · Bus %2").arg(backend.selected.channel).arg(backend.selected.bus ? "B" : "A"));
-  form.status->setText("0x"+hexword(backend.selected.statusWord));form.status->setToolTip(QString::fromStdString(aero::statusDescription(protocol)));
-  form.flags->setText(QString::number(backend.selected.flags));form.flags->setToolTip(QString::fromStdString(aero::protocolDiagnostics(backend.selected,protocol)));
-  if(protocol.mode)form.count->setToolTip(QString::fromUtf8(protocol.modeName.data(),qsizetype(protocol.modeName.size())));
-  form.clock->setToolTip("Response time and intermessage gap: not measured. Device timestamp encoding does not establish physical measurement accuracy or synchronized channels.");
-  form.mapping->setText(QString::fromStdString(backend.signal.id));
+  auto layout = new QVBoxLayout(dialog);
+  layout->setContentsMargins(16, 16, 16, 16);
+  layout->setSpacing(12);
+
+  const auto command = aero::command(record.commandWord);
+  const auto protocol = aero::interpret(record);
+  auto summaryCard = new QFrame(dialog);
+  summaryCard->setProperty("card", true);
+  auto summaryGrid = new QGridLayout(summaryCard);
+  summaryGrid->setContentsMargins(14, 12, 14, 12);
+  summaryGrid->setHorizontalSpacing(18);
+  summaryGrid->setVerticalSpacing(6);
+  auto addSummary = [&](int r, int c, const QString &k, const QString &v, const QString &tip = {}) {
+    auto key = new QLabel(k, summaryCard);
+    key->setProperty("tone", "muted");
+    auto val = new QLabel(v, summaryCard);
+    val->setStyleSheet("font-weight:600;");
+    if (!tip.isEmpty()) val->setToolTip(tip);
+    summaryGrid->addWidget(key, r, c * 2);
+    summaryGrid->addWidget(val, r, c * 2 + 1);
+  };
+  const QString integrityText = !record.id ? "No frame"
+    : !protocol.supported ? "Unsupported / insufficient evidence"
+    : !protocol.valid ? "Review message structure"
+    : (protocol.terminalBusy || protocol.terminalFault || protocol.terminalMessageError) ? "Received · RT status flag set"
+    : "Structure checks passed";
+  addSummary(0, 0, "Frame / Timestamp", QString("#%1 · %2").arg(record.id).arg(stamp(record.timestampNs)));
+  addSummary(0, 1, "Source", QString("Channel %1 · Bus %2").arg(record.channel).arg(record.bus ? "B" : "A"));
+  addSummary(1, 0, "Command Word", QString("0x%1 (RT %2 · SA %3 · %4 · %5 %6)")
+    .arg(hexword(record.commandWord)).arg(command.rt).arg(command.sa)
+    .arg(command.transmit ? "Tx" : "Rx").arg(command.mode ? "Mode" : "WC").arg(command.count));
+  addSummary(1, 1, "Status / Flags", QString("0x%1 · Flags %2 · %3")
+    .arg(hexword(record.statusWord)).arg(record.flags).arg(integrityText),
+    QString::fromStdString(aero::protocolDiagnostics(record, protocol)));
+  layout->addWidget(summaryCard);
+
+  auto split = new QSplitter(Qt::Horizontal, dialog);
+  auto rawGroup = new QWidget(split);
+  auto rawLayout = new QVBoxLayout(rawGroup);
+  rawLayout->setContentsMargins(0, 0, 0, 0);
+  auto rawTitle = new QLabel("0-based Data Words (Word 0 to Word 31)", rawGroup);
+  rawTitle->setProperty("heading", true);
+  rawLayout->addWidget(rawTitle);
+  auto rawTable = new QTableWidget(0, 4, rawGroup);
+  rawTable->setHorizontalHeaderLabels({"Word", "Hex", "Unsigned", "Binary (16-bit)"});
+  rawTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+  rawTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+  rawTable->setAlternatingRowColors(true);
+  rawTable->verticalHeader()->hide();
   QList<QStringList> rows;
-  for (int i=0;i<int(backend.selected.words.size());++i) rows << QStringList{QString::number(i),"0x"+hexword(backend.selected.words[i]),QString::number(backend.selected.words[i]),QString::number(backend.selected.words[i],2).rightJustified(16,'0')};
-  populate(form.rawTable,rows);
-  const auto value = aero::decode(backend.selected,backend.signal,backend.exampleContext());
-  populate(form.engineeringTable,{{QString::fromStdString(backend.signal.id),value ? QString::number(*value,'f',2) : "—",QString::fromStdString(backend.signal.unit),value ? "VALID" : protocol.payloadEligible ? "NO MATCH / INVALID MAPPING" : QString::fromUtf8(protocol.reason.data(),qsizetype(protocol.reason.size()))}});
-}
+  for (int i = 0; i < int(record.words.size()); ++i)
+    rows << QStringList{QString("Word %1").arg(i), "0x" + hexword(record.words[i]),
+      QString::number(record.words[i]), QString::number(record.words[i], 2).rightJustified(16, '0')};
+  populate(rawTable, rows);
+  rawTable->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
+  rawTable->horizontalHeader()->setStretchLastSection(true);
+  rawLayout->addWidget(rawTable, 1);
 
-
-void Window::selectRelative(int delta){
-    if(backend.replaySource&&backend.recordingIndex){seekReplay(std::size_t(qMax<qint64>(0,qint64(backend.replayIndex)+delta)));navigate(5);return;}
-    auto &data = backend.replayRecords.empty() ? model.records : backend.replayRecords;
-    for (int i = 0; i < data.size(); ++i)
-      if (data[i].id == backend.selected.id) {
-        backend.selected = data[qBound(0, i + delta, int(data.size() - 1))];
-        break;
-      }
-    navigate(5);
+  auto engGroup = new QWidget(split);
+  auto engLayout = new QVBoxLayout(engGroup);
+  engLayout->setContentsMargins(0, 0, 0, 0);
+  auto engTitle = new QLabel("Matching Active ICD Signals", engGroup);
+  engTitle->setProperty("heading", true);
+  engLayout->addWidget(engTitle);
+  auto engTable = new QTableWidget(0, 4, engGroup);
+  engTable->setHorizontalHeaderLabels({"Signal", "Engineering Value", "Unit", "Quality"});
+  engTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+  engTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+  engTable->setAlternatingRowColors(true);
+  engTable->verticalHeader()->hide();
+  QList<QStringList> decodedRows;
+  for (const auto &sig : backend.mappings()) {
+    if (!aero::matchesSignalRoute(record, sig, aero::signalCommand(protocol, sig))) continue;
+    if (sig.sourceWord == aero::SignalWord::Payload && sig.expectedWordCount &&
+        (protocol.mode || protocol.payloadCommand.count != sig.expectedWordCount)) continue;
+    const auto decoded = aero::decodeValue(record, sig, protocol, backend.exampleContext());
+    const auto name = QString::fromStdString(sig.sourceSignalId.empty() ? sig.id : sig.sourceSignalId);
+    decodedRows << QStringList{name, decoded.value ? QString::number(*decoded.value, 'g', 12) : "—",
+      QString::fromStdString(sig.unit), decoded.value ? "VALID" : QString::fromUtf8(decoded.reason.data(), qsizetype(decoded.reason.size()))};
   }
+  populate(engTable, decodedRows);
+  engTable->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
+  engTable->horizontalHeader()->setStretchLastSection(true);
+  engLayout->addWidget(engTable, 1);
+  split->setSizes({470, 450});
+  layout->addWidget(split, 1);
+
+  auto footer = new QHBoxLayout;
+  auto mapBtn = new QPushButton("Map this RT/SA in ICD →", dialog);
+  mapBtn->setProperty("primary", true);
+  desktop::actionIcon(mapBtn, "edit", true);
+  auto engBtn = new QPushButton("Open Engineering", dialog);
+  auto closeBtn = new QPushButton("Close", dialog);
+  footer->addWidget(mapBtn);
+  footer->addWidget(engBtn);
+  footer->addStretch();
+  footer->addWidget(closeBtn);
+  layout->addLayout(footer);
+
+  connect(closeBtn, &QPushButton::clicked, dialog, &QDialog::accept);
+  connect(engBtn, &QPushButton::clicked, dialog, [this, dialog] { dialog->accept(); navigate(6); });
+  connect(mapBtn, &QPushButton::clicked, dialog, [this, dialog, record, protocol] {
+    PreFillMappingRoute route;
+    route.valid = true;
+    const auto cmd = protocol.payloadCommand.count ? protocol.payloadCommand : aero::command(record.commandWord);
+    route.rt = cmd.rt;
+    route.sa = cmd.sa;
+    route.tx = cmd.transmit;
+    route.wordCount = cmd.count ? int(cmd.count) : 32;
+    route.channel = int(record.channel);
+    route.bus = record.bus;
+    for (size_t i = 0; i < record.words.size() && i < 32; ++i) route.sampleWords[i] = record.words[i];
+    route.hasSample = !record.words.empty();
+    dialog->accept();
+    openSignalMappingForRoute(route);
+  });
+  dialog->show();
+}
 
 void Window::plotMonitorSelection() {
   recordedCsv.reset();
@@ -204,8 +428,12 @@ void Window::refreshEngineeringTable() {
     qualityTable->setRowHidden(int(row),!inWorkspace(mappings[row]));
     const auto value=row<values.size() ? values[row] : aero::LiveValue{};QStringList raw;
     for(unsigned i=0;i<value.rawCount;++i) raw<<hexword(value.raw[i]);
-    const QStringList cells={QString::fromStdString(mappings[row].sourceSignalId.empty()?mappings[row].id:mappings[row].sourceSignalId),raw.join(' '),value.value ? QString::number(*value.value,'g',12)+" "+QString::fromStdString(mappings[row].unit) : "—",value.matched ? stamp(value.timestampNs) : "—",value.value ? "VALID" : value.matched ? QString::fromUtf8(value.reason.data(),qsizetype(value.reason.size())) : trafficMismatch(mappings[row],analysisChannel,analysisBus)};
-    for(int column=0;column<cells.size();++column) {auto item=qualityTable->item(row,column);if(!item) {item=new QTableWidgetItem;qualityTable->setItem(row,column,item);}if(item->text()!=cells[column]) {item->setText(cells[column]);item->setToolTip(cells[column]);}}
+    const QStringList liveCells={raw.isEmpty()?QString("—"):raw.join(' '),value.value ? QString::number(*value.value,'g',12)+(mappings[row].unit.empty()?QString():" "+QString::fromStdString(mappings[row].unit)) : "—",value.value ? QString("VALID · %1").arg(stamp(value.timestampNs)) : value.matched ? QString::fromUtf8(value.reason.data(),qsizetype(value.reason.size())) : trafficMismatch(mappings[row],analysisChannel,analysisBus)};
+    for(int offset=0;offset<liveCells.size() && 5+offset<qualityTable->columnCount();++offset) {
+      const int column=5+offset;
+      auto item=qualityTable->item(row,column);if(!item) {item=new QTableWidgetItem;qualityTable->setItem(row,column,item);}
+      if(item->text()!=liveCells[offset]) {item->setText(liveCells[offset]);item->setToolTip(liveCells[offset]);}
+    }
   }
   updateEngineeringDetails();
 }
@@ -247,7 +475,7 @@ void Window::plotPage() {
   });
   connect(form.exportPlotButton,&QPushButton::clicked,this,[this] { exportPlot(); });
   cursorALabel=form.cursorA; cursorBLabel=form.cursorB; cursorDeltaLabel=form.cursorDelta;
-  connect(form.cursorInspectButton,&QPushButton::clicked,this,[this] { navigate(5); });
+  form.cursorInspectButton->hide();
   const QList<Plot *> initial={form.signalPlot0,form.signalPlot1,form.signalPlot2,form.signalPlot3};
   if(!plotPanelsInitialized && !mappings.empty()) {
     for(unsigned i=0;i<std::min<std::size_t>(4,mappings.size());++i)plotPanelIds[i]=QString::fromStdString(mappings[i].id);
@@ -262,7 +490,7 @@ void Window::plotPage() {
   for(int i=1;i<cards.size();++i)cards[i]->hide();
   const auto expand=[cards,restore=form.restorePlotsButton](int selected){for(int i=0;i<cards.size();++i)cards[i]->setVisible(i==selected);restore->show();};
   form.restorePlotsButton->setCheckable(true);connect(form.restorePlotsButton,&QPushButton::toggled,this,[cards](bool compare){for(int i=0;i<cards.size();++i)cards[i]->setVisible(i==0||compare);});
-  const auto updateTraces=[this,initial]{std::vector<unsigned> selected;for(auto plot:initial)if(plot->property("role").toString().isEmpty()&&plot->property("signalIndex").toInt()>=0)selected.push_back(plot->property("signalIndex").toUInt());backend.acquisition.setTraceSignals(selected);refreshDataViews();};
+  const auto updateTraces=[this,initial]{std::vector<unsigned> selected;for(auto plot:initial)if(plot->property("role").toString().isEmpty()&&plot->property("signalIndex").toInt()>=0)selected.push_back(plot->property("signalIndex").toUInt());backend.acquisition.setTraceSignals(selected);};
   for(int i=0;i<initial.size();++i) {
     auto combo=selectors[i];combo->setAccessibleName(QString("Plot %1 signal").arg(i+1));
     combo->addItem("No signal",QString());
@@ -289,7 +517,7 @@ void Window::plotPage() {
       const auto index=indexOf(plotPanelIds[i]);
       if(i==0){plotRawColumn=-1;if(index>=0){preferredSignalIndex=unsigned(index);const auto rules=backend.mappings();const auto &mapping=rules[index];if(mapping.channel)analysisChannel=mapping.channel;if(mapping.bus>=0)analysisBus=mapping.bus;source->setCurrentIndex((analysisChannel-1)*2+analysisBus);}}
       plot->setProperty("role","");plot->setProperty("signalIndex",index);
-      cursorAValue.reset();updateTitle();updateTraces();
+      cursorAValue.reset();updateTitle();updateTraces();refreshDataViews();
     });
     connect(expanders[i],&QPushButton::clicked,this,[expand,i]{expand(i);});
 
@@ -320,87 +548,6 @@ void Window::exportPlot(){
       toast("Plot workspace exported to " + path);
     else
       toast("Could not save plot image.");
-  }
-
-void Window::topology() {
-  auto form=showForm<Ui::TopologyPage>();
-  connect(form.selectBusButton,&QPushButton::clicked,this,[this] { navigate(4); });
-  connect(form.liveMonitorButton,&QPushButton::clicked,this,[this] { navigate(4); });
-  const QList<QPushButton *> nodes={form.node0_0,form.node0_1,form.node0_2,form.node0_3,form.node0_4,form.node0_5,form.node0_6,form.node0_7,form.node1_0,form.node1_1,form.node1_2,form.node1_3,form.node1_4,form.node1_5,form.node1_6,form.node1_7};
-  for(int i=0;i<nodes.size();++i) connect(nodes[i],&QPushButton::clicked,this,[this,i,node=nodes[i]] {
-    model.busFilter=i/8 ? "B" : "A"; model.rtFilter=node->property("observedRt").toInt(); model.refresh(); navigate(4);
-  });
-  const auto refresh=[this,form,nodes] {
-    std::array<QSet<int>,2> addresses; QSet<int> all;
-    const auto &records=backend.data(model.records);
-    for(auto i=records.size()>5000 ? records.size()-5000 : 0;i<records.size();++i) {
-      if(records[i].bus>1 || records[i].flags) continue;
-      const auto rt=aero::command(records[i].commandWord).rt;
-      if(rt<31) {addresses[records[i].bus].insert(rt);all.insert(rt);}
-    }
-    for(int bus=0;bus<2;++bus) {
-      auto observed=addresses[bus].values();std::sort(observed.begin(),observed.end());
-      for(int slot=0;slot<8;++slot) {
-        auto node=nodes[bus*8+slot]; const bool present=slot==0 ? !observed.empty() : slot<=observed.size();
-        node->setEnabled(present);node->setProperty("observedRt",slot && present ? observed[slot-1] : -1);
-        node->setText(slot==0 ? "BC traffic" : present ? QString("RT %1").arg(observed[slot-1],2,10,QChar('0')) : "Unobserved");
-      }
-    }
-    form.addresses->setText(QString::number(all.size()));
-    form.addressesHint->setText("Last 5,000 records · first seven RTs per bus shown");
-    form.messages->setText(QString::number(backend.acquisition.metrics(false).recorded));
-    form.channels->setText(QString::number(std::count(backend.captureConfig.enabled.begin(),backend.captureConfig.enabled.end(),true)));
-  };
-  refresh(); connect(&tick,&QTimer::timeout,content,refresh);
-}
-
-
-void Window::events() {
-  auto form=showForm<Ui::EventsPage>();
-  connect(form.exportEventsButton,&QPushButton::clicked,this,[this] { exportEvents(); });
-  connect(form.eventInspectorButton,&QPushButton::clicked,this,[this] { navigate(5); });
-  auto refresh=[this,form] {
-    const auto metrics=backend.acquisition.metrics(true);form.warnings->setText(QString::number(metrics.checkCount));form.information->setText(eventText.isEmpty()?"0":"1");form.drops->setText(QString::number(metrics.displayDrops));
-    QList<QStringList> rows;for(const auto &e:metrics.checkEvents) {
-      const auto kind=QString::fromStdString(e.kind);const int rule=kind=="protocol"?0:kind=="status"?1:(kind=="missing" || kind=="recovered")?2:(kind=="range" || kind=="range_recovered")?3:-1;
-      if(rule>=0 && !settings.value(QString("eventRule%1").arg(rule),true).toBool())continue;
-      rows<<QStringList{stamp(e.timestampNs),kind,QString("CH%1/%2 %3 · %4").arg(e.channel).arg(e.bus?'B':'A').arg(QString::fromStdString(e.signalId),QString::fromStdString(e.detail)),QString::number(e.recordId)};
-    }
-    if(!eventText.isEmpty())rows<<QStringList{QTime::currentTime().toString(),"Information",eventText,"Local"};populate(form.eventsTable,rows);
-  };refresh();registerPlot(form.eventsPlot,"events");
-  auto timer=new QTimer(form.eventsTable);timer->setInterval(500);connect(timer,&QTimer::timeout,form.eventsTable,refresh);timer->start();
-  connect(form.eventsTable,&QTableWidget::cellDoubleClicked,this,[this,form](int index,int) {
-    const auto item=form.eventsTable->item(index,3);if(!item)return;const auto id=item->text().toULongLong();
-    for(const auto &record:backend.archive)if(id && record.id==id){backend.selected=record;navigate(5);return;}toast("This event has no retained message. Open its recording for analysis.");
-  });
-  form.rulesTitle->setText("Display filters");form.rulesNotice->setText("Recent 512 events appear here. The complete capture log is stored as .checks.jsonl.");
-  auto editRules=new QPushButton("Configure signal alerts…",content);
-  pageLayout->addWidget(editRules);
-  connect(editRules,&QPushButton::clicked,this,[this]{configureSignalAlerts();});
-  const QList<QCheckBox *> rules={form.protocolRule,form.statusRule,form.missingRule,form.rangeRule,form.diskRule};
-  for(int i=0;i<rules.size();++i) {
-    const auto key=QString("eventRule%1").arg(i);
-    rules[i]->setChecked(settings.value(key,true).toBool());
-    rules[i]->setEnabled(i<4);
-    if(i<4) connect(rules[i],&QCheckBox::toggled,form.eventsTable,[this,key,refresh](bool on) { settings.setValue(key,on);refresh(); });
-  }
-}
-
-
-void Window::exportEvents(){
-    QString p = QFileDialog::getSaveFileName(
-        this, "Export events", sessionDir + "/events.csv", "CSV (*.csv)");
-    if (p.isEmpty())
-      return;
-    QSaveFile f(p);
-    if (!f.open(QIODevice::WriteOnly)) {
-      toast(f.errorString());
-      return;
-    }
-    f.write("timestamp_ns,record,channel,bus,signal,event,detail\n");
-    const auto quote=[](QString value){return "\""+value.replace('"',"\"\"")+"\"";};
-    for(const auto &e:backend.acquisition.metrics(true).checkEvents)f.write((QString::number(e.timestampNs)+","+QString::number(e.recordId)+","+QString::number(e.channel)+","+(e.bus?"B":"A")+","+quote(QString::fromStdString(e.signalId))+","+quote(QString::fromStdString(e.kind))+","+quote(QString::fromStdString(e.detail))+"\n").toUtf8());
-    toast(f.commit() ? "Event list exported" : "Export failed");
   }
 
 QString Window::trafficMismatch(const aero::Signal &signal,unsigned channel,int bus) const {

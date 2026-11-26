@@ -1,5 +1,7 @@
 #include "core.hpp"
+#include "field_encoding.hpp"
 #include "protocol.hpp"
+#include "capture_file.hpp"
 #include <cmath>
 #include <cstring>
 #include <limits>
@@ -22,6 +24,28 @@ Command command(std::uint16_t w) {
     c.count = 32;
   return c;
 }
+namespace {
+constexpr std::string_view sourceWordNames[]{"payload","command1","command2","status1","status2"};
+}
+std::string_view signalWordName(SignalWord word) {
+  const auto i=static_cast<unsigned>(word);
+  return i<std::size(sourceWordNames)?sourceWordNames[i]:std::string_view{};
+}
+std::optional<SignalWord> parseSignalWord(std::string_view name) {
+  for(unsigned i=0;i<std::size(sourceWordNames);++i)
+    if(sourceWordNames[i]==name)return static_cast<SignalWord>(i);
+  return {};
+}
+bool prepareConversion(Signal &signal) {
+  if(signal.conversionFormula.empty()) {
+    signal.preparedFormula.reset();
+    return true;
+  }
+  if(signal.preparedFormula && signal.preparedFormula->matches(signal.conversionFormula))return true;
+  auto compiled=ConversionFormula::compile(signal.conversionFormula);
+  signal.preparedFormula=compiled?std::make_shared<const ConversionFormula>(std::move(*compiled)):nullptr;
+  return bool(signal.preparedFormula);
+}
 std::string validate(const Signal &s) {
   if (s.id.empty())
     return "Signal ID is required";
@@ -30,7 +54,24 @@ std::string validate(const Signal &s) {
   if (s.expectedWordCount>32) return "Expected word count must be 1–32 or unspecified";
   if (!s.width || s.width > 64 || s.lsb > 15 || s.lsb+s.width>64 || s.word + (s.lsb + s.width + 15) / 16 > 32)
     return "Bit field must fit the payload (1–64 bits)";
-  if(s.expectedWordCount && s.word+(s.lsb+s.width+15)/16>s.expectedWordCount) return "Bit field exceeds the expected word count";
+  if(signalWordName(s.sourceWord).empty())return "Unknown source word";
+  if(s.sourceWord!=SignalWord::Payload && (s.word || s.lsb+s.width>16))
+    return "Command and status fields must fit one 16-bit word";
+  if((s.sourceWord==SignalWord::Command2 || s.sourceWord==SignalWord::Status2) && s.peerRt<0)
+    return "Select the opposite RT and subaddress for a second command or status";
+  if(s.sourceWord==SignalWord::Payload && s.expectedWordCount &&
+     s.word+(s.lsb+s.width+15)/16>s.expectedWordCount) return "Bit field exceeds the expected word count";
+  if(s.matchWord<-1 || s.matchWord>31)return "Frame tag word index must be 0–31 or unspecified";
+  if(s.matchWord>=0 && (s.sourceWord!=SignalWord::Payload || (s.expectedWordCount && unsigned(s.matchWord)>=s.expectedWordCount)))
+    return "Frame tag word must point to a valid payload word inside the expected word count";
+  if(s.peerRt < -1 || s.peerRt>31 || s.peerSa < -1 || s.peerSa>31 ||
+     ((s.peerRt<0)!=(s.peerSa<0)))return "Specify both RT-to-RT peer addresses";
+  if(s.peerRt>=0) {
+    const bool receiving=s.sourceWord==SignalWord::Command1 || s.sourceWord==SignalWord::Status2;
+    if(s.transmit==receiving || int(s.rt)==s.peerRt || s.sa==0 || s.sa==31 || s.peerSa==0 || s.peerSa==31 ||
+       (receiving && s.peerRt==31) || (s.rt==31 && (!receiving || s.sourceWord==SignalWord::Status2)))
+      return "RT-to-RT route needs distinct terminals, data subaddresses and the direction for the selected word";
+  }
   if(s.channel>2 || s.bus < -1 || s.bus > 1) return "Invalid channel or bus";
   if(s.numericType!="integer" && s.numericType!="float32" && s.numericType!="float64" && s.numericType!="bcd")
     return "Unsupported numeric type";
@@ -39,35 +80,37 @@ std::string validate(const Signal &s) {
      (s.numericType=="bcd" && s.width%4)) return "Numeric type and bit width disagree";
   if (!std::isfinite(s.scale) || !std::isfinite(s.offset))
     return "Scale and offset must be finite";
+  if(!s.conversionFormula.empty() && (!s.preparedFormula || !s.preparedFormula->matches(s.conversionFormula)) &&
+     !ConversionFormula::compile(s.conversionFormula))
+    return "Invalid custom conversion. Use x, numbers, arithmetic or the supported functions.";
   return {};
 }
 std::optional<double> decode(const Record &r, const Signal &s, bool exampleContext) {
   return decodePayload(r,s,interpret(r),exampleContext);
 }
 std::optional<double> decodePayload(const Record &r,const Signal &s,const ProtocolInfo &protocol, bool exampleContext) {
-  const auto c=protocol.payloadCommand;
-  if (!validate(s).empty() || (s.simulationOnly && (!exampleContext || r.source!=0)) || !protocol.payloadEligible || !matchesSignalRoute(r,s,c) || (s.expectedWordCount && (protocol.mode || c.count!=s.expectedWordCount || r.words.size()!=s.expectedWordCount)) || s.word+(s.lsb+s.width+15)/16 > r.words.size())
-    return {};
-  const auto count=(s.lsb+s.width+15)/16;
-  std::uint64_t bits=0;
-  for(unsigned i=0;i<count;++i) {
-    const auto index=s.leastSignificantWordFirst ? i : count-1-i;
-    bits|=std::uint64_t(r.words[s.word+index])<<(i*16);
+  if (!validate(s).empty() || (s.simulationOnly && (!exampleContext || r.source!=0)))return {};
+  if(s.icdSetId=="manual" && (protocol.rtToRt || protocol.mode))return {};
+  const bool first=s.sourceWord==SignalWord::Command1 || s.sourceWord==SignalWord::Status2;
+  const auto &c=signalCommand(protocol,s);
+  if(!matchesSignalRoute(r,s,c))return {};
+  if(s.peerRt>=0) {
+    const auto peer=first ? protocol.second : protocol.first;
+    if(!protocol.rtToRt || !protocol.command2Present || int(peer.rt)!=s.peerRt || int(peer.sa)!=s.peerSa)return {};
   }
-  bits>>=s.lsb;
-  if(s.width<64) bits&=(std::uint64_t(1)<<s.width)-1;
-  double value{};
-  if(s.numericType=="float32") value=std::bit_cast<float>(std::uint32_t(bits));
-  else if(s.numericType=="float64") value=std::bit_cast<double>(bits);
-  else if(s.numericType=="bcd") {
-    double place=1;
-    for(unsigned i=0;i<s.width/4;++i) { const auto digit=(bits>>(i*4))&15; if(digit>9) return {}; value+=digit*place;place*=10; }
-  } else if(s.signedValue) {
-    if(s.width<64 && (bits&(std::uint64_t(1)<<(s.width-1)))) bits|=~((std::uint64_t(1)<<s.width)-1);
-    value=static_cast<double>(std::bit_cast<std::int64_t>(bits));
-  } else value=static_cast<double>(bits);
-  value=value*s.scale+s.offset;
-  return std::isfinite(value) ? std::optional<double>(value) : std::nullopt;
+  if(s.expectedWordCount && (protocol.mode || c.count!=s.expectedWordCount))return {};
+  const FieldEncoding encoding(s);
+  switch(s.sourceWord) {
+    case SignalWord::Payload:
+      if(!protocol.payloadEligible || s.word+encoding.wordCount>r.words.size() ||
+         (s.expectedWordCount && r.words.size()!=s.expectedWordCount))return {};
+      return encoding.convert(std::span(r.words).subspan(s.word));
+    default: {
+      const auto word=capturedHeaderWord(r,protocol,s.sourceWord);
+      if(!protocol.valid || !word)return {};
+      return encoding.convert(std::span(&*word,1));
+    }
+  }
 }
 Record synthetic(std::uint64_t n) {
   Record r;
@@ -102,7 +145,8 @@ std::string serializeProfile(const std::vector<Signal> &mappings) {
     output<<'"';return output.str();
   };
   std::ostringstream out;out.imbue(std::locale::classic());out<<std::setprecision(17);
-  out<<"{\"schema\":\"aerotrace.icd.profile.v2\",\"signals\":[";
+  const bool custom=std::any_of(mappings.begin(),mappings.end(),[](const Signal &s){return !s.conversionFormula.empty();});
+  out<<"{\"schema\":\"aerotrace.icd.profile.v"<<(custom?3:2)<<"\",\"signals\":[";
   for(std::size_t index=0;index<mappings.size();++index) {
     const auto &s=mappings[index];if(index) out<<',';
     out<<"{\"id\":"<<quote(s.id)<<",\"unit\":"<<quote(s.unit)<<",\"rt\":"<<s.rt<<",\"sa\":"<<s.sa
@@ -111,7 +155,11 @@ std::string serializeProfile(const std::vector<Signal> &mappings) {
       <<",\"channel\":"<<s.channel<<",\"bus\":"<<s.bus<<",\"numeric_type\":"<<quote(s.numericType)
       <<",\"lsw_first\":"<<(s.leastSignificantWordFirst?"true":"false")<<",\"expected_word_count\":"<<s.expectedWordCount<<",\"simulation_only\":"<<(s.simulationOnly?"true":"false")<<",\"source_document\":"<<quote(s.sourceDocument)
       <<",\"source_hash\":"<<quote(s.sourceHash)<<",\"source_page\":"<<s.sourcePage<<",\"operator_note\":"<<quote(s.operatorNote)
-      <<",\"subsystem\":"<<quote(s.subsystem)<<",\"message_id\":"<<quote(s.messageId)<<",\"source_signal_id\":"<<quote(s.sourceSignalId)<<",\"icd_set_id\":"<<quote(s.icdSetId)<<",\"icd_revision\":"<<quote(s.icdRevision)<<'}';
+      <<",\"subsystem\":"<<quote(s.subsystem)<<",\"message_id\":"<<quote(s.messageId)<<",\"source_signal_id\":"<<quote(s.sourceSignalId)<<",\"icd_set_id\":"<<quote(s.icdSetId)<<",\"icd_revision\":"<<quote(s.icdRevision)
+      <<",\"source_word\":"<<quote(std::string(signalWordName(s.sourceWord)))<<",\"peer_rt\":"<<s.peerRt<<",\"peer_sa\":"<<s.peerSa;
+    if(!s.conversionFormula.empty())out<<",\"conversion_formula\":"<<quote(s.conversionFormula);
+    if(s.matchWord>=0)out<<",\"match_word\":"<<s.matchWord<<",\"match_value\":"<<s.matchValue;
+    out<<'}';
   }
   out<<"]}";return out.str();
 }
@@ -135,12 +183,11 @@ template <class T> T get(const std::vector<std::uint8_t> &v, std::size_t &p) {
     n |= std::uint64_t(v.at(p++)) << (8 * i);
   return static_cast<T>(n);
 }
-bool Recorder::open(const std::filesystem::path &p) {
+Recorder::~Recorder(){close();}
+bool Recorder::open(const std::filesystem::path &p,bool exclusive) {
   close();
-  out.open(p, std::ios::binary | std::ios::trunc);
-  if (out)
-    out.write("ATD2\x02\x00\x00\x00", 8);
-  return bool(out);
+  out=capture_file::open(p,exclusive);
+  return capture_file::write(out,"ATD2\x02\x00\x00\x00",8);
 }
 bool Recorder::append(const Record &r) {return appendBatch(std::span<const Record>(&r,1));}
 bool Recorder::appendBatch(std::span<const Record> records) {
@@ -151,7 +198,7 @@ bool Recorder::appendBatch(std::span<const Record> records) {
   batchBuffer.clear();
   for(const auto &r:records){
     if(r.words.size()>32)return false;
-    if(batchBuffer.size()+129>blockLimit){out.write(reinterpret_cast<const char *>(batchBuffer.data()),batchBuffer.size());if(!out)return false;batchBuffer.clear();}
+    if(batchBuffer.size()+129>blockLimit){if(!capture_file::write(out,batchBuffer.data(),batchBuffer.size()))return false;batchBuffer.clear();}
     auto &v=payloadBuffer;v.clear();
   put(v, r.id);
   put(v, r.timestampNs);
@@ -169,16 +216,14 @@ bool Recorder::appendBatch(std::span<const Record> records) {
     put(batchBuffer,static_cast<std::uint32_t>(v.size()));put(batchBuffer,crc32(v));
     batchBuffer.insert(batchBuffer.end(),v.begin(),v.end());
   }
-  if(!batchBuffer.empty())out.write(reinterpret_cast<const char *>(batchBuffer.data()),batchBuffer.size());
-  return bool(out);
+  return batchBuffer.empty() || capture_file::write(out,batchBuffer.data(),batchBuffer.size());
 }
-bool Recorder::flush() { out.flush();return bool(out); }
+bool Recorder::flush() { return out && std::fflush(out)==0; }
+bool Recorder::checkpoint(){return capture_file::checkpoint(out);}
 bool Recorder::close() {
-  if (!out.is_open())
-    return true;
-  out.flush();
-  bool ok = bool(out);
-  out.close();
+  if(!out)return true;
+  const bool ok=std::fclose(out)==0;
+  out=nullptr;
   return ok;
 }
 

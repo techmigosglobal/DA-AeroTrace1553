@@ -53,8 +53,10 @@ EXPORT S16BIT WINAPI aceMTIGetCh10DataPkt(S16BIT device,PMTI_CH10_DATA_PKT *outp
   static std::array<std::uint64_t,8192> owned;
   if(flag("AEROTRACE_TEST_DDC_SDK_OWNED"))*output=reinterpret_cast<PMTI_CH10_DATA_PKT>(owned.data());
   auto packet=*output;if(!packet) return -3;
-  std::memset(packet,0,72);packet->u16PktSyncPattern=IRIG_CH10_PKT_SYNC_PATT;packet->u16ChannelId=device+1;
-  packet->u32PktLength=72;packet->u32DataLength=48;packet->u32ChnlSpecificData=2;packet->u16DatTypePktFlags=0x1900;
+  const bool manualFixture=flag("AEROTRACE_TEST_DDC_MANUAL_MAPPING");
+  const auto bytes=manualFixture?192:72;
+  std::memset(packet,0,bytes);packet->u16PktSyncPattern=IRIG_CH10_PKT_SYNC_PATT;packet->u16ChannelId=device+1;
+  packet->u32PktLength=bytes;packet->u32DataLength=bytes-24;packet->u32ChnlSpecificData=2;packet->u16DatTypePktFlags=0x1900;
   if(flag("AEROTRACE_TEST_DDC_ABSOLUTE")) packet->u16DatTypePktFlags|=0x40;
   auto cursor=reinterpret_cast<U16BIT *>(reinterpret_cast<std::uint8_t *>(packet)+28);
   for(unsigned index=0;index<2;++index) {
@@ -63,17 +65,25 @@ EXPORT S16BIT WINAPI aceMTIGetCh10DataPkt(S16BIT device,PMTI_CH10_DATA_PKT *outp
     if(flag("AEROTRACE_TEST_DDC_RTC_WRAP")) ticks=index ? 0 : (1ull<<48)-1;
     std::memcpy(cursor,&ticks,8);cursor+=4;
     const bool busB=flag("AEROTRACE_TEST_DDC_BOTH_BUSES")?index==1:device%2!=0;
-    *cursor++=ACE_MT_BSW_EOM|(busB ? ACE_MT_BSW_CHNL : 0);*cursor++=0;*cursor++=8;
-    *cursor++=0x1842;*cursor++=1200+index;*cursor++=2000+index;*cursor++=0x1800;
+    *cursor++=ACE_MT_BSW_EOM|(busB ? ACE_MT_BSW_CHNL : 0);*cursor++=0;*cursor++=manualFixture?68:8;
+    if(manualFixture) {
+      *cursor++=0x1840;
+      std::array<U16BIT,32> words{};
+      words[2]=100;words[3]=0xFFFE;words[4]=0x4148;
+      for(const auto word:words)*cursor++=word;
+      *cursor++=0x1800;
+    } else {*cursor++=0x1842;*cursor++=1200+index;*cursor++=2000+index;*cursor++=0x1800;}
   }
   sent[device]=true;return 0;
 }
 EXPORT S16BIT WINAPI aceMTIFreeCh10DataPkt(S16BIT,PMTI_CH10_DATA_PKT*){return flag("AEROTRACE_TEST_DDC_PACKET_FREE_FAIL")?-81:flag("AEROTRACE_TEST_DDC_FREE_UNSUPPORTED")?ACE_ERR_NOT_SUPPORTED:0;}
 EXPORT S16BIT WINAPI aceMTIDecodeRawMsg(PMTI_CH10_DATA_PKT,U16BIT **cursor,MSGSTRUCT *output){
   auto raw=*cursor;std::memset(output,0,sizeof(*output));output->wBlkSts=raw[4];
-  output->wCmdWrd1=raw[7];output->wStsWrd1=raw[10];output->wCmdWrd1Flg=output->wStsWrd1Flg=1;
-  output->wWordCount=2;output->aDataWrds[0]=raw[8];output->aDataWrds[1]=raw[9];
-  *cursor+=11;return 0;
+  const unsigned words=flag("AEROTRACE_TEST_DDC_MANUAL_MAPPING")?32:2;
+  output->wCmdWrd1=raw[7];output->wStsWrd1=raw[8+words];output->wCmdWrd1Flg=output->wStsWrd1Flg=1;
+  output->wWordCount=words;
+  for(unsigned i=0;i<words;++i)output->aDataWrds[i]=raw[8+i];
+  *cursor+=9+words;return 0;
 }
 #ifndef AEROTRACE_FAKE_NO_METRICS
 EXPORT S16BIT WINAPI aceMtiGetMetrics(S16BIT device,ACEX_MTI_METRICS *output){

@@ -13,7 +13,6 @@ void Window::setupKeyGate() {
 }
 void Window::lockForApplicationKey(const QString &message) {
   applicationKeyVerified=false;applicationKeyMessage=message;automaticHeld=true;configurationRetry.stop();
-  if(documentDialog)documentDialog->close();
   if(unlocked || connecting || backend.acquisition.active())removeKey();
   else navigate(0);
   toast(message);
@@ -26,7 +25,7 @@ void Window::verifyApplicationKey(bool interactive) {
     if(!proof.valid)lockForApplicationKey(proof.message);
     else {
       applicationKeyVerified=true;applicationKeyClock.restart();
-      if(interactive){unlocked=true;automaticHeld=true;navigate(pendingPage==0?4:pendingPage);toast("Application key verified. Start capture explicitly.");}
+      if(interactive){unlocked=true;automaticHeld=true;navigate(pendingPage==0?2:pendingPage);toast("Application key verified. Configure your device or start simulation.");}
     }
     watcher->deleteLater();
   });watcher->setFuture(QtConcurrent::run([interactive]{try{return desktop::proveApplicationKey(interactive);}catch(...){return desktop::KeyProof{false,"Application key verification failed"};}}));

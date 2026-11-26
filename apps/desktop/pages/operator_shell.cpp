@@ -4,44 +4,135 @@
 #include "services/session_store.hpp"
 #include "services/runtime_paths.hpp"
 #include "services/ddc_discovery.hpp"
+#include "services/operator_style.hpp"
+#include "widgets/startup_splash.hpp"
 #ifdef Q_OS_WIN
 #include <windows.h>
 #include <dbt.h>
 #endif
 
 void Window::setupOperatorShell() {
-  findChild<QLabel *>("brandIcon")->setPixmap(QIcon(":/icons/aerotrace.ico").pixmap(30,30));
+  auto footerIcon=findChild<QLabel *>("footerIcon");
+  footerIcon->setFixedSize(38,38);
+  desktop::labelIcon(footerIcon,"aircraft",34);
+  if(auto footerCaption=findChild<QLabel *>("sidebarBrandCaption"))
+    footerCaption->setText(QString("v%1\nReceive-only").arg(QCoreApplication::applicationVersion()));
+  findChild<QHBoxLayout *>("sidebarFooterLayout")->setStretch(1,1);
   applicationEvent("workspace_started",backend.captureConfig.hardware ? "DDC receive-only source selected" : "Explicit simulator source selected");
   setAcceptDrops(true);configurationRetry.setSingleShot(true);configurationRetry.setInterval(800);
   connect(&configurationRetry,&QTimer::timeout,this,[this]{automaticCapture();});
   sidebar=findChild<QFrame *>("sidebar");
   sidebarToggle=findChild<QPushButton *>("sidebarToggle");
   captureButton=findChild<QPushButton *>("globalCaptureButton");
-  const QStringList icons={"shield","home","settings","dashboard","activity","search","sliders","chart","grid","bell","folder","play","file","edit","download","shield","settings","help"};
+  captureSummary=new QLabel(this);
+  captureSummary->setAccessibleName("Recording integrity and output");
+  statusBar()->addPermanentWidget(captureSummary);
+  captureSummary->hide();
+  const QStringList icons={"shield","home","device","dashboard","activity","search","sliders","chart","grid","bell","folder","play","file","edit","download","shield","settings","help"};
   for(int i=0;i<nav.size();++i) {
+    if(!nav[i]) continue;
     nav[i]->setProperty("fullText",nav[i]->text());
-    nav[i]->setIcon(QIcon(":/icons/"+icons[i]+".svg"));nav[i]->setIconSize(QSize(21,21));nav[i]->setProperty("navigationIcon",nav[i]->icon());
+    const QIcon icon(":/icons/"+icons[i]+".svg");
+    QIcon navigationIcon;
+    navigationIcon.addPixmap(icon.pixmap(22,22),QIcon::Normal,QIcon::Off);
+    auto selected=icon.pixmap(22,22);
+    {
+      QPainter painter(&selected);
+      painter.setCompositionMode(QPainter::CompositionMode_SourceIn);
+      painter.fillRect(selected.rect(),Qt::white);
+    }
+    navigationIcon.addPixmap(selected,QIcon::Normal,QIcon::On);
+    nav[i]->setIcon(navigationIcon);
+    nav[i]->setIconSize(QSize(21,21));
     nav[i]->setAccessibleName(names[i]);nav[i]->setToolTip(names[i]);
   }
-  findChild<QLabel *>("brandText")->setStyleSheet("font-size:16px;font-weight:700;");
-  findChild<QLabel *>("platformCaption")->hide();licenseBadge->hide();footerBadge->hide();
-  auto preferences=findChild<QPushButton *>("preferencesButton");
-  auto chat=findChild<QPushButton *>("icdChatButton");chat->setIcon(QIcon(":/icons/file.svg"));chat->setToolTip("AeroTrace Assistant · Ctrl+J");
-  connect(chat,&QPushButton::clicked,this,[this]{if(unlocked) documentCenter();});
-  shortcut(QKeySequence("Ctrl+J"),[this]{if(unlocked) documentCenter();});
-  preferences->setIcon(QIcon(":/icons/settings.svg"));preferences->setAccessibleName("Preferences");preferences->setToolTip("Preferences");
-  sidebarToggle->setAccessibleName("Collapse navigation");sidebarToggle->setToolTip("Collapse navigation · Ctrl+B");
+  desktop::actionIcon(captureButton,"link",true);
+  sidebarToggle->setAccessibleName("Collapse navigation");sidebarToggle->setToolTip("Collapse navigation");
   connect(sidebarToggle,&QPushButton::clicked,this,[this]{setSidebarCollapsed(!sidebarCollapsed);});
-  auto more=findChild<QPushButton *>("moreTools");more->setIcon(QIcon(":/icons/more.svg"));more->setToolTip("All tools");more->setAccessibleName("More tools");
-  connect(more,&QPushButton::clicked,this,[this,more] {
-    QMenu menu(this);
-    for(int i: {5,11,13,14,15,17,0,16}) {
-      auto action=menu.addAction(nav[i]->icon(),i==5?"Bus Analysis":names[i]);
-      connect(action,&QAction::triggered,this,[this,i]{navigate(i);});
+  auto navigation=findChild<QVBoxLayout *>("navigationLayout");
+  csvNavigation=new QPushButton("CSV Viewer");
+  csvNavigation->setObjectName("csvNavigation");
+  recoveryNavigation=new QPushButton("Recover Recording");
+  recoveryNavigation->setObjectName("recoveryNavigation");
+  for(auto button:{csvNavigation,recoveryNavigation}) {
+    button->setProperty("navigation",true);
+    button->setProperty("fullText",button->text());
+    button->setAccessibleName(button->text());
+    button->setToolTip(button->text());
+  }
+  desktop::actionIcon(csvNavigation,"file");
+  desktop::actionIcon(recoveryNavigation,"folder");
+  connect(csvNavigation,&QPushButton::clicked,this,[this]{csvTools();});
+  connect(recoveryNavigation,&QPushButton::clicked,this,[this]{findUnsavedRecordings();});
+  for(const auto &entry:std::array<std::pair<int,QString>,3>{
+      {{2,"Device Setup"},{14,"Exports & Reports"},{17,"Help & Diagnostics"}}}) {
+    auto button=nav[entry.first];
+    if(!button) continue;
+    auto caption=entry.second;
+    caption.replace("&","&&");
+    button->setText(caption);
+    button->setProperty("fullText",caption);
+    button->setAccessibleName(entry.second);
+    button->setToolTip(entry.second);
+  }
+  const std::array destinations{nav[2],nav[4],nav[12],nav[6],
+    nav[10],csvNavigation,nav[14],nav[16],nav[17],recoveryNavigation};
+  auto divider=new QFrame;
+  divider->setObjectName("sidebarRule");
+  divider->setFixedHeight(1);
+  for(int i=0;i<int(destinations.size());++i) {
+    if(!destinations[i]) continue;
+    navigation->removeWidget(destinations[i]);
+    navigation->insertWidget(i+(i>=7),destinations[i]);
+    destinations[i]->show();
+    if(i==6)navigation->insertWidget(7,divider);
+  }
+  QWidget *previous=sidebarToggle;
+  for(auto button:destinations){if(button){QWidget::setTabOrder(previous,button);previous=button;}}
+  QWidget::setTabOrder(previous,captureButton);
+
+  if(auto rightLayout=findChild<QVBoxLayout *>("rightLayout")) {
+    workflowStepper=new QFrame(findChild<QWidget *>("rightPanel"));
+    workflowStepper->setObjectName("workflowStepper");
+    auto stepLayout=new QHBoxLayout(workflowStepper);
+    stepLayout->setContentsMargins(10,6,10,6);
+    stepLayout->setSpacing(6);
+    const std::array<std::pair<QString,int>,5> stepDefs{{
+      {"1. Setup Device",2},
+      {"2. Monitor && Record",4},
+      {"3. Signal Mappings",12},
+      {"4. Engineering && Plots",6},
+      {"5. Sessions && Exports",10}
+    }};
+    for(int s=0;s<5;++s) {
+      auto btn=new QPushButton(stepDefs[s].first,workflowStepper);
+      btn->setProperty("stepButton",true);
+      btn->setProperty("stepState","pending");
+      btn->setCursor(Qt::PointingHandCursor);
+      const int targetPage=stepDefs[s].second;
+      connect(btn,&QPushButton::clicked,this,[this,targetPage]{navigate(targetPage);});
+      workflowStepButtons[s]=btn;
+      stepLayout->addWidget(btn,1);
+      if(s<4) {
+        auto arrow=new QLabel("›",workflowStepper);
+        arrow->setProperty("tone","muted");
+        arrow->setAlignment(Qt::AlignCenter);
+        stepLayout->addWidget(arrow);
+      }
     }
-    menu.exec(more->mapToGlobal(QPoint(more->width(),0)));
-  });
-  for(int i: {5,6,7,8,9,11,13,14,15,17,0,16}) nav[i]->hide();
+    signalPillButton=new QPushButton("No mappings · Map Word 0–31 →",workflowStepper);
+    signalPillButton->setObjectName("signalPillButton");
+    signalPillButton->setCursor(Qt::PointingHandCursor);
+    signalPillButton->setToolTip("Open Signal Mappings");
+    connect(signalPillButton,&QPushButton::clicked,this,[this]{navigate(12);});
+    stepLayout->addSpacing(6);
+    stepLayout->addWidget(signalPillButton,0);
+    rightLayout->insertWidget(1,workflowStepper);
+    rightLayout->setStretch(0,0);
+    rightLayout->setStretch(1,0);
+    rightLayout->setStretch(2,1);
+  }
+
   connect(captureButton,&QPushButton::clicked,this,[this] {
     if(connecting) {automaticHeld=true;backend.acquisition.requestStop();}
     else if(backend.acquisition.connected() || backend.acquisition.active()) disconnectDevices();
@@ -49,13 +140,22 @@ void Window::setupOperatorShell() {
     else startCapture();
   });
   setSidebarCollapsed(settings.value("sidebarCollapsed",false).toBool());
-  shortcut(QKeySequence("Ctrl+B"),[this]{setSidebarCollapsed(!sidebarCollapsed);});
-  shortcut(QKeySequence("Ctrl+1"),[this]{navigate(4);});
-  shortcut(QKeySequence("Ctrl+2"),[this]{navigate(6);});
-  shortcut(QKeySequence("Ctrl+3"),[this]{navigate(7);});
-  shortcut(QKeySequence("Ctrl+I"),[this]{if(unlocked) importIcd();});
-  nav[12]->setText(sidebarCollapsed?QString():QString("ICD && Analysis"));nav[12]->setProperty("fullText","ICD && Analysis");nav[12]->setAccessibleName("ICD & Analysis");
-  nav[12]->setToolTip("ICD library · Ctrl+I imports a PDF or profile. You can also drop the file onto the workspace.");
+  auto setNavText=[this](QPushButton *button,const QString &label){
+    if(!button)return;
+    button->setText(sidebarCollapsed?QString():label);
+    button->setProperty("fullText",label);
+    auto accessible=label;accessible.replace("&&","&");
+    button->setAccessibleName(accessible);
+    button->setToolTip(accessible);
+  };
+  setNavText(nav[2],"Device Setup");
+  setNavText(nav[4],"Live Monitor");
+  setNavText(nav[12],"Signal Mappings");
+  setNavText(nav[6],"Engineering");
+  setNavText(nav[10],"Sessions");
+  if(nav[6])nav[6]->setToolTip("Engineering & Plots · Table, formulas, and synchronized Qwt plots");
+  if(nav[10])nav[10]->setToolTip("Sessions & Replay · Open saved .atd recordings and replay timeline");
+  if(nav[12])nav[12]->setToolTip("Signal Mappings · Configure manual RT/SA/Word 0–31 fields or import JSON/CSV");
   if(!QStandardPaths::isTestModeEnabled() && settings.value("operatorWorkflowVersion",0).toInt()<2) {
     for(int ch=1;ch<=2;++ch) for(const auto &bus:{"A","B"}) settings.setValue(QString("channel%1Bus %2").arg(ch).arg(bus),true);
     settings.setValue("operatorWorkflowVersion",2);
@@ -63,15 +163,104 @@ void Window::setupOperatorShell() {
 }
 
 void Window::setSidebarCollapsed(bool collapsed) {
-  sidebarCollapsed=collapsed;sidebar->setFixedWidth(collapsed ? 66 : 220);
+  sidebarCollapsed=collapsed;
+  sidebar->setFixedWidth(collapsed?66:width()>=1550?278:220);
+  const bool wide=width()>=1550;
+  findChild<QLabel *>("brandText")->setStyleSheet(wide?"font-size:21px;":"font-size:15px;");
+  findChild<QVBoxLayout *>("sidebarLayout")->setContentsMargins(collapsed?7:14,wide?27:12,collapsed?7:14,wide?34:16);
+  findChild<QHBoxLayout *>("brandLayout")->setDirection(collapsed?QBoxLayout::TopToBottom:QBoxLayout::LeftToRight);
+  const auto brand=findChild<QLabel *>("brandIcon");
+  const int edge=collapsed?30:width()>=1550?48:34;
+  brand->setFixedSize(edge,edge);
+  brand->setPixmap(QIcon(":/icons/aerotrace.ico").pixmap(QSize(edge,edge),devicePixelRatioF()));
   findChild<QLabel *>("brandText")->setVisible(!collapsed);
-  sidebarToggle->setIcon(QIcon(collapsed ? ":/icons/expand.svg" : ":/icons/collapse.svg"));
-  sidebarToggle->setAccessibleName(collapsed ? "Expand navigation" : "Collapse navigation");
-  sidebarToggle->setToolTip(collapsed ? "Expand navigation · Ctrl+B" : "Collapse navigation · Ctrl+B");
-  for(auto button:nav) {button->setText(collapsed ? "" : button->property("fullText").toString());button->setProperty("collapsed",collapsed);button->style()->unpolish(button);button->style()->polish(button);}
-  auto more=findChild<QPushButton *>("moreTools");more->setText(collapsed ? "" : "More tools");
+  findChild<QLabel *>("brandSubtitle")->setVisible(!collapsed);
+  findChild<QWidget *>("sidebarFooter")->setVisible(!collapsed);
+  auto wave=findChild<QLabel *>("sidebarWave");
+  wave->setFixedHeight(wide?55:38);
+  wave->setVisible(!collapsed);
+  findChild<QFrame *>("sidebarRule")->setVisible(!collapsed);
+  sidebarToggle->setIcon(QIcon(collapsed?":/icons/expand.svg":":/icons/collapse.svg"));
+  sidebarToggle->setAccessibleName(collapsed?"Expand navigation":"Collapse navigation");
+  sidebarToggle->setToolTip(collapsed?"Expand navigation":"Collapse navigation");
+  auto buttons=nav;
+  buttons<<csvNavigation<<recoveryNavigation;
+  for(auto button:buttons) {
+    if(!button) continue;
+    button->setText(collapsed?"":button->property("fullText").toString());
+    button->setProperty("collapsed",collapsed);
+    button->style()->unpolish(button);
+    button->style()->polish(button);
+  }
   settings.setValue("sidebarCollapsed",collapsed);
-  sidebar->layout()->activate();root->layout()->activate();
+  sidebar->layout()->activate();
+  root->layout()->activate();
+}
+
+void Window::resizeEvent(QResizeEvent *event) {
+  QMainWindow::resizeEvent(event);
+  if(!sidebar)return;
+  const bool wide=event->size().width()>=1550;
+  auto brandText=findChild<QLabel *>("brandText");
+  const QString brandSize=wide?"font-size:21px;":"font-size:15px;";
+  if(brandText->styleSheet()!=brandSize)brandText->setStyleSheet(brandSize);
+  auto headerLayout=findChild<QHBoxLayout *>("headerLayout");
+  headerLayout->setContentsMargins(18,wide?21:14,18,wide?21:14);
+  auto sidebarLayout=findChild<QVBoxLayout *>("sidebarLayout");
+  sidebarLayout->setContentsMargins(sidebarCollapsed?7:14,wide?27:12,sidebarCollapsed?7:14,wide?34:16);
+  if(!sidebarCollapsed) {
+    findChild<QLabel *>("sidebarWave")->setFixedHeight(wide?55:38);
+    sidebar->setFixedWidth(wide?278:220);
+    const auto brand=findChild<QLabel *>("brandIcon");
+    const QSize edge=wide?QSize(48,48):QSize(34,34);
+    if(brand->size()!=edge) {
+      brand->setFixedSize(edge);
+      brand->setPixmap(QIcon(":/icons/aerotrace.ico").pixmap(edge,devicePixelRatioF()));
+    }
+  }
+  findChild<QLabel *>("simulationBadge")->setVisible(width()>=1060);
+  auto subtitleLabel=findChild<QLabel *>("headerSubtitle");
+  subtitleLabel->setVisible(width()>=1150&&!subtitleLabel->text().isEmpty());
+}
+
+void Window::updateShellHeading(int route,const QString &title,const QString &description) {
+  headerTitle->setText(title);
+  auto subtitleLabel=findChild<QLabel *>("headerSubtitle");
+  subtitleLabel->setText(description);
+  subtitleLabel->setVisible(width()>=1150&&!description.isEmpty());
+  static const QHash<int,QString> icons{{-1,"sparkle"},{2,"device"},{4,"activity"},
+    {6,"chart"},{10,"folder"},{12,"file"},{14,"download"},{15,"shield"},{16,"settings"},{17,"help"}};
+  desktop::labelIcon(findChild<QLabel *>("headerIcon"),icons.value(route,"dashboard"),28);
+  for(int i=0;i<nav.size();++i) if(nav[i]) nav[i]->setChecked(i==route);
+  refreshWorkflowStepper();
+}
+
+void Window::refreshWorkflowStepper() {
+  if(workflowStepper) workflowStepper->setVisible(true);
+  const auto activeCount=backend.mappings().size();
+  if(signalPillButton) {
+    signalPillButton->setVisible(true);
+    signalPillButton->setText(activeCount
+      ? QString("Signals: %1 active →").arg(activeCount)
+      : QString("No mappings · Map Word 0–31 →"));
+  }
+  const int currentStep=(page==2)?0:(page==3||page==4)?1:(page==12||page==13)?2:(page==6||page==7)?3:(page==10||page==11||page==14||findChild<QDialog *>("savedCsvTools"))?4:-1;
+  const bool step1Done=backend.acquisition.connected() || backend.acquisition.active() || !backend.archive.empty() || !currentFile.isEmpty();
+  const bool step2Done=step1Done && (!backend.archive.empty() || !currentFile.isEmpty() || backend.replaySource);
+  const bool step3Done=step2Done && activeCount>0;
+  const bool step4Done=step3Done && (!backend.archive.empty() || backend.replaySource);
+  const bool step5Done=step4Done && sessionSaveState=="Complete";
+  const std::array<bool,5> done{step1Done,step2Done,step3Done,step4Done,step5Done};
+  for(int s=0;s<5;++s) {
+    auto btn=workflowStepButtons[s];
+    if(!btn) continue;
+    const QString nextState=(s==currentStep)?"current":done[s]?"done":"pending";
+    if(btn->property("stepState").toString()!=nextState) {
+      btn->setProperty("stepState",nextState);
+      btn->style()->unpolish(btn);
+      btn->style()->polish(btn);
+    }
+  }
 }
 
 void Window::automaticCapture() { /* Recording always requires an explicit action. */ }
@@ -150,31 +339,114 @@ void Window::connectCompatibilityPack() {
   }
   backend.captureConfig.connectionPolicy=aero::DdcConnectionPolicy::Compatibility;settings.setValue("ddcCompatibility",true);configurationChanged();connectDevices();
 }
-QWidget *Window::connectionResultPanel() {
-  auto panel=new QFrame;panel->setObjectName("connectionResultPanel");panel->setProperty("card",true);auto layout=new QVBoxLayout(panel);layout->setContentsMargins(8,4,8,4);layout->setSpacing(2);
-  auto summary=new QLabel;summary->setObjectName("connectionResultSummary");summary->setWordWrap(true);summary->setTextInteractionFlags(Qt::TextSelectableByMouse);layout->addWidget(summary);
-  auto reason=new QLabel;reason->setObjectName("recordingDisabledReason");reason->setWordWrap(true);reason->setAccessibleName("Recording readiness and disabled reason");layout->addWidget(reason);
-  auto actions=new QHBoxLayout;layout->addLayout(actions);
-  auto detailsButton=new QPushButton("Connection details");detailsButton->setCheckable(true);actions->addWidget(detailsButton);
-  auto copy=new QPushButton("Copy details");copy->setObjectName("copyConnectionDetails");actions->addWidget(copy);connect(copy,&QPushButton::clicked,panel,[this]{QApplication::clipboard()->setText(QString::fromUtf8(QJsonDocument(connectionAttempt).toJson()));});
-  auto chooseMethod=new QPushButton("Choose connection method");chooseMethod->setObjectName("chooseConnectionMethod");actions->addWidget(chooseMethod);connect(chooseMethod,&QPushButton::clicked,this,[this]{navigate(2);});
-  auto collect=new QPushButton("Collect diagnostics");actions->addWidget(collect);connect(collect,&QPushButton::clicked,this,&Window::collectDiagnostics);
-  auto manager=new QPushButton("Open Card Manager");actions->addWidget(manager);connect(manager,&QPushButton::clicked,this,&Window::openCardManager);actions->addStretch();
+QWidget *Window::connectionResultPanel(bool recordingSetup) {
+  auto panel=new QFrame;panel->setObjectName("connectionResultPanel");panel->setProperty("card",!recordingSetup);auto layout=new QVBoxLayout(panel);layout->setContentsMargins(8,4,8,4);layout->setSpacing(2);
+  auto actions=new QHBoxLayout;
+  layout->addLayout(actions);
+  if(recordingSetup) {
+    auto icon=new QLabel;
+    desktop::labelIcon(icon,"database",23);
+    actions->addWidget(icon);
+    auto title=new QLabel("Recording Setup");
+    title->setProperty("sectionTitle",true);
+    actions->addWidget(title);
+    actions->addStretch();
+  }
+  auto detailsButton=new QPushButton("Connection details");
+  detailsButton->setObjectName("openConnectionDetails");
+  desktop::actionIcon(detailsButton,"info");
+  actions->addWidget(detailsButton);
+  connect(detailsButton,&QPushButton::clicked,this,[this,detailsButton]{
+    auto dialog=new QDialog(this);
+    dialog->setObjectName("connectionDetailsDialog");
+    dialog->setWindowTitle("Connection details");
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->resize(qMin(660,width()-80),340);
+    auto body=new QVBoxLayout(dialog);
+    body->addWidget(desktop::sectionHeading("Connection details","info"));
+    auto detail=new QPlainTextEdit(dialog);
+    detail->setObjectName("connectionAttemptDetails");
+    detail->setReadOnly(true);
+    detail->setAccessibleName("Connection evidence");
+    detail->setPlainText(connectionAttempt.isEmpty()?"No connection attempt recorded.":
+                         QString::fromUtf8(QJsonDocument(connectionAttempt).toJson()));
+    body->addWidget(detail,1);
+    auto buttons=new QDialogButtonBox(QDialogButtonBox::Close,dialog);
+    body->addWidget(buttons);
+    connect(buttons,&QDialogButtonBox::rejected,dialog,&QDialog::reject);
+    connect(dialog,&QDialog::finished,detailsButton,[detailsButton]{detailsButton->setFocus();});
+    if(desktop::startupMotionEnabled())dialog->setWindowOpacity(0);
+    dialog->open();
+    if(dialog->windowOpacity()<1) {
+      auto fade=new QPropertyAnimation(dialog,"windowOpacity",dialog);
+      fade->setDuration(desktop::operatorTransitionMs);
+      fade->setEndValue(1.0);
+      fade->start(QAbstractAnimation::DeleteWhenStopped);
+    }
+  });
+  auto copy=new QPushButton("Copy details");
+  copy->setObjectName("copyConnectionDetails");
+  desktop::actionIcon(copy,"copy");
+  actions->addWidget(copy);
+  connect(copy,&QPushButton::clicked,panel,[this]{QApplication::clipboard()->setText(QString::fromUtf8(QJsonDocument(connectionAttempt).toJson()));});
+  auto chooseMethod=new QPushButton("Choose connection method");
+  chooseMethod->setObjectName("chooseConnectionMethod");
+  desktop::actionIcon(chooseMethod,"link");
+  actions->addWidget(chooseMethod);
+  connect(chooseMethod,&QPushButton::clicked,this,[this]{navigate(2);});
+  auto collect=new QPushButton("Collect diagnostics");
+  desktop::actionIcon(collect,"activity");
+  actions->addWidget(collect);
+  connect(collect,&QPushButton::clicked,this,&Window::collectDiagnostics);
+  auto manager=new QPushButton("Open Card Manager");
+  desktop::actionIcon(manager,"device");
+  actions->addWidget(manager);
+  connect(manager,&QPushButton::clicked,this,&Window::openCardManager);
+  if(!recordingSetup)actions->addStretch();
+  // On the monitor, keep capture feedback with the recording setup row.
+  auto summary=new QLabel;
+  summary->setObjectName("connectionResultSummary");
+  summary->setWordWrap(true);
+  summary->setProperty("tone","warning");
+  summary->setTextInteractionFlags(Qt::TextSelectableByMouse);
+  layout->addWidget(summary);
+  auto reason=new QLabel;
+  reason->setObjectName("recordingDisabledReason");
+  reason->setWordWrap(true);
+  reason->setProperty("tone","muted");
+  reason->setAccessibleName("Recording readiness and disabled reason");
+  layout->addWidget(reason);
+  const bool animate=desktop::startupMotionEnabled();
+  auto busy=new QProgressBar;
+  busy->setProperty("operatorBusy",true);
+  busy->setTextVisible(false);
+  busy->setRange(0,0);
+  layout->addWidget(busy);
   auto recovery=new QHBoxLayout;layout->addLayout(recovery);auto compatibility=new QPushButton("Connect using selected pack…");compatibility->setObjectName("connectCompatibilityPack");recovery->addWidget(compatibility);connect(compatibility,&QPushButton::clicked,this,&Window::connectCompatibilityPack);
   std::array<QPushButton *,2> partial{};for(unsigned c=0;c<2;++c){partial[c]=new QPushButton(QString("Connect CH%1 only").arg(c+1));partial[c]->setObjectName(QString("connectChannel%1Only").arg(c+1));recovery->addWidget(partial[c]);connect(partial[c],&QPushButton::clicked,panel,[this,c]{connectWorkingChannel(c);});}recovery->addStretch();
-  auto detail=new QPlainTextEdit;detail->setObjectName("connectionAttemptDetails");detail->setReadOnly(true);detail->setMaximumHeight(180);detail->hide();layout->addWidget(detail);connect(detailsButton,&QPushButton::toggled,detail,&QWidget::setVisible);
-  const auto refresh=[this,panel,summary,reason,detail,compatibility,partial,manager,actions,recovery]{const auto m=backend.acquisition.metrics(false);const bool idle=!connecting&&!connectAfterDiscovery&&!savingSession&&!backend.acquisition.connected()&&!backend.acquisition.active()&&!closingCapture&&!m.cleanupBlocked;
-    panel->setVisible(backend.captureConfig.hardware&&(!backend.acquisition.connected()||m.failed)); const auto state=connectionAttempt.value("state").toString();const auto error=connectionAttempt.value("error").toString();
+  const auto refresh=[this,panel,summary,reason,recordingSetup,compatibility,partial,manager,detailsButton,copy,chooseMethod,collect,recovery,busy,animate]{const auto m=backend.acquisition.metrics(false);const bool idle=!connecting&&!connectAfterDiscovery&&!savingSession&&!backend.acquisition.connected()&&!backend.acquisition.active()&&!closingCapture&&!m.cleanupBlocked;
+    const auto state=connectionAttempt.value("state").toString();const auto error=connectionAttempt.value("error").toString();
+    const bool showFailure=connecting||connectAfterDiscovery||m.failed||m.cleanupBlocked||(state=="failed"&&!error.isEmpty());
+    panel->setVisible(recordingSetup||showFailure);
     QString text=connectionAttempt.isEmpty()?QString("Connect configures the selected channels. Start recording begins bus reception."):QString("Last attempt %1 · %2").arg(connectionAttempt.value("attempt_id").toString().left(12),state);
     const auto method=backend.captureConfig.backend==aero::DdcBackend::HelperX86?QString("32-bit helper"):QString("Native x64");
     const auto mode=backend.captureConfig.receiveMode==aero::DdcReceiveMode::MTI?QString("MTI"):backend.captureConfig.receiveMode==aero::DdcReceiveMode::LegacyMT?QString("classic MT"):QString("automatic MTI / MT");
     text+="\nSelected method: "+method+" · "+mode;
     if(!error.isEmpty())text+="\n"+error;
     if(backend.captureConfig.connectionPolicy==aero::DdcConnectionPolicy::Compatibility)text+="\nCompatibility connection: physical qualification NOT RUN.";
-    for(int i=0;i<actions->count();++i)if(auto w=actions->itemAt(i)->widget())w->setVisible(state=="failed"||!backend.acquisition.connected()); for(int i=0;i<recovery->count();++i)if(auto w=recovery->itemAt(i)->widget())w->setVisible(state=="failed"); summary->setVisible(state=="failed"); reason->setVisible(!recordingDisabledReason().isEmpty()); summary->setText(text);summary->setStyleSheet(state=="failed"?"color:#a73d32;":"");reason->setText(recordingDisabledReason());
-    const auto json=QString::fromUtf8(QJsonDocument(connectionAttempt).toJson());if(detail->toPlainText()!=json)detail->setPlainText(json);
+    const bool failure=backend.captureConfig.hardware&&state=="failed";
+    const bool showActions=backend.captureConfig.hardware&&(failure||!backend.acquisition.connected());
+    for(auto button:{detailsButton,copy,chooseMethod,collect,manager})button->setVisible(showActions);
+    for(int i=0;i<recovery->count();++i)
+      if(auto widget=recovery->itemAt(i)->widget())widget->setVisible(failure);
+    summary->setVisible(failure);
+    if(summary->text()!=text)summary->setText(text);
+    const auto reasonText=recordingDisabledReason();
+    reason->setVisible(!reasonText.isEmpty()&&(backend.captureConfig.hardware||savingSession));
+    if(reason->text()!=reasonText)reason->setText(reasonText);
+    busy->setVisible(animate&&(connecting||connectAfterDiscovery));
     compatibility->setEnabled(idle&&!discoveryRunning);manager->setEnabled(idle&&!discoveryRunning);
-    for(unsigned c=0;c<2;++c){partial[c]->setVisible(state=="failed"&&m.configuredChannels[c]&&(backend.captureConfig.enabled[c*2]||backend.captureConfig.enabled[c*2+1]));partial[c]->setEnabled(idle);}
+    for(unsigned c=0;c<2;++c){partial[c]->setVisible(failure&&m.configuredChannels[c]&&(backend.captureConfig.enabled[c*2]||backend.captureConfig.enabled[c*2+1]));partial[c]->setEnabled(idle);}
   };refresh();connect(&tick,&QTimer::timeout,panel,refresh);return panel;
 }
 void Window::configurationChanged() {
@@ -186,12 +458,12 @@ void Window::dragEnterEvent(QDragEnterEvent *event) {
   if(!unlocked || !event->mimeData()->hasUrls() || event->mimeData()->urls().size()!=1) return;
   const auto url=event->mimeData()->urls().front();
   const auto suffix=QFileInfo(url.toLocalFile()).suffix().toLower();
-  if(url.isLocalFile() && (suffix=="pdf" || suffix=="json" || suffix=="csv")) event->acceptProposedAction();
+  if(url.isLocalFile() && (suffix=="json" || suffix=="csv")) event->acceptProposedAction();
 }
 void Window::dropEvent(QDropEvent *event) {
   if(!unlocked || !event->mimeData()->hasUrls() || event->mimeData()->urls().size()!=1) return;
   const auto url=event->mimeData()->urls().front();const auto suffix=QFileInfo(url.toLocalFile()).suffix().toLower();
-  if(!url.isLocalFile() || (suffix!="pdf" && suffix!="json" && suffix!="csv")) return;
+  if(!url.isLocalFile() || (suffix!="json" && suffix!="csv")) return;
   event->acceptProposedAction();importIcdPath(url.toLocalFile());
 }
 
@@ -202,7 +474,7 @@ void Window::finishConnection() {
   if(ok && !automaticHeld) {
     if(connectionIsRecording) {
       viewingReplayStatistics=false;rtDisplayPaused=false;
-      if(auto error=desktop::describeSession(currentFile,backend.captureConfig);!error.isEmpty())toast(error);
+      if(auto error=desktop::describeSession(currentFile,backend.captureConfig,settings.value("nextRunName").toString(),desktop::csvOptions(settings));!error.isEmpty())toast(error);
       preserveSessionConnection(currentFile);
       backend.archive.clear();backend.archiveExample=!backend.captureConfig.hardware;backend.replaySource=false;backend.replayPlaying=false;backend.selected={};
       model.records.clear();selectedMonitorId=0;paneSelection={};model.refresh();refreshMonitorPanes();captureClock.restart();
@@ -219,12 +491,27 @@ void Window::finishConnection() {
 void Window::refreshOperatorState() {
   findChild<QLabel *>("simulationBadge")->setText(backend.captureConfig.hardware?"DDC · RECEIVE ONLY":"SIMULATOR");
   if(!captureButton) return;
+  refreshWorkflowStepper();
   const auto metrics=backend.acquisition.metrics(false);
-  captureButton->setVisible(true);
+  captureButton->setVisible(page!=2);
   captureButton->setEnabled(!savingSession&&!closingCapture&&!metrics.cleanupBlocked);
   captureButton->setToolTip(metrics.cleanupBlocked ? QString::fromStdString(metrics.error) : QString());
   captureButton->setText(metrics.cleanupBlocked ? "Connection blocked" : savingSession ? "Saving…" : connectAfterDiscovery ? "Checking assignments…" : connecting ? "Cancel connection" : backend.acquisition.connected() || backend.acquisition.active() ? "Disconnect devices" : !backend.captureConfig.hardware ? "Start simulator" : metrics.failed ? "Retry connection" : "Connect devices");
-  stateBadge->setText(connecting||connectAfterDiscovery ? "Checking devices" : backend.acquisition.active() ? "● Recording" : metrics.failed ? "● Connection failed" : backend.acquisition.connected() ? "Connected" : "Disconnected");
+  stateBadge->setText(savingSession?"Saving recording":connecting||connectAfterDiscovery?"Checking devices":metrics.failed?
+    (currentFile.isEmpty()?"Connection failed":"Recording incomplete"):backend.acquisition.active()?"● Recording":backend.acquisition.connected()?"● Connected":"● Disconnected");
+  const auto detail=QString("CH1 A/B %1/%2 · CH2 A/B %3/%4 · %5 checkpointed · %6 display skips")
+    .arg(metrics.sourceCounts[0]).arg(metrics.sourceCounts[1]).arg(metrics.sourceCounts[2]).arg(metrics.sourceCounts[3])
+    .arg(metrics.checkpointed).arg(metrics.displayDrops);
+  if(captureSummary) {
+    const auto folder=QFileInfo(currentFile).absolutePath();
+    const auto summary=detail+" · "+QFontMetrics(captureSummary->font()).elidedText(folder,Qt::ElideMiddle,170);
+    if(captureSummary->text()!=summary)captureSummary->setText(summary);
+    captureSummary->setToolTip(folder+QString("\nHardware loss reported %1 · overflow %2 · live analysis skips %3\nWriter peak %4 MiB")
+      .arg(metrics.hardwareLost).arg(metrics.hardwareOverflows).arg(metrics.analysisSkipped)
+      .arg(double(metrics.writerQueueHighWater)/(1024*1024),0,'f',1)+
+      (metrics.error.empty()?QString():"\n"+QString::fromStdString(metrics.error)));
+    captureSummary->setVisible(!currentFile.isEmpty()&&(backend.acquisition.active()||savingSession||metrics.failed));
+  }
   const auto color=metrics.failed ? "#b33a32" : backend.acquisition.active() && backend.captureConfig.hardware ? "#28624d" : "#62685f";
   const auto badgeStyle=QString("color:%1;font-size:14px;padding:6px;").arg(color);
   if(stateBadge->styleSheet()!=badgeStyle)stateBadge->setStyleSheet(badgeStyle);
@@ -246,7 +533,14 @@ void Window::refreshOperatorState() {
     QString buses;
     if(backend.captureConfig.enabled[i*2]) buses="A";
     if(backend.captureConfig.enabled[i*2+1]) buses+=(buses.isEmpty() ? "B" : " + B");
-    deviceStatuses[i]->setText(QString("Channel %1  ·  %2  ·  %3").arg(i+1).arg(buses.isEmpty() ? "No buses" : buses,status));
+    const auto subtitle=QString("Channel %1 · %2").arg(i+1).arg(buses.isEmpty()?"No buses":buses);
+    if(deviceStatuses[i]->text()!=subtitle)deviceStatuses[i]->setText(subtitle);
+    if(auto badge=deviceStatuses[i]->parentWidget()->findChild<QLabel *>(QString("deviceBadge%1").arg(i))) {
+      const auto label=QString("●  %1").arg(status);
+      if(badge->text()!=label)badge->setText(label);
+      const auto style=QString("color:%1;").arg(ink);
+      if(badge->styleSheet()!=style)badge->setStyleSheet(style);
+    }
     const auto deviceStyle=QString("color:%1;font-size:13px;").arg(ink);
     if(deviceStatuses[i]->styleSheet()!=deviceStyle)deviceStatuses[i]->setStyleSheet(deviceStyle);
     deviceStatuses[i]->setToolTip(QString::fromStdString(device.message));
@@ -254,12 +548,27 @@ void Window::refreshOperatorState() {
   for(unsigned c=0;c<2;++c)if(paneCounts[c]) {
     const auto &device=metrics.devices[c];const auto count=metrics.sourceCounts[c*2]+metrics.sourceCounts[c*2+1];
     const QString state=connecting?"Checking":device.phase==aero::DevicePhase::Failed?"Connection failed":device.phase==aero::DevicePhase::Disabled?"Disabled":backend.acquisition.active()?(backend.captureConfig.hardware?(count?"Receiving":"Monitoring / no traffic"):"Simulation"):backend.acquisition.connected()?"Connected · ready to record":device.message.empty()?QString("Stopped"):QString::fromStdString(device.message);
-    paneCounts[c]->setText(QString("%1 · CH%2 / logical %3 · %4\n%5 recorded · %6 shown").arg(c?"Internal":"External").arg(c+1).arg(backend.captureConfig.logicalDevices[c]).arg(state).arg(count).arg(paneModels[c].rowCount()));
-    if(rtGrouped)paneCounts[c]->setText(rtMonitorSummary(c,state));
+    const auto counts=rtGrouped?rtMonitorSummary(c,state):
+      QString("%1 · CH%2 / logical %3 · %4\n%5 recorded · %6 shown").arg(c?"Internal":"External").arg(c+1).arg(backend.captureConfig.logicalDevices[c]).arg(state).arg(count).arg(paneModels[c].rowCount());
+    if(paneCounts[c]->text()!=counts)paneCounts[c]->setText(counts);
     paneCounts[c]->setToolTip(QString::fromStdString(device.message)+"\nChannel totals count each raw message once; RT-to-RT participates in both RT rows. Filters and display pause do not change recorded counts.");
   }
-  if(recordButton){recordButton->setVisible(!rtGrouped||!backend.acquisition.active());recordButton->setEnabled(!connecting&&!savingSession&&!closingCapture&&(!backend.captureConfig.hardware||backend.acquisition.connected()));recordButton->setText(backend.acquisition.active()?"Stop && save":"Start recording");}
-  if(monitorCsv){monitorCsv->setEnabled(!savingSession && !connecting && QFileInfo::exists(currentFile));monitorCsv->setText(savingSession?"Saving…":backend.acquisition.active()?"Stop && save":"Save / retry CSVs");}
+  if(recordButton) {
+    const bool recording=backend.acquisition.active();
+    // Keep the single primary capture action available while recording. The
+    // merged Device Setup card owns preparation fields; the monitor retains
+    // only this compact start/stop control.
+    recordButton->setVisible(true);
+    recordButton->setEnabled(!connecting&&!savingSession&&!closingCapture&&
+      (recording||!backend.captureConfig.hardware||backend.acquisition.connected()));
+    recordButton->setText(savingSession?"Saving…":recording?"Stop && save":"Start recording");
+  }
+  if(monitorCsv){
+    // Check the file when saving. A storage request here can block every
+    // monitor refresh while Windows is flushing the recording volume.
+    monitorCsv->setEnabled(!savingSession && !connecting && !currentFile.isEmpty());
+    monitorCsv->setText(savingSession?"Saving…":backend.acquisition.active()?"Stop && save":"Save / retry CSVs");
+  }
   if(selectedSummary) {
     const auto record=selectedMonitorRecord();
     if(record) {const auto p=aero::interpret(*record);selectedSummary->setText(QString("#%1  ·  CH %2 / %3  ·  Payload RT %4 / SA %5\n%6").arg(record->id).arg(record->channel).arg(record->bus ? "B" : "A").arg(p.payloadCommand.rt).arg(p.payloadCommand.sa).arg(words(*record).left(115)));selectedSummary->setToolTip(QString::fromStdString(aero::protocolDiagnostics(*record,p))+"\n"+QString::fromStdString(aero::statusDescription(p)));}
@@ -326,14 +635,18 @@ bool Window::operatorWorkflowTest(const QString &directory) {
   for(int i=0;i<80;++i) {auto record=aero::synthetic(i);model.records.push_back(record);backend.archive.push_back(record);}model.refresh();navigate(4);
   QApplication::sendPostedEvents(nullptr,QEvent::LayoutRequest);QApplication::processEvents();const auto expandedTable=monitor->width();
   setSidebarCollapsed(true);QApplication::sendPostedEvents(nullptr,QEvent::LayoutRequest);QApplication::processEvents();
-  check(sidebar->width()==66 && nav[4]->text().isEmpty() && !nav[4]->icon().isNull() && !nav[4]->accessibleName().isEmpty() && !findChild<QPushButton *>("moreTools")->accessibleName().isEmpty() && monitor->width()>expandedTable+100,"Collapsed navigation retains accessible icons and enlarges the table");
+  check(sidebar->width()==66 && nav[4]->text().isEmpty() && !nav[4]->icon().isNull() && !nav[4]->accessibleName().isEmpty() && !recoveryNavigation->accessibleName().isEmpty() && monitor->width()>expandedTable+100,"Collapsed navigation retains accessible icons and enlarges the table");
   setSidebarCollapsed(false);check(!nav[4]->text().isEmpty(),"Navigation expands with labels");
   deviceTabs->setCurrentIndex(1);check(model.rowCount()>0 && std::all_of(model.visible.begin(),model.visible.end(),[&](int i){return model.records[i].channel==1;}),"Device 0 tab isolates Channel 1 / External");
   deviceTabs->setCurrentIndex(2);check(model.rowCount()>0 && std::all_of(model.visible.begin(),model.visible.end(),[&](int i){return model.records[i].channel==2;}),"Device 1 tab isolates Channel 2 / Internal");
   findChild<QPushButton *>("busBButton")->click();check(model.rowCount()>0 && std::all_of(model.visible.begin(),model.visible.end(),[&](int i){return model.records[i].channel==2 && model.records[i].bus==1;}),"Bus filter preserves the selected device");
   findChild<QPushButton *>("allBusButton")->click();deviceTabs->setCurrentIndex(0);
   check(model.rowCount()==80,"Both channels restores all retained records");
-  check(monitor->viewport()->height()>300,"Monitor receives the main workspace height");
+  check(monitor->viewport()->height()>300,QString("Monitor receives the main workspace height (%1 px)").arg(monitor->viewport()->height()));
+  const auto connectionSummary=content->findChild<QLabel *>("connectionResultSummary");
+  check((!connectionSummary||!connectionSummary->isVisible()) &&
+        !content->findChild<QWidget *>("recordingSetup"),
+        "Simulator workspace keeps stored DDC failures out of the live monitor setup area");
   settings.setValue("exportFolder",directory);exportMonitorCsv();
   QElapsedTimer elapsed;elapsed.start();while(elapsed.elapsed()<10000) {QApplication::processEvents();bool running=false;for(auto watcher:findChildren<QFutureWatcherBase *>()) running|=watcher->isRunning();if(!running) break;QThread::msleep(5);}
   check(!QDir(directory).entryList({"Monitor_*.csv"},QDir::Files).isEmpty(),"One-click CSV writes a real export");
@@ -360,6 +673,132 @@ bool Window::operatorWorkflowTest(const QString &directory) {
   plots.front()->onPick(QPointF(target.timestampNs/1e9,20));check(backend.selected.id==0,"An evicted plotted record cannot resolve to unrelated newer raw data");backend.archive={other,target};
   navigate(4);monitor->setColumnHidden(9,false);monitor->setCurrentIndex(model.index(1,9));plotMonitorSelection();
   check(page==7 && plotRawColumn==9 && plots.front()->pointCount()==1,"An unmapped numeric column plots raw values against card time");
+  // Use disconnected hardware evidence and synthetic mappings for comparable
+  // renders. This does not scan Windows or exercise a physical DDC device.
+  backend.acquisition.stop();
+  backend.captureConfig.hardware=true;
+  currentFile.clear();
+  sessionSaveState.clear();
+  connectionAttempt={};
+  hardwareDiscovery={{"device_enumeration_complete",true},{"physical_presence","absent"},{"detected_devices",0}};
+  backend.archive.clear();
+  model.records.clear();
+  model.refresh();
+  settings.setValue("reduceMotion",true);
+  settings.setValue("monitorLayout","tabs");
+  settings.setValue("monitorRowMode","raw");
+  settings.setValue("monitorTab",2);
+  settings.setValue("csvLayout","legacy42");
+  settings.setValue("csvRadix",10);
+  settings.setValue("nextRunName","run10");
+  settings.setValue("dense",true);
+  settings.setValue("exportFolder",QDir::toNativeSeparators(QDir::tempPath()+"/AeroTrace/Exports"));
+  statusBar()->clearMessage();
+  settings.setValue("ddcAssignmentMode","manual");
+  const bool compact=qEnvironmentVariableIntValue("AEROTRACE_REFERENCE_COMPACT")>0;
+  resize(compact?1366:1672,compact?720:941);
+  const auto settle=[] {
+    QCoreApplication::sendPostedEvents(nullptr,QEvent::DeferredDelete);
+    QApplication::processEvents();
+    QCoreApplication::sendPostedEvents(nullptr,QEvent::LayoutRequest);
+    QApplication::processEvents();
+  };
+  const auto screenshot=[&](const QString &name) {
+    settle();
+    check(grab().save(directory+"/reference-"+name+".png"),"Rendered reference state: "+name);
+  };
+  navigate(4);
+  settle();
+  check(recordButton&&!recordButton->isEnabled()&&content->findChild<QWidget *>("emptyMonitorNotice")->isVisible(),
+        "Disconnected monitor shows its empty state and blocks recording");
+  check(sidebar->width()==(compact?220:278),"Sidebar follows the reference and compact widths");
+  const auto iconButtons=[&](QWidget *root,const QStringList &names,const QString &context) {
+    QStringList missing;
+    for(const auto &name:names) {
+      const auto button=root->findChild<QPushButton *>(name);
+      if(!button || button->icon().pixmap(QSize(16,16)).isNull() || (button->text().isEmpty()&&button->accessibleName().isEmpty()))
+        missing<<name;
+    }
+    check(missing.isEmpty(),context+(missing.isEmpty()?QString():": "+missing.join(", ")));
+  };
+  iconButtons(content,{"columnsButton","allBusButton","busAButton","busBButton","tileMonitorWindows","cascadeMonitorWindows"},
+              "Monitor filters and layout actions have labelled icons");
+  const auto search=content->findChild<QLineEdit *>("hexSearch");
+  check(search&&search->actions().size()==1&&!search->actions().front()->icon().isNull(),
+        "Monitor search has one search icon");
+  screenshot("monitor");
+  check(!findChild<QPushButton *>("moreTools")&&!findChild<QPushButton *>("assistantNavigation")&&!nav[15]&&csvNavigation->isVisible()&&
+    sidebar->isAncestorOf(recoveryNavigation),"Every tool has a direct sidebar destination");
+  iconButtons(sidebar,{"csvNavigation","recoveryNavigation"},"Capture destinations keep labelled icons");
+  auto focus=content->findChild<QPushButton *>("monitorFocusMode");
+  const int previousHeight=monitor->height();
+  if(focus)focus->click();
+  settle();
+  check(focus&&monitorFocused&&monitor->height()>previousHeight&&deviceTabs->currentIndex()==2&&
+        !content->findChild<QWidget *>("recordingSetup"),"Focus enlarges the table and preserves its selected channel");
+  if(focus)focus->click();
+  settle();
+  const auto tableGeometry=monitor->geometry();
+  check(!content->findChild<QWidget *>("recordingSetup"),
+        "Recording setup is kept out of the live monitor canvas");
+
+  navigate(2);
+  settle();
+  scroll->verticalScrollBar()->setValue(0);
+  screenshot("device-discovery");
+  check(content->findChild<QWidget *>("emptyDeviceNotice")->isVisible(),
+        "Completed zero-device discovery has an illustrated empty state");
+  scroll->verticalScrollBar()->setValue(scroll->verticalScrollBar()->maximum());
+  screenshot("device-checks");
+  check(content->findChild<QWidget *>("connectionChecks")->findChildren<QLabel *>().size()==36,
+        "Connection checks use structured rows with status icons");
+
+  std::vector<aero::Signal> referenceSignals;
+  for(int group=1;group<=4;++group) {
+    for(int field=1;field<=18;++field) {
+      aero::Signal signal;
+      signal.id="Fixture "+std::to_string(group)+":"+std::to_string(field);
+      const bool floating=field<=3;
+      signal.word=unsigned(floating?2*(field-1):field+2);
+      signal.sourceSignalId="Demo word "+std::to_string(signal.word+1);
+      if(floating)signal.sourceSignalId+="–"+std::to_string(signal.word+2);
+      if(group<4)signal.subsystem="Subsystem-"+std::to_string(group);
+      signal.messageId=group<4?"04102":"";
+      signal.width=floating?32:16;
+      signal.numericType=floating?"float32":"integer";
+      signal.unit=floating?"km/hr":"degree";
+      signal.channel=group==4?0:group==3?2:1;
+      signal.rt=unsigned(group+2);
+      signal.sa=12;
+      referenceSignals.push_back(std::move(signal));
+    }
+  }
+  const auto profileError=backend.applyProfile(std::move(referenceSignals));
+  check(profileError.empty(),"Synthetic mapping fixture validates through the native profile");
+  workspacePdf=property("operatorReferencePdf").toString();
+  workspaceDocument={{"document",workspacePdf.isEmpty()?"Example ICD":QFileInfo(workspacePdf).fileName()}};
+  workspaceSubsystem="Subsystem-1";
+  workspaceScopeKey="live";
+  analysisChannel=1;
+  analysisBus=0;
+  navigate(12);
+  screenshot("icd");
+  auto mappingTree=content->findChild<QTreeWidget *>("manualCommands");
+  check(mappingTree!=nullptr && content->findChild<QWidget *>("manualMappingHost")!=nullptr,
+        "Signal Mappings renders directly in Step 3 without modal PDF library wrapper");
+  iconButtons(content,{"importIcdButton","exportProfileButton","nextToEngineeringButton"},
+              "Signal Mappings actions have labelled icons");
+  check(workflowStepper && workflowStepper->isVisible(),
+        "Guided Workflow stepper bar is visible across active steps");
+  navigate(16);
+  screenshot("preferences");
+  check(nav[16]->isChecked()&&!content->findChild<QPushButton *>("saveButton")->icon().isNull(),
+        "Preferences uses the direct sidebar route and a labelled Save action");
+  check(!findChild<QPushButton *>("alertsButton") && !findChild<QPushButton *>("icdChatButton") &&
+        !findChild<QPushButton *>("assistantNavigation") && nav[2]->isVisible() && nav[16]->isVisible(),
+        QString("Retired Bus Analysis and ICD Assistant entry points are absent from the operator shell (Device Setup=%1, Preferences=%2)")
+          .arg(nav[2]->isVisible()).arg(nav[16]->isVisible()));
+
   settings.clear();for(auto i=original.begin();i!=original.end();++i) settings.setValue(i.key(),i.value());settings.sync();
   QFile report(directory+"/operator-workflow.txt");if(!report.open(QIODevice::WriteOnly)) return false;report.write(results.join('\n').toUtf8());return passed;
 }

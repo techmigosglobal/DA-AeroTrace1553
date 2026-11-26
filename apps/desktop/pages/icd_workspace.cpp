@@ -1,4 +1,5 @@
 #include "main_window.hpp"
+#include "services/operator_style.hpp"
 #include "services/profile_io.hpp"
 #include "ui_icd_workspace.h"
 
@@ -35,7 +36,7 @@ void Window::rememberIcdDocument(const QJsonObject &profile,const QString &pdf) 
 
 bool Window::inWorkspace(const aero::Signal &signal) const {
   const auto set=workspaceDocument["icd_set_id"].toString().toStdString();
-  if(!backend.replaySource&&!set.empty()&&!signal.icdSetId.empty()&&signal.icdSetId!=set)return false;
+  if(qApp->property("legacyIcdFixture").toBool()&&!backend.replaySource&&!set.empty()&&!signal.icdSetId.empty()&&signal.icdSetId!=set)return false;
   return workspaceSubsystem.isEmpty() || (signal.subsystem.empty()?QString("Unassigned"):QString::fromStdString(signal.subsystem))==workspaceSubsystem;
 }
 
@@ -49,17 +50,64 @@ QWidget *Window::attachIcdWorkspace() {
   Ui::IcdWorkspace form;
   form.setupUi(container);
   form.workspaceBodyLayout->addWidget(content,1);
-  form.workspaceDocument->setText(backend.replaySource?replayProfileDescription:workspaceDocument["document"].toString("Published profile"));
-  form.workspaceImport->setIcon(QIcon(":/icons/folder.svg"));form.workspaceChat->setIcon(QIcon(":/icons/help.svg"));
-  form.workspaceTabs->addTab("Mapping");
-  form.workspaceTabs->addTab("Engineering");
-  form.workspaceTabs->addTab("Analysis");
+  form.workspaceLayout->setContentsMargins(16,14,16,14);
+  form.workspaceLayout->setStretch(0,1);
+  form.workspaceLayout->setStretch(1,3);
+  form.subsystemPanel->setMaximumWidth(width()>=1550?352:245);
+  form.workspaceTitle->hide();
+  form.subsystemLayout->insertWidget(0,desktop::sectionHeading("ICD Workspace","layers"));
+  form.workspaceDocument->setTextFormat(Qt::PlainText);
+  const auto attached=!backend.replaySource&&!workspacePdf.isEmpty()&&QFileInfo::exists(workspacePdf);
+  form.workspaceDocument->setText(backend.replaySource?replayProfileDescription:
+    workspaceDocument["document"].toString("Published profile"));
+  if(attached) {
+    const QFileInfo pdf(workspacePdf);
+    form.workspaceDocument->setText(form.workspaceDocument->text()+"\nAttached ICD · "+QLocale().formattedDataSize(pdf.size()));
+  }
+  auto documentRow=new QHBoxLayout;
+  auto documentIcon=new QLabel;
+  desktop::labelIcon(documentIcon,"file",22);
+  form.subsystemLayout->removeWidget(form.workspaceDocument);
+  documentRow->addWidget(documentIcon);
+  documentRow->addWidget(form.workspaceDocument,1);
+  if(attached) {
+    auto badge=new QLabel("Attached");
+    badge->setProperty("pill","profile");
+    documentRow->addWidget(badge);
+  }
+  auto attachmentMenu=new QToolButton;
+  attachmentMenu->setObjectName("icdAttachmentActions");attachmentMenu->setIcon(desktop::operatorIcon("more"));
+  attachmentMenu->setAccessibleName("Attached PDF actions");attachmentMenu->setToolTip("Attached PDF actions");
+  attachmentMenu->setPopupMode(QToolButton::InstantPopup);
+  auto attachmentActions=new QMenu(attachmentMenu);
+  attachmentMenu->setMenu(attachmentActions);
+  attachmentActions->addAction("Open PDF",container,[path=workspacePdf]{QDesktopServices::openUrl(QUrl::fromLocalFile(path));});
+  attachmentActions->addAction("Manage revision…",container,[this]{manageIcds();});
+  auto deletePdf=attachmentActions->addAction("Delete PDF revision permanently…",container,[this] {
+    const auto hash=workspaceDocument["icd_revision"].toString(workspaceDocument["hash"].toString(QFileInfo(workspacePdf).completeBaseName()));
+    deleteIcdRevision(hash,workspaceDocument["document"].toString(QFileInfo(workspacePdf).fileName()));
+  });
+  connect(attachmentActions,&QMenu::aboutToShow,deletePdf,[this,deletePdf]{deletePdf->setEnabled(icdDeletionAvailable());});
+  if(attached) {
+    documentRow->addWidget(attachmentMenu);
+    form.workspaceDocument->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(form.workspaceDocument,&QLabel::customContextMenuRequested,attachmentMenu,[form,attachmentActions](const QPoint &pos){
+      attachmentActions->popup(form.workspaceDocument->mapToGlobal(pos));
+    });
+  } else {attachmentMenu->setParent(container);attachmentMenu->hide();}
+  form.subsystemLayout->insertLayout(1,documentRow);
+  desktop::actionIcon(form.workspaceImport,"folder");
+  desktop::actionIcon(form.workspaceChat,"sparkle");
+  form.workspaceTabs->setIconSize(QSize(22,22));
+  form.workspaceTabs->addTab(desktop::operatorIcon("mapping"),"Mapping");
+  form.workspaceTabs->addTab(desktop::operatorIcon("settings"),"Engineering");
+  form.workspaceTabs->addTab(desktop::operatorIcon("chart"),"Analysis");
   form.workspaceTabs->setCurrentIndex(page==12?0:page==6?1:2);
   QMap<QString,QJsonObject> groups;QHash<QString,QString> publishedIds;
   const auto mappings=backend.mappings();
   for(const auto &signal:mappings) {
     const auto set=workspaceDocument["icd_set_id"].toString().toStdString();
-    if(!backend.replaySource&&!set.empty()&&!signal.icdSetId.empty()&&signal.icdSetId!=set)continue;
+    if(qApp->property("legacyIcdFixture").toBool()&&!backend.replaySource&&!set.empty()&&!signal.icdSetId.empty()&&signal.icdSetId!=set)continue;
     const auto object=desktop::signalToJson(signal);publishedIds.insert(QString::fromStdString(signal.id),QString::fromStdString(signal.sourceHash));
     const auto key=groupOf(object);
     auto group=groups.value(key);
@@ -70,7 +118,7 @@ QWidget *Window::attachIcdWorkspace() {
     auto channels=group["channels"].toArray();if(!channels.contains(int(signal.channel)))channels.append(int(signal.channel));group["channels"]=channels;group["channel"]=channels.size()>1?-1:int(signal.channel);
     groups[key]=group;
   }
-  if(!backend.replaySource) {
+  if(qApp->property("legacyIcdFixture").toBool()&&!backend.replaySource) {
     QJsonArray candidates=workspaceDocument["signals"].toArray();
     for(const auto &entry:workspaceDocument["review"].toArray())candidates.append(entry);
     for(const auto &entry:candidates) {
@@ -94,6 +142,7 @@ QWidget *Window::attachIcdWorkspace() {
   if(!workspaceSubsystem.isEmpty() && !groups.contains(workspaceSubsystem))workspaceSubsystem.clear();
   auto all=new QTreeWidgetItem(form.subsystemList,QStringList{"All subsystems"});
   all->setData(0,Qt::UserRole,QString());
+  all->setIcon(0,desktop::operatorIcon("layers"));
   for(auto it=groups.cbegin();it!=groups.cend();++it) {
     const auto group=it.value();
     auto state=group["published"].toInt()?QString("Published · %1 fields").arg(group["published"].toInt()):QString("Draft · %1 fields").arg(group["draft"].toInt());
@@ -101,6 +150,7 @@ QWidget *Window::attachIcdWorkspace() {
     const auto channel=group["channel"].toInt();
     auto item=new QTreeWidgetItem(form.subsystemList,QStringList{it.key()+" · "+(channel<0?QString("Multiple channels"):channel?QString("CH%1").arg(channel):QString("Any channel"))+"\n"+group["message"].toString()+" · "+state});
     item->setData(0,Qt::UserRole,it.key());
+    item->setIcon(0,desktop::operatorIcon("layers"));
     item->setData(0,Qt::UserRole+1,channel);
     item->setToolTip(0,QString("Message %1 · RT %2 / SA %3 · %4").arg(group["message"].toString()).arg(group["rt"].toInt()).arg(group["sa"].toInt()).arg(channel<0?QString("Multiple channels"):channel?QString("CH%1").arg(channel):QString("Any channel")));
     if(it.key()==workspaceSubsystem) {
@@ -108,7 +158,34 @@ QWidget *Window::attachIcdWorkspace() {
       form.workspaceRoute->setText(item->toolTip(0));
     }
   }
+  auto subsystemMenu=new QPushButton(desktop::operatorIcon("more"),"Subsystem actions",form.subsystemPanel);
+  subsystemMenu->setObjectName("icdSubsystemActions");
+  form.subsystemLayout->insertWidget(form.subsystemLayout->indexOf(form.subsystemList)+1,subsystemMenu);
+  const auto showSubsystemActions=[this,tree=form.subsystemList](QTreeWidgetItem *item,const QPoint &pos) {
+    if(!item)return;
+    const auto subsystem=item->data(0,Qt::UserRole).toString();
+    if(subsystem.isEmpty())return;
+    auto menu=new QMenu(tree);
+    menu->setAttribute(Qt::WA_DeleteOnClose);
+    auto remove=menu->addAction("Delete subsystem mappings permanently…",this,[this,subsystem] {
+      deleteIcdMapping("subsystem",subsystem,subsystem);
+    });
+    remove->setEnabled(icdDeletionAvailable());
+    menu->popup(pos);
+  };
+  form.subsystemList->setContextMenuPolicy(Qt::CustomContextMenu);
+  connect(form.subsystemList,&QTreeWidget::customContextMenuRequested,container,
+    [tree=form.subsystemList,showSubsystemActions](const QPoint &pos){
+      showSubsystemActions(tree->itemAt(pos),tree->viewport()->mapToGlobal(pos));
+    });
+  connect(subsystemMenu,&QPushButton::clicked,container,[tree=form.subsystemList,subsystemMenu,showSubsystemActions]{
+    showSubsystemActions(tree->currentItem(),subsystemMenu->mapToGlobal(subsystemMenu->rect().bottomLeft()));
+  });
+  subsystemMenu->setVisible(!workspaceSubsystem.isEmpty()&&!backend.replaySource);
   if(workspaceSubsystem.isEmpty())form.subsystemList->setCurrentItem(all);
+  const auto listHeight=form.subsystemList->topLevelItemCount()*75+10;
+  form.subsystemList->setMaximumHeight(qMin(height()>=850?408:290,listHeight));
+  form.subsystemLayout->addStretch();
   if(documentDialog && !documentDialog->property("jobRunning").toBool() && documentDialog->property("activeConversation").toString().isEmpty())if(auto scope=documentDialog->findChild<QComboBox *>("assistantScope")) {
     const QSignalBlocker block(scope);scope->clear();scope->addItem(workspaceSubsystem.isEmpty()?"All subsystems":workspaceSubsystem,workspaceSubsystem);if(!workspaceSubsystem.isEmpty())scope->addItem("All subsystems",QString());
   }
@@ -142,7 +219,7 @@ QWidget *Window::attachIcdWorkspace() {
   });
   form.workspaceImport->setText("Manage ICDs");
   connect(form.workspaceImport,&QPushButton::clicked,this,[this]{manageIcds();});
-  connect(form.workspaceChat,&QPushButton::clicked,this,[this]{documentCenter();});
+  form.workspaceChat->hide();
   if(qualityTable)for(int row=0;row<qualityTable->rowCount() && row<int(mappings.size());++row)
     qualityTable->setRowHidden(row,!inWorkspace(mappings[row]));
   return container;

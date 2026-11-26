@@ -26,9 +26,11 @@ if($LASTEXITCODE -ne 0){throw 'Compacting the document runtime failed'}
 $workerSource=Join-Path $projectRoot 'tools/document_worker'
 $workerDestination=Join-Path $PackageRoot 'document-worker'
 New-Item -ItemType Directory -Force $workerDestination | Out-Null
-foreach($name in 'worker.py','embedding.py','review_actions.py','structured_answers.py','local_generation.py','library_history.py','engineering_reference.py','retrieval_context.py','models'){
+foreach($name in 'worker.py','review_actions.py','structured_answers.py','local_generation.py','library_history.py','engineering_reference.py','retrieval_context.py'){
   Copy-Item -LiteralPath (Join-Path $workerSource $name) -Destination $workerDestination -Recurse
 }
+New-Item -ItemType Directory -Force "$workerDestination/models" | Out-Null
+Copy-Item -LiteralPath "$workerSource/models/en_PP-OCRv4_rec_mobile.onnx" -Destination "$workerDestination/models"
 Copy-Item -LiteralPath "$runtime/LICENSE.txt" -Destination "$PackageRoot/licenses/Python-LICENSE.txt" -Force
 if(!$VcRedistDirectory){
   $vswhere=Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'

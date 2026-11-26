@@ -1,4 +1,26 @@
-# AeroTrace 0.7.0 bench candidate
+# AeroTrace 0.7.1 capture and ICD workspace
+
+**Monitor & Record** writes raw ATD, paired External/Internal CSVs, and
+integrity evidence into the chosen output folder. **ICD Library** contains the
+manual conversion editor and reviewed profile import. The manual editor
+validates operator-supplied raw examples before publication. **Live Engineering**
+opens the selected command’s values and plots during recording. See the
+[0.7.1 bench release](docs/Release-0.7.1.md).
+See the [current development status](docs/current-status.md) and
+[operator guide](docs/Operator-Guide.pdf).
+
+## Current UI optimization — 24 November 2026
+
+The startup check keeps its loading overlay for five seconds from the first
+paint. The operator shell prioritizes spacious Monitor & Record and Live Plot
+Analysis surfaces: Device Setup contains the compact recording preparation
+fields, CSV Viewer is separate from Exports & Reports, and Focus view expands
+the plot canvas. Bus Analysis, the in-app ICD Assistant, and License & Security
+are retired from the visible shell. The native layout remains scalable through
+Qt expanding policies; fresh packaged 100%/150% visual acceptance is still a
+separate review gate.
+
+## AeroTrace 0.7.0 bench candidate
 
 See [0.7.0 release status](docs/Release-0.7.0.md) for Recorded CSV Analysis,
 format-preserving save copies, startup recovery, five-second splash and offline
@@ -45,7 +67,7 @@ The review installer is `dist/installers/AeroTrace1553-0.6.1-Review-Setup-x64.ex
 
 [Operator guide (PDF)](docs/Operator-Guide.pdf) · [Offline HTML guide](docs/Operator-Guide.html). The offline installer includes the application runtimes. Real acquisition additionally requires the matching DDC driver and Card Manager assignments. No physical key is required.
 
-Native hardware-oriented bus analysis application: **C++20, Qt 6 Widgets, Qt Designer, Qwt, CMake and Ninja**. CMake compiles every Designer form with AUTOUIC; qmake and an application `.pro` file are unnecessary.
+Native hardware-oriented 1553 capture and ICD application: **C++20, Qt 6 Widgets, Qt Designer, Qwt, CMake and Ninja**. CMake compiles every Designer form with AUTOUIC; qmake and an application `.pro` file are unnecessary.
 
 ## Build and run in Qt Creator
 
@@ -55,20 +77,20 @@ The Windows helpers default to the installed `C:\Qt` kit:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/build.ps1 -Test
-powershell -ExecutionPolicy Bypass -File scripts/package.ps1 -PackageName AeroTrace1553-0.6.1 -BundleMode review
+powershell -ExecutionPolicy Bypass -File scripts/package.ps1 -PackageName AeroTrace1553-Capture-ICD -ProviderPacksRoot out/provider-packs-070 -HelperPacksRoot out/helper-packs-070 -BundleMode review
 ```
 
-Launch the installed application or the locally built `aerotrace_desktop` target. **Connect devices** opens/configures the selected DDC channels without acquisition or recording. In Live Monitor, **Start recording** begins receiving and saving. **Stop & save** finalizes the recording and paired CSVs while retaining the connection. **Disconnect devices** saves an active recording before releasing the card. Device arrival and application launch never start a recording automatically.
+Launch the application or the locally built `aerotrace_desktop` target. **Connect devices** configures the selected DDC channels. In **Monitor & Record**, **Start recording** begins receiving and saving. **Stop & save** finalizes the recording and paired CSVs while retaining the connection. **Disconnect devices** saves an active recording before releasing the card. Recording starts only after an explicit operator action.
 
 ## Operator workflow
 
 - **Device 0 / Channel 1 = External; Device 1 / Channel 2 = Internal.** A/B are redundant paths within each channel. Both channels and all four paths are enabled by default. RT statistics shows stable active RT/Bus rows, channel totals and error counters. Message routes and chronological records are alternate views. Logical IDs remain configurable.
 - **Both channels**, **Device 0 · External** and **Device 1 · Internal** tabs select the table view. Bus and RT filters affect the display, not raw recording.
-- Collapse the sidebar with its chevron or **Ctrl+B**. Icons retain accessible names and tooltips. Eight primary destinations stay visible; **More tools** retains the other screens, including replay, inspector, exports, security and diagnostics.
+- Collapse the sidebar with its chevron or **Ctrl+B**. Icons retain accessible names and tooltips. The compact sidebar exposes Monitor & Record, ICD Library, Device Setup, CSV Viewer, Exports & Reports, Preferences, Help & Diagnostics, and Recover Recordings. Retired analysis, assistant, license and security destinations are not presented.
 - Recording always requires **Start recording**. Changing connection settings closes the idle connection so the new settings are applied on the next explicit Connect.
 - Select a row once; it remains selected as new batches arrive. **Inspect**, **Engineering** and **Plot** give direct access to the existing analysis views.
-- **Export CSV** saves a unique file, checksum and ICD sidecar into the configured export folder without a repeated Save dialog. It applies the selected display filters to the retained analysis window. Load a completed session for exports of its full loaded contents.
-- Drop one local ICD **PDF or JSON** onto the workspace, or press **Ctrl+I**. PDF rules require explicit publication after review. The active profile persists between launches.
+- Choose the output folder and run name before recording. **Stop & save** exports all captured rows to the paired CSVs. To finish an interrupted save, use **Recover Recordings** and select the output folder.
+- Import a reviewed ICD **JSON or CSV** profile from ICD Library or press **Ctrl+I**. The active profile persists between launches. CSV Viewer is a separate destination for recorded-file inspection and plotting.
 - Body text is 15 px, the monitor table is 14 px with larger rows, and the palette uses neutral surfaces, graphite, green, amber and red. Blue and purple accents are removed, including plot traces.
 
 The self-contained package includes Qt dependencies. A bare build executable should be run through the configured Qt Creator kit or with the Qt runtime on PATH.
@@ -77,7 +99,11 @@ See [operator design and reference review](docs/design/operator-workflow.md) and
 
 ## ICD, live engineering and card time
 
-**ICD chat** in the header (**Ctrl+J**) opens the separate [ICD Assistant](docs/icd-assistant.md). Choose a PDF, index it, ask cited questions and return to its saved conversation later. Answers are scoped to the selected ICD; switching chat documents does not switch the active conversion rules. The Mappings and evidence tab provides explicit review/activation.
+See the [Phase Two workflow](docs/Phase-Two.md) for guided mapping, Focus view, and the optional Local RAG pack.
+
+ICD Library is intentionally focused on reviewed profile import, mapping validation
+and publication. The former in-app assistant, Bus Analysis, License & Security
+destinations and their operator entry points are retired from the current shell.
 
 Use [the demo ICD kit](examples/demo-icd/README.md): a digital PDF, image-only OCR PDF, matching JSON and expected conversion CSV. The digital PDF supplies nine rules for explicit review and publication. The scanned sample exercises OCR and currently sends nine uncertain rows to evidence review; it does not silently activate questionable conversions. ICD understanding creates a local searchable index and validated rules, rather than retraining model weights.
 
@@ -95,13 +121,13 @@ The supplied November 2 SES notes report BU-67113U, started acexusb 3.6.15.1 and
 
 `DDC_SDK_ROOT` is a CMake cache path. Licensed development inputs stay outside source control. Each packaged SDK/runtime pair lives in its own private directory with exact fingerprints and a compatibility manifest. The default build families are 3.6.15, 4.9.5 and 4.10.2; automatic acquisition selection requires a qualified hardware/driver/OS matrix entry. Additional packs can be installed without rebuilding the desktop. See the [provider contract](docs/provider-contract.md) and [0.6.1 delivery record](docs/Release-0.6.1.md).
 
-## Automatic ICD workflow
+## Reviewed ICD workflow
 
-1. Open **ICD Library → PDF / OCR / ICD evidence**, or import a PDF directly.
-2. Embedded text/tables are extracted first. Image-only pages use local OCR, including cell recognition for ruled tables.
-3. Complete rules enter the review grid for explicit publication. Missing addressing, unclear indexing, unsupported types, conflicting IDs or uncertain OCR remain in review. Review candidates against their linked source page and check accepted rows; unresolved values never become live rules.
-4. Approved mappings feed worker-side engineering conversion and live plots. Integer fields up to 64 bits, signed values, IEEE float32/64, packed BCD, scale/offset, word order, channel and bus constraints are supported.
-5. Search imported ICDs using **SQLite FTS5 BM25 + local MiniLM semantic vectors**. Extractive answers include document/page citations. An optional loopback OpenAI-compatible model endpoint can synthesize prose; no language-model server or generative weights are bundled.
+1. Open **ICD Library** and import a reviewed JSON or CSV profile.
+2. Complete rules enter the review grid for explicit publication. Missing addressing, unclear indexing, unsupported types, conflicting IDs or uncertain source values remain in review.
+3. Review representative raw words with the native converter before publication. Unresolved values never become live rules.
+4. Approved mappings feed engineering conversion and live plots. Integer fields up to 64 bits, signed values, IEEE float32/64, packed BCD, scale/offset, word order, channel and bus constraints are supported.
+5. Use the separate **CSV Viewer** to inspect recorded CSVs, retain raw source rows and open Recorded CSV Analysis without changing the active profile.
 
 Document originals, hashes, page evidence, profiles and indexes stay in the per-user application data directory. Processing uses one cancellable child process. On Windows it has a 1 GiB commit limit, a requested 20% CPU hard cap, normal scheduling priority, two inference threads, single-threaded BLAS/OpenMP settings and a 15-minute job timeout. The document process never owns hardware state. Package setup downloads dependencies/models once; document import itself needs no network.
 
@@ -129,13 +155,17 @@ apps/desktop/
   tests/gui_checks.cpp        Navigation, integration and load checks
 modules/
   core/                       Qt-free types, conversion, CRC recording/replay
-  acquisition/                One source/record/decode worker, DDC and simulator
+  acquisition/                DDC or simulator polling, durable writing and live analysis
   application/                Qt-free profile, replay, analysis and export services
 tools/document_worker/        Isolated PDF/OCR/embedding/retrieval process
 scripts/                      Build, setup, package and comparison tools
 ```
 
-The capture worker owns SDK lifecycle, raw packet preservation, recording and conversion. It publishes batched records through an **8192-record display queue**; display backpressure skips the oldest display records, never the raw disk write. SDK loss and overflow stop and mark the session incomplete. Recording flushes at 100 ms and at close; a stream flush is not a power-loss durability guarantee.
+One worker owns the SDK lifecycle. A separate writer consumes a byte-bounded
+queue and checkpoints ATD and native packets about once per second and at
+close. Live analysis and the 8,192-record display queue have independent
+limits. Their skips are counted separately. Writer queue saturation, disk
+failure, SDK loss and overflow stop capture and identify the output as incomplete.
 
 Profiles contain at most 512 signals. Address routing avoids decoding every mapping against every record. History is bounded to 8192 valid samples per signal; up to eight traces publish at most 1024 min/max envelope points each. The raw table holds 5000 records; the analysis cache trims at 200000 records. Full raw data stays on disk. Large-session streaming/indexing and power-loss qualification remain release work.
 
@@ -143,11 +173,9 @@ Release builds use CMake's optimized flags and supported interprocedural optimiz
 
 ## Recordings, exports and checks
 
-ATD2 preserves source, raw device ticks, tick units, host monotonic time, vendor block status, second command/status words and validity. ATD1 files remain readable. DDC sessions also retain original per-channel Chapter 10 packet sidecars, a profile snapshot and final integrity status. Replay orders by device timestamps. Hardware clock alignment across devices still requires bench calibration.
+ATD2 preserves source, raw device ticks, tick units, host monotonic time, vendor block status, second command/status words and validity. The ATD reader also supports ATD1. DDC recordings retain available original per-channel packets, a profile snapshot and final integrity status. Hardware clock alignment across devices still requires bench calibration.
 
-Profile changes are audited in `.icd.jsonl` with their first raw-record boundary; `.profile.json` retains the latest snapshot. Replay currently uses that snapshot. Automatic replay of every historical mapping revision remains a release task.
-
-Exports include source provenance, time bounds, engineering units and SHA-256 sidecars. Engineering CSV uses the active multi-signal profile. Active-view exports use the bounded analysis cache; open a completed recording to export its full loaded contents.
+Exports include source provenance, time bounds and SHA-256 sidecars. Engineering CSV uses the active multi-signal profile. For a full raw export, use **Stop & save** or the folder-scoped recovery tool.
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/build.ps1 -CoreOnly -Test
@@ -159,7 +187,10 @@ See `docs/validation.md`, `docs/implementation-status.md`, `docs/architecture.md
 
 ## Recording/CSV correction
 
-The session export uses exactly 42 columns matching the supplied DDC CSV examples, per-channel microsecond deltas, `HH:MM:SS mmm.uuu` card time, lowercase four-digit hex words, decoded Rx/Tx command strings, blank unavailable statuses, and `-` for unused words. Files are paired `_EXT.csv` / `_INT.csv`. Existing exports are never overwritten by a different recording; raw ATD/packet files and integrity sidecars are retained.
+Paired `_EXT.csv` / `_INT.csv` exports default to the compact 11-column format.
+Choose the legacy 42-column format for consumers using the supplied DDC layout.
+Each channel keeps its own time deltas. Export names are reserved to protect
+existing files, and the raw ATD, packet files and integrity sidecars are retained.
 
 DDC MTI packet timestamps follow the selected native TTRES setting. The adapter requests `ACE_TT_2US` and preserves ticks with a 2000 ns resolution; it does not assume all DDC Chapter 10 packets use 100 ns. SDK Windows caller-buffer release returning `ACE_ERR_NOT_SUPPORTED` is a no-op only while the returned packet pointer remains the caller-owned buffer. Other release failures and SDK-owned packet failures remain capture errors.
 

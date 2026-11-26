@@ -42,6 +42,7 @@ struct CaptureConfig {
   unsigned simulatorRate{12};
   std::vector<CheckRule> checkRules;
   std::size_t displayCapacity{8192};
+  std::size_t writerCapacityBytes{64*1024*1024};
   std::function<void(unsigned,DevicePhase,const std::string &)> deviceState;
   std::function<void(const std::string &,int,const std::string &)> diagnostic;
   std::stop_token stopToken;

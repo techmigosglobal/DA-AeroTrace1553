@@ -4,6 +4,8 @@
 #include "services/runtime_paths.hpp"
 #include "services/ddc_discovery.hpp"
 #include "services/workspace_style.hpp"
+#include "services/operator_style.hpp"
+#include "widgets/startup_splash.hpp"
 #include "helper_packs.hpp"
 #include "ui_ddc_method.h"
 namespace {
@@ -30,33 +32,66 @@ QFrame *surface(QLayout *layout) {auto f=new QFrame;f->setProperty("card",true);
 QLabel *heading(const QString &text,QLayout *layout) {auto l=new QLabel(text);l->setProperty("tone","cardtitle");layout->addWidget(l);return l;}
 }
 QWidget *Window::saveControls(bool compact) {
-  auto frame=new QFrame;frame->setProperty("card",!compact);auto layout=new QVBoxLayout(frame);if(compact)layout->setContentsMargins(0,0,0,0);
+  auto frame=new QFrame;
+  frame->setObjectName("recordingSetup");
+  frame->setProperty("card",!compact);
+  auto layout=new QVBoxLayout(frame);
+  if(compact)layout->setContentsMargins(0,0,0,0);
+  else {
+    desktop::addCardShadow(frame);
+    layout->addWidget(connectionResultPanel(true));
+  }
   auto row=new QHBoxLayout;layout->addLayout(row);
-  auto folder=new QLineEdit(settings.value("exportFolder",desktop::defaultExportDirectory()).toString());folder->setObjectName("csvFolderEdit");folder->setAccessibleName("CSV output folder");
+  auto folder=new QLineEdit(settings.value("exportFolder",desktop::defaultExportDirectory()).toString());folder->setObjectName("csvFolderEdit");folder->setAccessibleName("Recording output folder");
   auto name=new QLineEdit(settings.value("nextRunName",desktop::suggestedRunName(folder->text())).toString());name->setObjectName("runNameEdit");name->setAccessibleName("Run name");name->setMaximumWidth(240);
   csvFolderEdit=folder;runNameEdit=name;
-  auto browse=new QPushButton("Browse…");browse->setObjectName("browseCsvFolder");
-  if(compact){name->setMaximumWidth(QWIDGETSIZE_MAX);row->addWidget(new QLabel("Run name:"));row->addWidget(name,1);auto folderRow=new QHBoxLayout;layout->addLayout(folderRow);folderRow->addWidget(new QLabel("CSV folder:"));folderRow->addWidget(folder,1);folderRow->addWidget(browse);}
-  else {row->addWidget(new QLabel("CSV folder:"));row->addWidget(folder,2);row->addWidget(browse);row->addWidget(new QLabel("Run name:"));row->addWidget(name,1);}
-  auto format=new QComboBox(frame);format->setObjectName("sessionCsvLayout");format->addItem("Compact 11-column CSV","compact11");format->addItem("Legacy 42-column CSV","legacy42");format->setCurrentIndex(settings.value("csvLayout","compact11")=="legacy42"?1:0);
-  auto base=new QComboBox(frame);base->setObjectName("sessionCsvBase");base->addItem("Hexadecimal words",16);base->addItem("Decimal words",10);base->addItem("Binary words",2);base->addItem("Octal words",8);base->setCurrentIndex(qMax(0,base->findData(settings.value("csvRadix",16))));
-  auto formatRow=new QHBoxLayout;formatRow->addWidget(format);formatRow->addWidget(base);formatRow->addStretch();if(compact)layout->addLayout(formatRow);
+  auto browse=new QPushButton("Browse…");browse->setObjectName("browseCsvFolder");desktop::actionIcon(browse,"folder");
+  if(compact){name->setMaximumWidth(QWIDGETSIZE_MAX);row->addWidget(new QLabel("Run name"));row->addWidget(name,1);auto folderRow=new QHBoxLayout;layout->addLayout(folderRow);folderRow->addWidget(new QLabel("Output folder"));folderRow->addWidget(folder,1);folderRow->addWidget(browse);}
+  else {row->addWidget(new QLabel("Output folder"));row->addWidget(folder,2);row->addWidget(browse);row->addWidget(new QLabel("Run name"));row->addWidget(name,1);}
+  auto format=new QComboBox(frame);format->setObjectName("sessionCsvLayout");format->setAccessibleName("CSV column layout");format->addItem("11-column CSV","compact11");format->addItem("42-column CSV","legacy42");format->setCurrentIndex(settings.value("csvLayout","compact11")=="legacy42"?1:0);
+  auto base=new QComboBox(frame);base->setObjectName("sessionCsvBase");base->setAccessibleName("CSV raw word base");base->addItem("Hexadecimal",16);base->addItem("Decimal",10);base->addItem("Binary",2);base->addItem("Octal",8);base->setCurrentIndex(qMax(0,base->findData(settings.value("csvRadix",16))));
+  if(compact) {
+    auto formatRow=new QHBoxLayout;
+    formatRow->addWidget(format);
+    formatRow->addWidget(base);
+    formatRow->addStretch();
+    layout->addLayout(formatRow);
+  }
   connect(format,&QComboBox::currentIndexChanged,frame,[this,format](int){settings.setValue("csvLayout",format->currentData());});connect(base,&QComboBox::currentIndexChanged,frame,[this,base](int){settings.setValue("csvRadix",base->currentData());});
-  auto preview=new QLabel;preview->setWordWrap(true);preview->setProperty("tone","muted");outputPreview=preview;layout->addWidget(preview);
-  const auto refresh=[this,folder,name,preview]{settings.setValue("exportFolder",folder->text().trimmed());settings.setValue("nextRunName",name->text().trimmed());preview->setProperty("outputText","Outputs (complete session, original ordering): "+name->text()+"_EXT.csv + "+name->text()+"_INT.csv   |   Replay sessions: "+sessionDir);preview->setText(preview->property("outputText").toString());};
+  auto preview=new QLabel;
+  preview->setObjectName("recordingOutputs");
+  preview->setWordWrap(true);
+  preview->setSizePolicy(QSizePolicy::Ignored,QSizePolicy::Preferred);
+  preview->setTextFormat(Qt::RichText);
+  outputPreview=preview;
+  layout->addWidget(preview);
+  const auto refresh=[this,folder,name,preview]{settings.setValue("exportFolder",folder->text().trimmed());folder->setToolTip(folder->text());settings.setValue("nextRunName",name->text().trimmed());const auto baseName=name->text().toHtmlEscaped();
+    const QString mark="<img src=':/icons/verified.svg' width='14' height='14'/> ";
+    const QString gap="&nbsp;&nbsp; ";
+    preview->setProperty("outputText","<b>Export Files</b>"+gap+mark+"Raw ATD"+gap+
+      mark+"Integrity Report"+gap+mark+baseName+"_EXT.csv"+gap+mark+baseName+"_INT.csv");
+    preview->setToolTip("Raw ATD, integrity report, "+name->text()+"_EXT.csv and "+name->text()+"_INT.csv");};
   connect(folder,&QLineEdit::textChanged,frame,refresh);connect(name,&QLineEdit::textChanged,frame,refresh);
   connect(browse,&QPushButton::clicked,frame,[this,folder]{const auto dir=QFileDialog::getExistingDirectory(this,"CSV output folder",folder->text());if(!dir.isEmpty())folder->setText(dir);});refresh();
-  const auto lockInputs=[this,folder,name,browse,preview,format,base]{const bool enabled=!savingSession;for(auto widget:{static_cast<QWidget *>(folder),static_cast<QWidget *>(name),static_cast<QWidget *>(browse),static_cast<QWidget *>(format),static_cast<QWidget *>(base)})widget->setEnabled(enabled);preview->setText(preview->property("outputText").toString()+(currentFile.isEmpty()?QString():"\nLive capture ID: "+QFileInfo(currentFile).baseName())+(sessionSaveState.isEmpty()?QString():"   |   Save: "+sessionSaveState));preview->setStyleSheet(sessionSaveState=="Save failed"?"color:#a73d32;":"");};lockInputs();connect(&tick,&QTimer::timeout,frame,lockInputs);
+  const auto lockInputs=[this,frame,folder,name,browse,preview,format,base]{
+    const bool recording=backend.acquisition.active()||savingSession;
+    if(auto shadow=frame->graphicsEffect();shadow && shadow->isEnabled()==recording)
+      shadow->setEnabled(!recording);
+    const bool enabled=!recording&&!connecting;
+    for(auto widget:{static_cast<QWidget *>(folder),static_cast<QWidget *>(name),static_cast<QWidget *>(browse),static_cast<QWidget *>(format),static_cast<QWidget *>(base)})widget->setEnabled(enabled);const auto text=preview->property("outputText").toString()+
+    (currentFile.isEmpty()?QString():"<br/>Raw file "+QFileInfo(currentFile).fileName().toHtmlEscaped())+
+    (sessionSaveState.isEmpty()?QString():" · "+sessionSaveState.toHtmlEscaped());
+    if(preview->text()!=text)preview->setText(text);};lockInputs();connect(&tick,&QTimer::timeout,frame,lockInputs);
   if(!compact) {
     auto save=new QPushButton("Stop && save");save->setObjectName("stopSaveButton");save->setProperty("primary",true);row->addWidget(save);monitorCsv=save;connect(save,&QPushButton::clicked,this,[this]{stopAndSave();});
-    auto actions=new QHBoxLayout;actions->addLayout(formatRow,1);layout->addLayout(actions);
-    auto mode=new QComboBox;mode->setObjectName("workspaceLayout");mode->addItem("Movable windows","windows");mode->addItem("Tabs","tabs");mode->setCurrentIndex(settings.value("monitorLayout","windows").toString()=="tabs"?1:0);
-    actions->addWidget(new QLabel("Layout:"));actions->addWidget(mode);
-    auto tile=new QPushButton("Tile");auto cascade=new QPushButton("Cascade");actions->addWidget(tile);actions->addWidget(cascade);
-    const auto layoutActions=[mode,tile,cascade]{const bool windows=mode->currentData().toString()=="windows";tile->setEnabled(windows);cascade->setEnabled(windows);};layoutActions();connect(mode,&QComboBox::currentIndexChanged,frame,[layoutActions](int){layoutActions();});
-    connect(mode,&QComboBox::currentIndexChanged,frame,[this,mode](int){persistMonitorWorkspace();settings.setValue("monitorLayout",mode->currentData());if(monitorWorkspace)applyMonitorLayout();});
-    connect(tile,&QPushButton::clicked,frame,[this]{if(monitorWorkspace){for(auto w:channelWindows)w->showNormal();monitorWorkspace->tileSubWindows();}});
-    connect(cascade,&QPushButton::clicked,frame,[this]{if(monitorWorkspace){for(auto w:channelWindows)w->showNormal();monitorWorkspace->cascadeSubWindows();}});
+    desktop::actionIcon(save,"save",true);
+    auto actions=new QHBoxLayout;
+    layout->removeWidget(preview);
+    actions->addWidget(preview,1);
+    actions->addWidget(new QLabel("Format"));
+    actions->addWidget(format);
+    actions->addWidget(base);
+    layout->addLayout(actions);
   }
   return frame;
 }
@@ -73,13 +108,11 @@ bool Window::chooseSaveDestination() {
   if(csvFolderEdit)csvFolderEdit->setText(folder.text().trimmed());if(runNameEdit)runNameEdit->setText(name.text().trimmed());settings.setValue("exportFolder",folder.text().trimmed());settings.setValue("nextRunName",name.text().trimmed());return true;
 }
 void Window::welcome() {
-  heading("Prepare a monitoring run",pageLayout);auto intro=new QLabel("Choose channels and a CSV destination. You can edit the run name and destination while monitoring.");intro->setWordWrap(true);pageLayout->addWidget(intro);
+  heading("Prepare a monitoring run",pageLayout);auto intro=new QLabel("Choose channels and an output folder before starting a recording.");intro->setWordWrap(true);pageLayout->addWidget(intro);
   auto row=new QHBoxLayout;pageLayout->addLayout(row);auto prepare=surface(row);row->setStretch(0,3);auto body=new QVBoxLayout(prepare);heading("Next run",body);body->addWidget(saveControls(true));
-  auto buttons=new QHBoxLayout;body->addLayout(buttons);auto setup=new QPushButton("Review device setup");setup->setProperty("primary",true);auto open=new QPushButton("Open recorded session…");buttons->addWidget(setup);buttons->addWidget(open);connect(setup,&QPushButton::clicked,this,[this]{navigate(2);});connect(open,&QPushButton::clicked,this,&Window::openSession);
+  auto buttons=new QHBoxLayout;body->addLayout(buttons);auto setup=new QPushButton("Review device setup");setup->setProperty("primary",true);auto open=new QPushButton("Open CSV viewer…");buttons->addWidget(setup);buttons->addWidget(open);connect(setup,&QPushButton::clicked,this,[this]{navigate(2);});connect(open,&QPushButton::clicked,this,[this]{csvTools();});
   auto readiness=surface(row);row->setStretch(1,2);auto ready=new QVBoxLayout(readiness);heading("Hardware readiness",ready);auto evidence=new QLabel; evidence->setWordWrap(true);ready->addWidget(evidence,1);auto details=new QPushButton("Device details");ready->addWidget(details);connect(details,&QPushButton::clicked,this,[this]{navigate(2);});
   const auto refresh=[this,evidence]{const auto metrics=backend.acquisition.metrics(false);evidence->setText(QString("Windows device: %1\n\nDriver / SDK: %2\n\nLogical channels: %3 / %4\n\nMonitor: %5").arg(hardwareDiscovery.isEmpty()?"Check in device setup":hardwareDiscovery.value("physical_presence").toString()=="unknown"?QString("Unknown — enumeration incomplete"):QString::number(hardwareDiscovery.value("detected_devices").toInt())+" detected").arg(hardwareDiscovery.isEmpty()?"Check in device setup":"See measured connection checks").arg(backend.captureConfig.logicalDevices[0]).arg(backend.captureConfig.logicalDevices[1]).arg(backend.acquisition.active()?"Recording":metrics.failed?"Connection failed":"Stopped"));};refresh();connect(&tick,&QTimer::timeout,evidence,refresh);
-  auto recent=surface(pageLayout);auto items=new QVBoxLayout(recent);heading("Recent sessions",items);auto table=new QTableWidget;table->setColumnCount(4);table->setHorizontalHeaderLabels({"Name","Date / Time","Recording location","Open"});table->horizontalHeader()->setSectionResizeMode(2,QHeaderView::Stretch);table->verticalHeader()->hide();table->verticalHeader()->setDefaultSectionSize(46);table->setEditTriggers(QAbstractItemView::NoEditTriggers);items->addWidget(table);const auto files=recordingFiles().mid(0,4);table->setRowCount(files.size());for(int i=0;i<files.size();++i){const QFileInfo info(files[i]);table->setItem(i,0,new QTableWidgetItem(desktop::sessionDisplayName(files[i])));table->setItem(i,1,new QTableWidgetItem(info.lastModified().toString("dd MMM HH:mm")));table->setItem(i,2,new QTableWidgetItem(info.absolutePath()));auto button=new QPushButton("Open…");table->setCellWidget(i,3,button);connect(button,&QPushButton::clicked,this,[this,path=files[i]]{loadSession(path);});}table->setMinimumHeight(250);
-  auto links=new QHBoxLayout;items->addLayout(links);auto simulation=new QPushButton("Offline simulation…");auto folder=new QPushButton("Open replay folder");links->addWidget(simulation);links->addWidget(folder);links->addStretch();connect(simulation,&QPushButton::clicked,this,[this]{navigate(2);if(auto source=content->findChild<QComboBox *>("sourceMode"))source->setCurrentIndex(1);});connect(folder,&QPushButton::clicked,this,[this]{QDesktopServices::openUrl(QUrl::fromLocalFile(sessionDir));});
 }
 void Window::dashboard() {
   auto legend=new QLabel;rtLegend=legend;legend->setWordWrap(true);legend->setProperty("tone","notice");pageLayout->addWidget(legend);
@@ -98,14 +131,39 @@ void Window::refreshRtDashboard() {
   QStringList detail;for(int ch=0;ch<2;++ch){const auto &v=activity.channels[ch][selectedRt];detail<<QString("CH%1 %2: %3").arg(ch+1).arg(ch?"Internal":"External").arg(v.responses?QString("%1 responses · last device time %2 · Bus %3").arg(v.responses).arg(stamp(v.lastNs)).arg(v.buses==3?"A + B":v.buses==1?"A":"B"):"No response observed");}rtDetail->setText(QString("RT %1\n").arg(selectedRt,2,10,QChar('0'))+detail.join("\n"));
 }
 void Window::device() {
+  auto recordingCard=surface(pageLayout);
+  auto recordingLayout=new QVBoxLayout(recordingCard);
+  heading("Recording setup",recordingLayout);
+  auto recordingHint=new QLabel("Choose the destination and run name here before you connect or start a capture.",recordingCard);
+  recordingHint->setProperty("tone","muted");
+  recordingHint->setWordWrap(true);
+  recordingLayout->addWidget(recordingHint);
+  recordingLayout->addWidget(saveControls(true));
   auto sourceCard=surface(pageLayout);auto sourceRow=new QHBoxLayout(sourceCard);heading("Source",sourceRow);
   auto source=new QComboBox;source->setObjectName("sourceMode");source->addItems({"DDC hardware · passive monitoring","Offline simulation · RT 03 and RT 08"});source->setCurrentIndex(backend.captureConfig.hardware?0:1);sourceRow->addWidget(source,1);
-  auto scan=new QPushButton("Rescan DDC");scan->setObjectName("scanButton");sourceRow->addWidget(scan);
-  auto mainRow=new QHBoxLayout;pageLayout->addLayout(mainRow);auto deviceCard=surface(mainRow);auto devices=new QVBoxLayout(deviceCard);heading("Windows devices",devices);
+  auto scan=new QPushButton("Rescan DDC");scan->setObjectName("scanButton");desktop::actionIcon(scan,"search");sourceRow->addWidget(scan);
+  auto mainRow=new QHBoxLayout;pageLayout->addLayout(mainRow);auto deviceCard=surface(mainRow);auto devices=new QVBoxLayout(deviceCard);devices->addWidget(desktop::sectionHeading("Windows devices","device",false,
+    "Detected DDC devices available on this system."));
   auto table=new QTableWidget;table->setObjectName("discoveredDdcDevices");table->setColumnCount(4);table->setHorizontalHeaderLabels({"Device","Hardware ID","Driver","PnP status"});table->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);table->verticalHeader()->hide();table->setEditTriggers(QAbstractItemView::NoEditTriggers);table->setMinimumHeight(170);devices->addWidget(table,1);
-  auto manager=new QPushButton("Open DDC Card Manager");manager->setObjectName("openDdcCardManager");manager->setToolTip("Disconnect hardware before changing Card Manager assignments");devices->addWidget(manager);connect(manager,&QPushButton::clicked,this,&Window::openCardManager);
+  auto empty=new desktop::TableNotice(table,"device-empty",63);
+  empty->setObjectName("emptyDeviceNotice");
+  auto deviceCount=new QLabel;
+  deviceCount->setProperty("tone","muted");
+  devices->addWidget(deviceCount);
+  const bool animate=desktop::startupMotionEnabled();
+  auto scanProgress=new QProgressBar;
+  scanProgress->setProperty("operatorBusy",true);
+  scanProgress->setRange(0,0);
+  scanProgress->setTextVisible(false);
+  scanProgress->hide();
+  devices->addWidget(scanProgress);
+  auto manager=new QPushButton("Open DDC Card Manager");manager->setObjectName("openDdcCardManager");desktop::actionIcon(manager,"device");manager->setToolTip("Disconnect hardware before changing Card Manager assignments");devices->addWidget(manager);connect(manager,&QPushButton::clicked,this,&Window::openCardManager);
   auto mapping=new QLabel("Card Manager maintains the assignments. Select its existing board/channel entries here; AeroTrace rechecks them before each connection.");mapping->setWordWrap(true);mapping->setProperty("tone","muted");devices->addWidget(mapping);
-  auto channels=surface(mainRow);auto channelBody=new QVBoxLayout(channels);heading("Channel assignments",channelBody);auto channelRow=new QHBoxLayout;channelBody->addLayout(channelRow);
+  auto channels=surface(mainRow);auto channelBody=new QVBoxLayout(channels);channelBody->addWidget(desktop::sectionHeading("Channel Assignments","sliders",false,
+    "Assign logical device numbers and bus selections for each channel."));auto channelRow=new QHBoxLayout;channelBody->addLayout(channelRow);
+  mainRow->setStretch(0,5);
+  mainRow->setStretch(1,7);
+  if(height()>=850)deviceCard->setMinimumHeight(600);
   auto assignmentMode=new QComboBox;assignmentMode->setObjectName("ddcAssignmentMode");assignmentMode->addItems({"Use Card Manager assignments","Advanced manual logical numbers"});assignmentMode->setCurrentIndex(settings.value("ddcAssignmentMode","card_manager").toString()=="manual"?1:0);channelBody->insertWidget(1,assignmentMode);
   connect(assignmentMode,&QComboBox::currentIndexChanged,this,[this](int index){settings.setValue("ddcAssignmentMode",index?"manual":"card_manager");configurationChanged();});
   QList<QWidget *> controls{source,assignmentMode};
@@ -122,7 +180,7 @@ void Window::device() {
     for(int bus=0;bus<2;++bus){auto check=new QCheckBox(bus?"Bus B":"Bus A");const auto key=QString("channel%1Bus %2").arg(ch+1).arg(bus?"B":"A");check->setObjectName(QString("channel%1Bus%2").arg(ch+1).arg(bus?"B":"A"));check->setChecked(settings.value(key,true).toBool());body->addWidget(check);controls<<check;connect(check,&QCheckBox::toggled,group,[this,key](bool on){settings.setValue(key,on);configurationChanged();});}body->addStretch();}
   auto simulationOptions=new QWidget;channelBody->addWidget(simulationOptions);auto simulationRow=new QHBoxLayout(simulationOptions);auto rateLabel=new QLabel("Simulated messages per second");simulationRow->addWidget(rateLabel);auto rate=new QSpinBox;rate->setObjectName("simulatorRate");rate->setRange(1,100000);rate->setValue(backend.captureConfig.simulatorRate);simulationRow->addWidget(rate);rateLabel->setBuddy(rate);rate->setAccessibleName(rateLabel->text());rate->setToolTip("Total simulated messages across all enabled channels and buses.");controls<<rate;connect(rate,&QSpinBox::valueChanged,this,[this](int value){backend.captureConfig.simulatorRate=value;settings.setValue("simulatorRate",value);});
   auto methodWidget=new QWidget; Ui::DdcMethod methodForm; methodForm.setupUi(methodWidget); channelBody->addWidget(methodWidget);
-  auto backendEdit=methodForm.ddcBackend; auto mode=methodForm.ddcReceiveMode; auto helper=methodForm.ddcHelperPack; auto chooseHelper=methodForm.chooseHelper; auto helperLabel=methodForm.helperLabel;
+  auto backendEdit=methodForm.ddcBackend; auto mode=methodForm.ddcReceiveMode; auto helper=methodForm.ddcHelperPack; auto chooseHelper=methodForm.chooseHelper; auto helperLabel=methodForm.helperLabel; desktop::actionIcon(chooseHelper,"file");
   backendEdit->setCurrentIndex(backend.captureConfig.backend==aero::DdcBackend::HelperX86?1:0); mode->setCurrentIndex(int(backend.captureConfig.receiveMode)); controls<<backendEdit<<mode<<helper<<chooseHelper;
   helper->addItem("Select a verified x86 helper pack…",QString());
   for(const auto &pack:aero::discoverDdcHelperPacks()){if(!pack.error.empty()||!pack.softwareVerified)continue;helper->addItem(QString::fromStdString(pack.id+" · "+pack.sdkIdentity),QString::fromStdWString(pack.manifest.wstring()));}
@@ -132,17 +190,66 @@ void Window::device() {
   connect(helper,&QComboBox::currentIndexChanged,this,[this,helper](int){const auto path=helper->currentData().toString();backend.captureConfig.helperPack=std::filesystem::path(path.toStdWString());settings.setValue("ddcHelperPack",path);configurationChanged();});
   connect(chooseHelper,&QPushButton::clicked,this,[this,helper]{const auto path=QFileDialog::getOpenFileName(this,"Select verified x86 helper pack",QCoreApplication::applicationDirPath()+"/helpers","Helper pack manifest (*.json)");if(path.isEmpty())return;const auto pack=aero::readDdcHelperPack(std::filesystem::path(path.toStdWString()));if(!pack.error.empty()||!pack.softwareVerified){toast("Helper pack rejected: "+QString::fromStdString(pack.error));return;}helper->addItem(QString::fromStdString(pack.id),path);helper->setCurrentIndex(helper->count()-1);});
   pageLayout->addWidget(connectionResultPanel());
-  auto checkCard=surface(pageLayout);auto checks=new QVBoxLayout(checkCard);heading("Connection checks",checks);auto summary=new QLabel;summary->setWordWrap(true);summary->setObjectName("connectionChecks");checks->addWidget(summary);
-  auto explanation=new QLabel("The monitor interface is selected from the device's reported MT / MTI capabilities during connection. No ICD is required for raw monitoring.");explanation->setWordWrap(true);explanation->setProperty("tone","muted");checks->addWidget(explanation);
-  auto action=new QHBoxLayout;checks->addLayout(action);auto run=new QLabel("Replay sessions: "+sessionDir);run->setWordWrap(true);action->addWidget(run,1);auto arm=new QPushButton;arm->setObjectName("armButton");arm->setProperty("primary",true);action->addWidget(arm);connect(arm,&QPushButton::clicked,this,[this]{if(backend.captureConfig.hardware)connectDevices();else startCapture();});
-  auto detailsButton=new QPushButton("Technical details ▸");detailsButton->setCheckable(true);checks->addWidget(detailsButton,0,Qt::AlignLeft);auto details=new QWidget;auto detailLayout=new QVBoxLayout(details);auto runtime=new QLineEdit(QString::fromStdWString(backend.captureConfig.runtime.wstring()));runtime->setObjectName("runtimePath");runtime->setPlaceholderText("DDC SDK folder or emacepl.dll — blank uses this PC's configured / detected SDK");runtime->setAccessibleName("DDC SDK folder or runtime DLL");runtime->setToolTip("An explicit path takes priority. Otherwise DDC_SDK_ROOT is used before installed SDK discovery. No SDK version number is fixed.");detailLayout->addWidget(runtime);controls<<runtime;auto evidence=new QLabel;evidence->setWordWrap(true);evidence->setTextInteractionFlags(Qt::TextSelectableByMouse);detailLayout->addWidget(evidence);detailLayout->addWidget(new QLabel("AeroTrace "+QCoreApplication::applicationVersion()+" · "+QCoreApplication::applicationFilePath()));checks->addWidget(details);details->hide();connect(detailsButton,&QPushButton::toggled,details,&QWidget::setVisible);
+  auto checkCard=surface(pageLayout);
+  auto checks=new QVBoxLayout(checkCard);
+  checks->addWidget(desktop::sectionHeading("Connection Checks","device",false,
+    "Driver, SDK, assignment, and monitor status for the selected device."));
+  auto summary=new QWidget;
+  summary->setObjectName("connectionChecks");
+  checks->addWidget(summary);
+  auto checkGrid=new QGridLayout(summary);
+  checkGrid->setContentsMargins(8,0,8,0);
+  checkGrid->setHorizontalSpacing(12);
+  checkGrid->setVerticalSpacing(7);
+  checkGrid->setColumnStretch(3,1);
+  const QStringList checkNames{"Windows device","Driver binding","SDK runtime","Logical assignment",
+    "Monitor CH1","Monitor CH2","Detected runtime","Selected pack","Receive mode"};
+  const QStringList checkIcons{"device","layers","database","link","activity","activity","info","layers","download"};
+  std::array<QLabel *,9> checkTexts{},checkStatuses{};
+  for(int row=0;row<checkNames.size();++row) {
+    auto icon=new QLabel;
+    desktop::labelIcon(icon,checkIcons[row],17);
+    checkGrid->addWidget(icon,row,0,Qt::AlignTop);
+    auto key=new QLabel(checkNames[row]);
+    key->setProperty("checkName",true);
+    checkGrid->addWidget(key,row,1,Qt::AlignTop);
+    checkStatuses[row]=new QLabel;
+    checkGrid->addWidget(checkStatuses[row],row,2,Qt::AlignTop);
+    auto value=new QLabel;
+    value->setWordWrap(true);
+    value->setTextFormat(Qt::PlainText);
+    value->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    checkTexts[row]=value;
+    checkGrid->addWidget(value,row,3);
+  }
+  auto detailsButton=new QPushButton("Technical details");desktop::actionIcon(detailsButton,"settings");detailsButton->setCheckable(true);
+  auto explanation=new QLabel("The monitor interface is selected automatically during connection. No ICD is required for raw monitoring.");
+  explanation->setWordWrap(true);
+  explanation->setProperty("tone","notice");
+  checks->addWidget(explanation);
+  auto action=new QHBoxLayout;
+  checks->addLayout(action);
+  action->addWidget(detailsButton);
+  action->addStretch();
+  auto arm=new QPushButton;
+  arm->setObjectName("armButton");
+  arm->setProperty("primary",true);
+  desktop::actionIcon(arm,"link",true);
+  action->addWidget(arm);
+  auto nextStep=new QPushButton("Next: Monitor & Record →");
+  nextStep->setObjectName("nextToMonitorButton");
+  desktop::actionIcon(nextStep,"activity");
+  action->addWidget(nextStep);
+  connect(nextStep,&QPushButton::clicked,this,[this]{navigate(4);});
+  connect(arm,&QPushButton::clicked,this,[this]{if(backend.captureConfig.hardware)connectDevices();else startCapture();});
+  auto details=new QWidget;auto detailLayout=new QVBoxLayout(details);auto runtime=new QLineEdit(QString::fromStdWString(backend.captureConfig.runtime.wstring()));runtime->setObjectName("runtimePath");runtime->setPlaceholderText("DDC SDK folder or emacepl.dll — blank uses this PC's configured / detected SDK");runtime->setAccessibleName("DDC SDK folder or runtime DLL");runtime->setToolTip("An explicit path takes priority. Otherwise DDC_SDK_ROOT is used before installed SDK discovery. No SDK version number is fixed.");detailLayout->addWidget(runtime);controls<<runtime;auto evidence=new QLabel;evidence->setWordWrap(true);evidence->setTextInteractionFlags(Qt::TextSelectableByMouse);detailLayout->addWidget(evidence);detailLayout->addWidget(new QLabel("AeroTrace "+QCoreApplication::applicationVersion()+" · "+QCoreApplication::applicationFilePath()));checks->addWidget(details);details->hide();connect(detailsButton,&QPushButton::toggled,details,&QWidget::setVisible);
   auto runtimeActions=new QHBoxLayout;detailLayout->addLayout(runtimeActions);
-  auto automatic=new QPushButton("Use automatic selection");automatic->setObjectName("automaticDdcRuntime");runtimeActions->addWidget(automatic);controls<<automatic;
-  auto chooseRuntime=new QPushButton("Choose SDK folder…");runtimeActions->addWidget(chooseRuntime);controls<<chooseRuntime;runtimeActions->addStretch();
+  auto automatic=new QPushButton("Use automatic selection");automatic->setObjectName("automaticDdcRuntime");desktop::actionIcon(automatic,"restore");runtimeActions->addWidget(automatic);controls<<automatic;
+  auto chooseRuntime=new QPushButton("Choose SDK folder…");desktop::actionIcon(chooseRuntime,"folder");runtimeActions->addWidget(chooseRuntime);controls<<chooseRuntime;runtimeActions->addStretch();
   connect(automatic,&QPushButton::clicked,runtime,[this,runtime,evidence]{runtime->clear();backend.captureConfig.connectionPolicy=aero::DdcConnectionPolicy::QualifiedAutomatic;settings.setValue("ddcCompatibility",false);rescanDdc(evidence);});
   connect(chooseRuntime,&QPushButton::clicked,runtime,[this,runtime]{const auto folder=QFileDialog::getExistingDirectory(this,"Select installed DDC SDK",runtime->text().isEmpty()?"C:/DDC":runtime->text());if(!folder.isEmpty())runtime->setText(folder);});
   auto managerRow=new QHBoxLayout;detailLayout->addLayout(managerRow);auto managerPath=new QLineEdit(settings.value("ddcCardManagerPath").toString());managerPath->setObjectName("ddcCardManagerPath");managerPath->setAccessibleName("Card Manager executable override");managerPath->setPlaceholderText("Card Manager executable — blank detects C:/DDC and registered locations");managerRow->addWidget(managerPath,1);controls<<managerPath;
-  auto chooseManager=new QPushButton("Choose Card Manager…");managerRow->addWidget(chooseManager);controls<<chooseManager;
+  auto chooseManager=new QPushButton("Choose Card Manager…");desktop::actionIcon(chooseManager,"device");managerRow->addWidget(chooseManager);controls<<chooseManager;
   connect(managerPath,&QLineEdit::textChanged,this,[this](const QString &path){settings.setValue("ddcCardManagerPath",path);});
   connect(chooseManager,&QPushButton::clicked,managerPath,[this,managerPath]{const auto file=QFileDialog::getOpenFileName(this,"Select DDC Card Manager","C:/DDC","Windows application (*.exe)");if(!file.isEmpty())managerPath->setText(file);});
   connect(runtime,&QLineEdit::textChanged,this,[this](const QString &path){backend.captureConfig.runtime=std::filesystem::path(path.toStdWString());settings.setValue("ddcRuntime",path);backend.captureConfig.connectionPolicy=path.trimmed().isEmpty()?aero::DdcConnectionPolicy::QualifiedAutomatic:aero::DdcConnectionPolicy::Compatibility;settings.setValue("ddcCompatibility",!path.trimmed().isEmpty());configurationChanged();});
@@ -154,20 +261,51 @@ void Window::device() {
     simulationOptions->setVisible(!backend.captureConfig.hardware);
   });
   connect(scan,&QPushButton::clicked,this,[this,evidence]{rescanDdc(evidence);});
-  auto previous=std::make_shared<QJsonObject>();const auto refresh=[this,table,summary,evidence,arm,scan,manager,controls,previous,mode,helper]{
+  auto previous=std::make_shared<QJsonObject>();const auto refresh=[this,table,empty,deviceCount,scanProgress,animate,summary,evidence,arm,scan,manager,controls,previous,mode,helper,checkTexts,checkStatuses,detailsButton]{
     const auto metrics=backend.acquisition.metrics(false);const bool owned=backend.acquisition.connected()||backend.acquisition.active()||connecting||connectAfterDiscovery||savingSession||closingCapture||metrics.cleanupBlocked;for(auto control:controls)control->setEnabled(!owned);manager->setEnabled(!owned);scan->setEnabled(!discoveryRunning);arm->setEnabled(!owned);arm->setText(connecting?"Checking devices…":backend.acquisition.connected()?"Devices connected":backend.captureConfig.hardware?"Connect devices":"Start offline simulation");
     if(*previous!=hardwareDiscovery){*previous=hardwareDiscovery;const auto rows=hardwareDiscovery.value("devices").toArray();table->setRowCount(rows.size());for(int i=0;i<rows.size();++i){const auto o=rows[i].toObject();const QStringList values{o.value("name").toString(),o.value("hardware_ids").toString(),o.value("driver_service").toString()+" / "+o.value("driver_version").toString(),o.value("pnp_status").toString()+" / problem "+QString::number(o.value("pnp_problem").toInt())};for(int col=0;col<4;++col){auto cell=new QTableWidgetItem(values[col]);cell->setToolTip(values[col]);table->setItem(i,col,cell);}}evidence->setText(desktop::discoverySummary(hardwareDiscovery));}
     const auto states=[&](int c){const auto &d=metrics.devices[c];const auto count=metrics.sourceCounts[c*2]+metrics.sourceCounts[c*2+1];switch(d.phase){case aero::DevicePhase::Monitoring:return count?QString("Receiving %1 records").arg(count):QString("Initialized — no traffic yet");case aero::DevicePhase::Simulating:return QString("Simulation — %1 records").arg(count);case aero::DevicePhase::Failed:return "Failed: "+QString::fromStdString(d.message);case aero::DevicePhase::Checking:return QString("Checking logical channel");case aero::DevicePhase::Ready:return QString("Configured");case aero::DevicePhase::Disabled:return QString("Disabled");default:return d.message.empty()?QString("Not checked"):QString::fromStdString(d.message);}};
     QStringList drivers;for(auto item:hardwareDiscovery.value("devices").toArray()){auto d=item.toObject();drivers<<d.value("driver_service").toString()+" "+d.value("driver_version").toString()+" / "+d.value("pnp_status").toString();}
-    summary->setText(QString("Windows device: %1\nDriver binding: %2\nSDK runtime: %3\nLogical assignment: CH1 = %4, CH2 = %5 (vendor mapping required)\nMonitor CH1: %6\nMonitor CH2: %7").arg(discoveryRunning?"Scanning…":hardwareDiscovery.isEmpty()?"Not scanned":hardwareDiscovery.value("physical_presence").toString()=="unknown"?QString("Unknown — enumeration incomplete"):QString::number(hardwareDiscovery.value("detected_devices").toInt())+" detected").arg(drivers.isEmpty()?"Not confirmed":drivers.join("; ")).arg(desktop::runtimeReadiness(hardwareDiscovery)).arg(backend.captureConfig.logicalDevices[0]).arg(backend.captureConfig.logicalDevices[1]).arg(states(0),states(1)));
-    if(backend.captureConfig.hardware) {
-      const auto selectedPack=backend.captureConfig.backend==aero::DdcBackend::HelperX86?
-        helper->currentText():hardwareDiscovery.value("provider_id").toString("No matching native provider selected");
-      const auto detectedRuntime=hardwareDiscovery.value("runtime_path").toString("Not resolved");
-      summary->setText(summary->text()+QString("\nDetected runtime: %1\nSelected pack: %2\nReceive mode: %3")
-        .arg(detectedRuntime,selectedPack,mode->currentText()));
+    const auto presence=hardwareDiscovery.value("physical_presence").toString();
+    const int count=hardwareDiscovery.value("detected_devices").toInt();
+    const auto scanText=discoveryRunning?QString("Scanning…"):hardwareDiscovery.isEmpty()?QString("Not scanned"):
+      presence=="unknown"?QString("Unknown — enumeration incomplete"):QString("%1 detected").arg(count);
+    if(deviceCount->text()!=scanText)deviceCount->setText(scanText);
+    scanProgress->setVisible(animate&&discoveryRunning);
+    scan->setText(discoveryRunning?"Scanning…":"Rescan DDC");
+    const auto emptyTitle=discoveryRunning?"Scanning for DDC devices":presence=="absent"?"No DDC devices found":
+      presence=="unknown"?"Device inventory incomplete":"Windows devices";
+    const auto emptyDetail=discoveryRunning?"Checking Windows devices and driver bindings.":
+      "Connect a DDC card and click Rescan DDC, or switch Source above to Offline Simulation.";
+    empty->showState(table->rowCount()==0,emptyTitle,emptyDetail);
+
+    const auto pack=backend.captureConfig.backend==aero::DdcBackend::HelperX86?helper->currentText():
+      hardwareDiscovery.value("provider_id").toString("No matching native provider selected");
+    const QStringList values{scanText,drivers.isEmpty()?QString("Not confirmed"):drivers.join("; "),
+      desktop::runtimeReadiness(hardwareDiscovery),
+      QString("CH1 = %1, CH2 = %2 (vendor mapping required)").arg(backend.captureConfig.logicalDevices[0]).arg(backend.captureConfig.logicalDevices[1]),
+      states(0),states(1),hardwareDiscovery.value("runtime_path").toString("Not resolved"),pack,mode->currentText()};
+    const auto channelIcon=[&](int index) {
+      const auto phase=metrics.devices[index].phase;
+      if(phase==aero::DevicePhase::Ready||phase==aero::DevicePhase::Monitoring)return "verified";
+      if(phase==aero::DevicePhase::Failed)return "status-error";
+      return phase==aero::DevicePhase::Checking?"status-busy":"status-neutral";
+    };
+    const QStringList statuses{discoveryRunning?"status-busy":presence=="detected"?"verified":"status-neutral",
+      "status-neutral","status-neutral","status-neutral",channelIcon(0),channelIcon(1),
+      "status-neutral","status-neutral","status-neutral"};
+    for(int row=0;row<values.size();++row) {
+      if(checkTexts[row]->text()!=values[row])checkTexts[row]->setText(values[row]);
+      if(checkStatuses[row]->property("iconName").toString()!=statuses[row]) {
+        checkStatuses[row]->setProperty("iconName",statuses[row]);
+        desktop::labelIcon(checkStatuses[row],statuses[row],16);
+      }
+      const bool summaryRow=(row==0 || row==4 || row==5 || (row==8 && backend.captureConfig.hardware));
+      const bool show=summaryRow || detailsButton->isChecked();
+      for(int column=0;column<4;++column)
+        static_cast<QGridLayout *>(summary->layout())->itemAtPosition(row,column)->widget()->setVisible(show);
     }
-  };refresh();connect(&tick,&QTimer::timeout,summary,refresh);if(hardwareDiscovery.isEmpty()&&!discoveryRunning)QTimer::singleShot(0,evidence,[this,evidence]{rescanDdc(evidence);});
+  };refresh();connect(detailsButton,&QPushButton::toggled,summary,[refresh](bool){refresh();});connect(&tick,&QTimer::timeout,summary,refresh);if(hardwareDiscovery.isEmpty()&&!discoveryRunning)QTimer::singleShot(0,evidence,[this,evidence]{rescanDdc(evidence);});
 }
 
 void Window::selectCaptureSource(int mode) {

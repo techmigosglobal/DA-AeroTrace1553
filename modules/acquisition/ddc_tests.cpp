@@ -217,11 +217,12 @@ int main(int argc,char **argv) {
       SetEnvironmentVariableA(setting,nullptr);
     }
     for(const auto setting:{"AEROTRACE_TEST_DDC_DISCONNECT","AEROTRACE_TEST_DDC_OVERFLOW"}) {
-      SetEnvironmentVariableA(setting,"1");CHECK(acquisition.startConfigured(root/"fault.atd",config));
+      const auto scenario=std::string(setting);
+      SetEnvironmentVariableA(setting,"1");CHECK(acquisition.startConfigured(root/("fault-"+scenario+".atd"),config));
       deadline=steady_clock::now()+seconds(3);while(acquisition.active()&&steady_clock::now()<deadline)std::this_thread::sleep_for(milliseconds(2));
       acquisition.stop();CHECK(acquisition.error());SetEnvironmentVariableA(setting,nullptr);
       CHECK(acquisition.connectConfigured(config));CHECK(acquisition.connected()&&!acquisition.active());
-      CHECK(acquisition.startConfigured(root/"reconnected.atd",config));std::this_thread::sleep_for(milliseconds(5));acquisition.stop();CHECK(!acquisition.error());
+      CHECK(acquisition.startConfigured(root/("reconnected-"+scenario+".atd"),config));std::this_thread::sleep_for(milliseconds(5));acquisition.stop();CHECK(!acquisition.error());
     }
     SetEnvironmentVariableA("AEROTRACE_TEST_DDC_TAIL_ONLY","1");CHECK(acquisition.startConfigured(root/"tail.atd",config));
     std::this_thread::sleep_for(milliseconds(10));acquisition.stop();CHECK(!acquisition.error()&&acquisition.metrics().recorded==4);

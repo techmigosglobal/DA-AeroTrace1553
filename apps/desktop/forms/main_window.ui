@@ -7,8 +7,8 @@
   </property>
   <property name="minimumSize">
    <size>
-    <width>1000</width>
-    <height>600</height>
+    <width>900</width>
+    <height>540</height>
    </size>
   </property>
   <widget class="QWidget" name="centralWidget">
@@ -80,11 +80,11 @@
              <widget class="QLabel" name="brandIcon"><property name="minimumSize"><size><width>30</width><height>30</height></size></property><property name="maximumSize"><size><width>30</width><height>30</height></size></property><property name="accessibleName"><string>AeroTrace application icon</string></property></widget>
             </item>
             <item>
-           <widget class="QLabel" name="brandText">
-            <property name="text">
-             <string>AeroTrace 1553</string>
-            </property>
-           </widget>
+           <layout class="QVBoxLayout" name="brandWords">
+            <property name="spacing"><number>0</number></property>
+            <item><widget class="QLabel" name="brandText"><property name="text"><string>AeroTrace 1553</string></property></widget></item>
+            <item><widget class="QLabel" name="brandSubtitle"><property name="text"><string>Capture &amp; ICD workspace</string></property></widget></item>
+           </layout>
           </item>
           <item>
            <widget class="QPushButton" name="sidebarToggle">
@@ -94,6 +94,12 @@
            </widget>
           </item>
          </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLabel" name="sidebarWave">
+         <property name="minimumHeight"><number>38</number></property>
+         <property name="maximumHeight"><number>38</number></property>
         </widget>
        </item>
        <item>
@@ -122,35 +128,9 @@
             <number>3</number>
            </property>
            <item>
-            <widget class="QPushButton" name="nav1">
-             <property name="text">
-              <string>Welcome</string>
-             </property>
-             <property name="checkable">
-              <bool>true</bool>
-             </property>
-             <property name="navigation" stdset="0">
-              <bool>true</bool>
-             </property>
-            </widget>
-           </item>
-           <item>
             <widget class="QPushButton" name="nav2">
              <property name="text">
               <string>Device setup</string>
-             </property>
-             <property name="checkable">
-              <bool>true</bool>
-             </property>
-             <property name="navigation" stdset="0">
-              <bool>true</bool>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QPushButton" name="nav3">
-             <property name="text">
-              <string>Dashboard</string>
              </property>
              <property name="checkable">
               <bool>true</bool>
@@ -174,35 +154,22 @@
             </widget>
            </item>
            <item>
-            <widget class="QPushButton" name="nav6">
-             <property name="text">
-              <string>Engineering</string>
-             </property>
-             <property name="checkable">
-              <bool>true</bool>
-             </property>
-             <property name="navigation" stdset="0">
-              <bool>true</bool>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QPushButton" name="nav7">
-             <property name="text">
-              <string>Plots</string>
-             </property>
-             <property name="checkable">
-              <bool>true</bool>
-             </property>
-             <property name="navigation" stdset="0">
-              <bool>true</bool>
-             </property>
-            </widget>
-           </item>
-           <item>
             <widget class="QPushButton" name="nav12">
              <property name="text">
               <string>ICD library</string>
+             </property>
+             <property name="checkable">
+              <bool>true</bool>
+             </property>
+             <property name="navigation" stdset="0">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="nav6">
+             <property name="text">
+              <string>Engineering</string>
              </property>
              <property name="checkable">
               <bool>true</bool>
@@ -226,78 +193,6 @@
             </widget>
            </item>
            <item>
-            <widget class="QPushButton" name="moreTools">
-             <property name="text">
-              <string>More tools</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QPushButton" name="nav5">
-             <property name="text">
-              <string>Inspector</string>
-             </property>
-             <property name="checkable">
-              <bool>true</bool>
-             </property>
-             <property name="navigation" stdset="0">
-              <bool>true</bool>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QPushButton" name="nav8">
-             <property name="text">
-              <string>Topology</string>
-             </property>
-             <property name="checkable">
-              <bool>true</bool>
-             </property>
-             <property name="navigation" stdset="0">
-              <bool>true</bool>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QPushButton" name="nav9">
-             <property name="text">
-              <string>Events</string>
-             </property>
-             <property name="checkable">
-              <bool>true</bool>
-             </property>
-             <property name="navigation" stdset="0">
-              <bool>true</bool>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QPushButton" name="nav11">
-             <property name="text">
-              <string>Replay</string>
-             </property>
-             <property name="checkable">
-              <bool>true</bool>
-             </property>
-             <property name="navigation" stdset="0">
-              <bool>true</bool>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QPushButton" name="nav13">
-             <property name="text">
-              <string>Signal editor</string>
-             </property>
-             <property name="checkable">
-              <bool>true</bool>
-             </property>
-             <property name="navigation" stdset="0">
-              <bool>true</bool>
-             </property>
-            </widget>
-           </item>
-           <item>
             <widget class="QPushButton" name="nav14">
              <property name="text">
               <string>Exports</string>
@@ -311,35 +206,9 @@
             </widget>
            </item>
            <item>
-            <widget class="QPushButton" name="nav15">
-             <property name="text">
-              <string>Security</string>
-             </property>
-             <property name="checkable">
-              <bool>true</bool>
-             </property>
-             <property name="navigation" stdset="0">
-              <bool>true</bool>
-             </property>
-            </widget>
-           </item>
-           <item>
             <widget class="QPushButton" name="nav17">
              <property name="text">
               <string>Diagnostics</string>
-             </property>
-             <property name="checkable">
-              <bool>true</bool>
-             </property>
-             <property name="navigation" stdset="0">
-              <bool>true</bool>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QPushButton" name="nav0">
-             <property name="text">
-              <string>License</string>
              </property>
              <property name="checkable">
               <bool>true</bool>
@@ -380,10 +249,17 @@
         </widget>
        </item>
        <item>
-        <widget class="QLabel" name="footerBadge">
-         <property name="text">
-          <string>Receive only</string>
-         </property>
+        <widget class="QWidget" name="sidebarFooter">
+         <layout class="QHBoxLayout" name="sidebarFooterLayout">
+          <property name="spacing"><number>12</number></property>
+          <item><widget class="QLabel" name="footerIcon"/></item>
+          <item>
+           <widget class="QLabel" name="sidebarBrandCaption">
+            <property name="text"><string>MIL-STD-1553
+Capture &amp; ICD</string></property>
+           </widget>
+          </item>
+         </layout>
         </widget>
        </item>
       </layout>
@@ -409,7 +285,7 @@
        </property>
        <item>
         <widget class="QFrame" name="header">
-         <layout class="QHBoxLayout" name="headerLayout" stretch="1,0,0,0,0">
+         <layout class="QHBoxLayout" name="headerLayout" stretch="1,0,0,0">
           <property name="leftMargin">
            <number>16</number>
           </property>
@@ -426,11 +302,17 @@
            <number>12</number>
           </property>
           <item>
-           <widget class="QLabel" name="headerTitle">
-            <property name="text">
-             <string>Live Bus Monitor</string>
-            </property>
-           </widget>
+           <layout class="QHBoxLayout" name="headerHeading" stretch="0,1">
+            <property name="spacing"><number>10</number></property>
+            <item><widget class="QLabel" name="headerIcon"><property name="alignment"><set>Qt::AlignLeading|Qt::AlignTop</set></property></widget></item>
+            <item>
+             <layout class="QVBoxLayout" name="headerText">
+              <property name="spacing"><number>2</number></property>
+              <item><widget class="QLabel" name="headerTitle"><property name="text"><string>Live Bus Monitor</string></property></widget></item>
+              <item><widget class="QLabel" name="headerSubtitle"><property name="wordWrap"><bool>true</bool></property></widget></item>
+             </layout>
+            </item>
+           </layout>
           </item>
           <item>
            <widget class="QLabel" name="simulationBadge">
@@ -453,45 +335,15 @@
             </property>
            </widget>
           </item>
-          <item>
-           <widget class="QPushButton" name="icdChatButton">
-            <property name="text"><string>AeroTrace Assistant</string></property>
-            <property name="accessibleName"><string>Open AeroTrace Assistant in a separate window</string></property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QPushButton" name="preferencesButton">
-            <property name="text">
-             <string />
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QLabel" name="licenseBadge">
-            <property name="text">
-             <string>Key not verified</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QLabel" name="platformCaption">
-            <property name="text">
-             <string>Windows · aceXtreme</string>
-            </property>
-           </widget>
-          </item>
          </layout>
         </widget>
        </item>
        <item>
-        <widget class="QScrollArea" name="workspaceScroll">
-         <property name="widgetResizable">
-          <bool>true</bool>
-         </property>
-         <property name="verticalScrollBarPolicy">
-          <enum>Qt::ScrollBarAlwaysOn</enum>
-         </property>
-         <widget class="QWidget" name="initialWorkspace" />
+        <widget class="QStackedWidget" name="workspaceStack">
+         <widget class="QScrollArea" name="workspaceScroll">
+          <property name="widgetResizable"><bool>true</bool></property>
+          <widget class="QWidget" name="initialWorkspace" />
+         </widget>
         </widget>
        </item>
       </layout>

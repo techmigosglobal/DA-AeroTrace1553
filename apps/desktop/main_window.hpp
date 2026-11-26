@@ -10,8 +10,8 @@
 class Window : public QMainWindow {
   QWidget *root{}, *content{};
   QVBoxLayout *pageLayout{};
-  QLabel *headerTitle{}, *licenseBadge{}, *stateBadge{}, *footerBadge{},
-      *monitorStatus{};
+  QLabel *headerTitle{}, *stateBadge{}, *monitorStatus{};
+  QLabel *captureSummary{};
   QList<QPushButton *> nav;
   QList<Plot *> plots;
   QScrollArea *scroll{};
@@ -52,6 +52,9 @@ class Window : public QMainWindow {
   bool chooseSaveDestination();
   void exportFinalizedSession(const QString &,bool retry=false);
   void beginSaveProgress();
+  void scanUnfinishedRecordings(const QString &folder);
+  void reviewMappingDrafts();
+  void reviewMappingDraft(const QString &path);
   void finishSaveProgress();
   QPointer<QDialog> saveProgress;
   QPointer<QLabel> saveProgressLabel;
@@ -64,7 +67,7 @@ class Window : public QMainWindow {
   QJsonObject connectionAttempt;
   QJsonArray connectionAttempts;
   bool connectAfterDiscovery{},connectionAssignmentsFresh{};
-  QWidget *connectionResultPanel();
+  QWidget *connectionResultPanel(bool recordingSetup=false);
   void saveConnectionEvidence();
   void preserveSessionConnection(const QString &recording);
   void finishConnectionEvidence(bool ok,const QString &error={});
@@ -82,7 +85,7 @@ class Window : public QMainWindow {
   QTimer tick;
   QSettings settings;
   int page = 0;
-  bool unlocked = false, displayPaused = false, plotPaused = false;
+  bool unlocked = true, displayPaused = false, plotPaused = false;
   QElapsedTimer replayClock;
   QSlider *scrub{};
   QLabel *replayTime{};
@@ -93,7 +96,7 @@ class Window : public QMainWindow {
   QComboBox *numericTypeEdit{}, *wordOrderEdit{};
   QLabel *preview{};
   QLabel *decodedPreview{}, *scalePreview{}, *engineeringPreview{};
-  QLineEdit *recordFolder{}, *exportFolder{};
+  QLineEdit *exportFolder{};
   QList<QCheckBox *> preferenceChecks;
   QSpinBox *fpsEdit{};
   QTableWidget *sessionTable{};
@@ -111,19 +114,30 @@ class Window : public QMainWindow {
   QElapsedTimer captureClock;
   QString eventText;
   std::string editingSignalId;
-  QPointer<QDialog> documentDialog;
-  QPointer<QDockWidget> documentDock;
+  QStackedWidget *workspaceStack{};
+  QPushButton *csvNavigation{};
+  QPushButton *recoveryNavigation{};
   QJsonObject workspaceDocument;
   QString workspacePdf,workspaceSubsystem,workspaceScopeKey;
   QPointer<QLabel> engineeringDetails;
-  QWidget *attachIcdWorkspace();
-  void rememberIcdDocument(const QJsonObject &,const QString &);
-  void restoreIcdDocument();
   bool inWorkspace(const aero::Signal &) const;
   void updateEngineeringDetails();
+  struct PreFillMappingRoute {
+    bool valid{false};
+    QString subsystem;
+    int rt{1}, sa{1};
+    bool tx{true};
+    int wordCount{32}, channel{0}, bus{-1};
+    std::array<std::uint16_t, 32> sampleWords{};
+    bool hasSample{false};
+  };
+  PreFillMappingRoute pendingPreFillRoute;
+  std::array<QPushButton *, 5> workflowStepButtons{};
+  QFrame *workflowStepper{};
+  QPushButton *signalPillButton{};
   QFrame *sidebar{};
   QPushButton *sidebarToggle{},*captureButton{};
-  bool sidebarCollapsed{},moreToolsVisible{},connecting{},automaticHeld{},connectionIsRecording{},disconnectAfterSave{};
+  bool sidebarCollapsed{},monitorFocused{},sidebarBeforeFocus{},connecting{},automaticHeld{},connectionIsRecording{},disconnectAfterSave{};
   std::future<bool> connectionFuture;
   QTabBar *deviceTabs{};
   std::array<QLabel *,2> deviceTitles{},deviceStatuses{};
@@ -140,12 +154,19 @@ class Window : public QMainWindow {
   void plotMonitorSelection();
   void refreshEngineeringTable();
   QTimer configurationRetry;
-  bool applicationKeyVerified{},applicationKeyChecking{};
-  QString applicationKeyMessage;
-  QElapsedTimer applicationKeyClock;
 
 public:
   void findUnsavedRecordings();
+  void deleteIcdRevision(const QString &hash,const QString &label);
+  void deleteIcdMapping(const QString &kind,const QString &identity,const QString &label,
+                        const QString &set={},const QString &revision={});
+  void stageIcdDeletion(const QJsonObject &scope,const QString &label);
+  void resumeIcdDeletion();
+  bool icdDeletionAvailable() const;
+  bool icdDeletionApplying{};
+  void setMonitorFocus(bool enabled);
+  QString liveFocusCommand;
+  int liveFocusStream{-1};
   template<class Form> Form showForm() {
     auto panel = new QWidget;
     Form form;
@@ -162,35 +183,31 @@ public:
   void configureCursor(Plot *plot);
   Window();
   ~Window();
-  void shortcut(QKeySequence k, std::function<void()> f);
   void toast(QString text);
   QHBoxLayout *titleActions{};
-  int pendingPage = 1;
+  int pendingPage = 2;
   void navigate(int n);
   void finishPage();
   QString subtitle(int n);
-  void licensePage();
   void welcome();
   void device();
   void dashboard();
   qsizetype countBus(int bus);
   QString fileSize(QString p);
   void liveMonitor();
-  void inspectSelection();
-  void inspector();
-  void selectRelative(int delta);
+  void openRecordDetailsDialog(const aero::Record &record);
+  void openSignalMappingForRoute(const PreFillMappingRoute &route);
+  void signalMappingsPage();
+  QWidget *buildManualMappingsWidget(QWidget *parent, bool embedded);
+  void refreshWorkflowStepper();
   void engineering();
   void plotPage();
   void configureAnalysisTools(bool recorded=false);
   void configureSignalAlerts();
-  void manageIcds();
   void csvTools(const QString &recording={});
   void recordedCsvPage();
   std::optional<desktop::RecordedCsvRequest> recordedCsv;
   void exportPlot();
-  void topology();
-  void events();
-  void exportEvents();
   QStringList recordingFiles();
   void sessions();
   void renameSession();
@@ -204,15 +221,6 @@ public:
   std::size_t analysisEnd() const;
   QStringList engineeringValues();
   void refreshDataViews();
-  void icdLibrary();
-  void editor();
-  aero::Signal editorSignal();
-  void updatePreview();
-  bool readEditor();
-  void validateEditor();
-  QJsonObject signalJson();
-  void saveIcd(bool draft);
-  void importIcd();
   void importIcdPath(const QString &);
   void exports();
   void exportSignalReport(QString suggestedId={});
@@ -220,8 +228,6 @@ public:
   QString trafficMismatch(const aero::Signal &signal,unsigned channel,int bus) const;
   bool signalReportWorkflowTest(const QString &directory);
   void createExport();
-  void security();
-  void removeKey();
   void preferences();
   void savePreferences();
   void diagnostics();
@@ -255,18 +261,17 @@ public:
   bool smoke(const QString &dir);
   bool workflowTest(const QString &reportDir);
   bool performanceTest(const QString &reportDir);
-  bool documentWorkflowTest(const QString &reportDir,const QString &pdf,unsigned expectedSignals=3);
-  void documentCenter(QString pdf={});
+  void updateShellHeading(int route,const QString &title,const QString &description);
+  void resizeEvent(QResizeEvent *event) override;
   void activateProfile(const QJsonObject &);
   void persistProfile();
-  QString publishProfile(const std::vector<aero::Signal> &);
+  QJsonObject manualRegistry;
+  QString publishProfile(const std::vector<aero::Signal> &,const QJsonObject *manual=nullptr);
+  void manualMappings();
+  void liveEngineering();
+  bool manualMappingTest(const QString &directory,const QString &pdf,const QString &runtime);
   void reviewSignals(QJsonArray rows={}, const QString &csv={}, bool replace=false);
-  void reviewDocument(const QJsonObject &,const QString &,const QJsonArray &checked={});
   QPointer<QDialog> signalReviewDialog;
-  QString applyReviewedAction(const QJsonObject &,const QJsonObject &base,const QString &documentHash);
-  void setupKeyGate();
-  void verifyApplicationKey(bool interactive);
-  void lockForApplicationKey(const QString &);
 
 protected:
   void closeEvent(QCloseEvent *e) override;

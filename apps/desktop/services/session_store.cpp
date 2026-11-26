@@ -35,7 +35,7 @@ QString formatSuffix(aero::NumericRadix base) {
   switch(base){case aero::NumericRadix::Decimal:return "dec";case aero::NumericRadix::Binary:return "bin";case aero::NumericRadix::Octal:return "oct";default:return "hex";}
 }
 }
-QString describeSession(const QString &p,const aero::CaptureConfig &c) {
+QString describeSession(const QString &p,const aero::CaptureConfig &c,const QString &runName,aero::CsvExportOptions options) {
   QJsonArray devices,enabled;for(auto n:c.logicalDevices)devices.append(n);for(auto on:c.enabled)enabled.append(on);
   QJsonObject o{{"schema","aerotrace.session.v1"},{"session_id",QFileInfo(p).baseName()},{"application_run_id",QString::fromStdString(c.runId)},
     {"source",c.hardware?"DDC_HARDWARE":"SIMULATED"},{"logical_devices",devices},{"enabled",enabled},{"external_channel",1},{"internal_channel",2},
@@ -43,7 +43,13 @@ QString describeSession(const QString &p,const aero::CaptureConfig &c) {
     {"receive_backend",c.backend==aero::DdcBackend::NativeX64?"native_x64":"helper_x86"},{"receive_mode",int(c.receiveMode)},
     {"connection_policy",c.connectionPolicy==aero::DdcConnectionPolicy::Compatibility?"compatibility":"qualified_automatic"},
     {"configured_runtime",QString::fromStdWString(c.runtime.wstring())},{"helper_manifest",QString::fromStdWString(c.helperPack.wstring())}};
-  return writeJson(p+".session.json",o)?QString():"Cannot preserve session descriptor";
+  if(!runName.isEmpty()) {
+    o["requested_run_name"]=runName;
+    o["export_directory"]=QFileInfo(p).absolutePath();
+    o["requested_csv_layout"]=options.layout==aero::CsvLayout::Compact11?"compact11":"legacy42";
+    o["requested_csv_radix"]=int(options.radix);
+  }
+  return writeJson(p+".session.json",o)?QString():"Cannot preserve recording recovery marker";
 }
 QString sessionDisplayName(const QString &recording) {const auto o=readJson(recording+".session.json");return o.value("run_name").toString(QFileInfo(recording).baseName());}
 QString validateRunName(const QString &name) {
@@ -240,7 +246,15 @@ SessionSaveResult exportSession(const QString &recording,const QString &director
     if(!writeJson(result.manifest,session))result.error="CSV files saved, but export manifest failed; retry this session";
   }
   session["export_state"]=result.error.isEmpty()?"complete":"failed";session["export_error"]=result.error;
-  if(!writeJson(descriptor,session) && result.error.isEmpty())result.error="Exports saved, but session descriptor update failed";
+  bool descriptorSaved=writeJson(descriptor,session);
+  // A brief Windows file share conflict can block the atomic replacement.
+  // The export still owns the per-recording lock and its published file hashes.
+  for(unsigned attempt=1;!descriptorSaved && attempt<=2;++attempt) {
+    QThread::msleep(25*attempt);
+    descriptorSaved=writeJson(descriptor,session);
+  }
+  if(!descriptorSaved && result.error.isEmpty())
+    result.error="Exports saved, but the recording marker could not be updated. Retry the export.";
   if(result.error.isEmpty()&&variant)result.manifest=descriptor;
   applicationEvent("session_export_result",recording,{{"run",QString::number(result.run)},{"external",QString::number(result.external)},{"internal",QString::number(result.internal)},{"error",result.error},{"recovered",result.recovered},{"manifest",result.manifest}});
   return result;

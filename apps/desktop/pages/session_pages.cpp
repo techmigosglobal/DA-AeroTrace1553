@@ -5,6 +5,7 @@
 #include "services/profile_io.hpp"
 #include "services/session_store.hpp"
 #include "services/runtime_paths.hpp"
+#include "services/operator_style.hpp"
 #include "sequence_analysis.hpp"
 
 QStringList Window::recordingFiles(){
@@ -15,8 +16,12 @@ QStringList Window::recordingFiles(){
   }
 
 void Window::sessions() {
-  auto convert=new QPushButton("Open CSV Viewer…",content);pageLayout->addWidget(convert,0,Qt::AlignLeft);connect(convert,&QPushButton::clicked,this,[this]{const auto row=sessionTable?sessionTable->currentRow():-1;csvTools(sessionPaths.value(row));});
   auto form=showForm<Ui::SessionsPage>();
+  auto convert=new QPushButton("Open CSV Viewer…",content);desktop::actionIcon(convert,"file");
+  auto save=new QPushButton("Save selected session CSVs",content);save->setObjectName("saveSessionCsvs");desktop::actionIcon(save,"save");
+  if(titleActions){titleActions->addWidget(convert);titleActions->addWidget(save);}
+  connect(convert,&QPushButton::clicked,this,[this]{const auto row=sessionTable?sessionTable->currentRow():-1;csvTools(sessionPaths.value(row));});
+  connect(save,&QPushButton::clicked,this,[this]{if(connecting||savingSession||backend.acquisition.active()){toast("Stop the active capture first");return;}const auto row=sessionTable->currentRow();if(row>=0&&row<sessionPaths.size()){stopAndSave(sessionPaths[row]);}});
   connect(form.newRecordingButton,&QPushButton::clicked,this,[this] { startCapture(); });
   connect(form.importRecordingButton,&QPushButton::clicked,this,[this] { openSession(); });
   connect(form.allSessionsButton,&QPushButton::clicked,this,[this] { navigate(10); });
@@ -49,8 +54,6 @@ void Window::sessions() {
       return QString();
     }));
   });
-  auto save=new QPushButton("Save selected session CSVs");save->setObjectName("saveSessionCsvs");pageLayout->addWidget(save,0,Qt::AlignLeft);
-  connect(save,&QPushButton::clicked,this,[this]{if(connecting||savingSession||backend.acquisition.active()){toast("Stop the active capture first");return;}const auto row=sessionTable->currentRow();if(row>=0&&row<sessionPaths.size()){stopAndSave(sessionPaths[row]);}});
   sessionTable=form.sessionTable; sessionSearch=form.sessionSearch; sessionPaths=recordingFiles();
   QList<QStringList> rows;
   for(const auto &path:sessionPaths) rows << QStringList{desktop::sessionDisplayName(path),QFileInfo(path).lastModified().toString("dd MMM, HH:mm"),fileSize(path),path==currentFile && backend.acquisition.active() ? "Recording" : "Local file","Validate on open"};
@@ -163,7 +166,7 @@ void Window::replay() {
   auto statistics=new QPushButton("RT statistics · full recorded session");statistics->setObjectName("showReplayRtStatistics");statistics->setEnabled(bool(replayRtFrame));pageLayout->insertWidget(0,statistics,0,Qt::AlignLeft);
   connect(statistics,&QPushButton::clicked,this,[this]{if(!replayRtFrame)return;backend.replayPlaying=false;viewingReplayStatistics=true;rtDisplayPaused=false;settings.setValue("monitorRowMode","statistics");settings.setValue("monitorLayout","windows");navigate(4);});
   connect(form.openReplayButton,&QPushButton::clicked,this,[this] { openSession(); });
-  connect(form.inspectReplayButton,&QPushButton::clicked,this,[this] { navigate(5); });
+  if(form.inspectReplayButton) form.inspectReplayButton->hide();
   form.speed->setCurrentIndex(backend.replaySpeed==.25 ? 0 : backend.replaySpeed==1 ? 1 : backend.replaySpeed==2 ? 2 : 3);
   connect(form.speed,&QComboBox::currentIndexChanged,this,[this](int index) { backend.replaySpeed=QList<double>{.25,1,2,5}[index]; });
   connect(form.rewindButton,&QPushButton::clicked,this,[this] { seekReplay(0); });
@@ -216,7 +219,7 @@ void Window::seekReplay(std::size_t index){
       replaySeekPending=false;if(!result.error.isEmpty()){backend.replayPlaying=false;toast(result.error);return;}
       backend.replayWindowStart=result.start;backend.replayRecords=std::move(result.records);backend.replayIndex=result.index;backend.selected=backend.replayRecords.at(result.index-result.start);backend.replayPositionNs=double(recording->playbackTimestamp(result.index));replayActivity=result.activity;
       if(scrub){QSignalBlocker guard(scrub);scrub->setValue(backend.replayIndex);}if(replayTime)replayTime->setText(stamp(backend.selected.timestampNs)+" / "+stamp(backend.replayTimestamp(backend.replayCount()-1)));
-      replayClock.restart();refreshReplayTable();refreshDataViews();refreshRtDashboard();if(page==5)navigate(5);
+      replayClock.restart();refreshReplayTable();refreshDataViews();refreshRtDashboard();
     });
     watcher->setFuture(QtConcurrent::run([recording,checkpoints,index,generation,cancel]{Result result;result.index=index;result.start=index>4096?index-4096:0;const auto finish=std::min(recording->size(),std::max(index+8,result.start+8192));
       try{result.records.reserve(finish-result.start);for(auto i=result.start;i<finish;++i){if(cancel->load()!=generation)return result;result.records.push_back(recording->at(i));}

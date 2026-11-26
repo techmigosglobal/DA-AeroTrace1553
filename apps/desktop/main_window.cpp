@@ -1,12 +1,10 @@
 #include <QTabBar>
 #include "main_window.hpp"
-#include "services/key_gate.hpp"
 #include "services/runtime_paths.hpp"
 #include "services/ui_observer.hpp"
 #include "ui_main_window.h"
 #include "ui_page_header.h"
 #include "ui_workspace.h"
-#include "ui_page_footer.h"
 #include "services/profile_io.hpp"
 #include "services/session_store.hpp"
 #include "services/workspace_style.hpp"
@@ -21,19 +19,14 @@ std::array<aero::TimingHistogram,8> guiUpdateStages(){return updateStages;}
 Window::Window()
       : settings(desktop::preferencesPath(),
                  QSettings::IniFormat){
-    setWindowTitle("AeroTrace 1553 "+QCoreApplication::applicationVersion()+" — Bus Analysis Studio");
     setMinimumSize(900, 540);
     const auto available =
         QGuiApplication::primaryScreen()->availableGeometry();
-    resize(qMin(1500, available.width() - 32),
-           qMin(940, available.height() - 48));
-    if(settings.value("sessionStorageVersion",0).toInt()<2) {
-      auto old=settings.value("recordFolder",desktop::dataDirectory()+"/Sessions").toString();
-      auto roots=settings.value("legacySessionRoots").toStringList();if(!roots.contains(old))roots<<old;
-      settings.setValue("legacySessionRoots",roots);settings.setValue("recordFolder",desktop::defaultSessionDirectory());settings.setValue("sessionStorageVersion",2);
+    sessionDir=settings.value("exportFolder",desktop::defaultExportDirectory()).toString();
+    if(QFileInfo::exists(desktop::dataDirectory()+"/pending-icd-deletion.json")) {
+      setProperty("icdDeletePending",true);
+      QTimer::singleShot(0,this,&Window::resumeIcdDeletion);
     }
-    sessionDir=settings.value("recordFolder",desktop::defaultSessionDirectory()).toString();
-    QDir().mkpath(sessionDir);
     restoreCaptureSource();
     backend.captureConfig.logicalDevices={settings.value("logicalChannel1",0).toInt(),settings.value("logicalChannel2",1).toInt()};
     backend.captureConfig.simulatorRate=settings.value("simulatorRate",12).toUInt();
@@ -46,46 +39,37 @@ Window::Window()
       const auto previous=QJsonDocument::fromJson(previousConnections.readAll()).object();connectionAttempts=previous.value("attempts").toArray();connectionAttempt=previous.value("latest_attempt").toObject();
     }
     QFile savedProfile(QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation)+"/active-profile.json");
-    restoreIcdDocument();
     if(savedProfile.open(QIODevice::ReadOnly)) {
       std::vector<aero::Signal> mappings;
-      if(auto error=desktop::profileFromJson(QJsonDocument::fromJson(savedProfile.readAll()).object(),mappings);error.isEmpty()) backend.applyProfile(std::move(mappings));
+      const auto profile=QJsonDocument::fromJson(savedProfile.readAll()).object();
+      manualRegistry=profile["manual_library"].toObject();
+      if(auto error=desktop::profileFromJson(profile,mappings);error.isEmpty()) backend.applyProfile(std::move(mappings));
       else qWarning().noquote()<<"Active ICD profile rejected:"<<savedProfile.fileName()<<error;
     }
     model.refresh();
     Ui::MainWindow form;
     form.setupUi(this);
-    setWindowTitle("AeroTrace 1553 "+QCoreApplication::applicationVersion()+" — Bus Analysis Studio");
+    setWindowTitle("AeroTrace 1553 "+QCoreApplication::applicationVersion()+" — Capture & ICD Workspace");
     resize(qMin(1500, available.width() - 32),
            qMin(940, available.height() - 48));
     root = form.centralWidget;
     headerTitle = form.headerTitle;
-    footerBadge = form.footerBadge;
-    licenseBadge = form.licenseBadge;
     stateBadge = form.stateBadge;
     scroll = form.workspaceScroll;
+    workspaceStack = form.workspaceStack;
     auto styleBadge = [](QLabel *label, const QString &fg, const QString &bg) {
       label->setFixedHeight(28);
       label->setAlignment(Qt::AlignCenter);
       label->setStyleSheet(QString("color:%1;background:%2;border-radius:14px;padding:6px 10px;font-size:10px;").arg(fg,bg));
     };
-    styleBadge(form.simulationBadge, "#526057", "#f0f2ee");
+    styleBadge(form.simulationBadge, "#145331", "#e2f2e8");
     form.simulationBadge->setText(backend.captureConfig.hardware ? "DDC · RECEIVE ONLY" : "SIMULATOR");
-    styleBadge(licenseBadge, "#cf405b", "#fff2f5");
     styleBadge(stateBadge, "#626e60", "#ffffff");
-    connect(form.preferencesButton, &QPushButton::clicked, this, [this] { navigate(16); });
     for (int i = 0; i < 18; ++i) {
       auto b = form.navigation->findChild<QPushButton *>(QString("nav%1").arg(i));
-      Q_ASSERT(b);
-      connect(b, &QPushButton::clicked, this, [this, i] {
-        if (i != 0 && !unlocked) {
-          pendingPage = i;
-          navigate(0);
-          toast("Open the local workspace to continue.");
-          return;
-        }
-        navigate(i);
-      });
+      if (b) {
+        connect(b, &QPushButton::clicked, this, [this, i] { navigate(i); });
+      }
       nav << b;
     }
     connect(&tick, &QTimer::timeout, this, [this] { updateLive(); });
@@ -94,36 +78,15 @@ Window::Window()
     setupOperatorShell();
     observeUiActions(this);
     applicationEvent("workspace_paths","",{{"preferences",settings.fileName()},{"recordings",sessionDir},{"data",desktop::dataDirectory()}});
-    setupKeyGate();
-    if(QStandardPaths::isTestModeEnabled() || desktop::keyRequired()) navigate(0);
-    else {
-      unlocked=true; navigate(4);
-      QTimer::singleShot(350,this,[this]{automaticCapture();});
+    unlocked = true;
+    navigate(2);
+    if (!QStandardPaths::isTestModeEnabled()) {
+      QTimer::singleShot(350, this, [this] { automaticCapture(); });
     }
-    shortcut(QKeySequence("Ctrl+O"), [this] {
-      if (unlocked)
-        openSession();
-    });
-    shortcut(QKeySequence("Ctrl+R"), [this] {
-      if (unlocked)
-        toggleCapture();
-    });
-    shortcut(QKeySequence("F1"), [this] {
-      if (unlocked)
-        navigate(17);
-    });
-    shortcut(QKeySequence(Qt::Key_Space), [this] {
-      if (page == 11) {
-        backend.replayPlaying = !backend.replayPlaying;
-        replayClock.restart();
-      }
-    });
   }
 
 Window::~Window(){
   tick.stop();configurationRetry.stop();++*replayGeneration;
-  // Tear down document callbacks while Window state and form widgets still live.
-  if(auto dialog=documentDialog.data()){dialog->close();delete dialog;}
   for(auto w:findChildren<QFutureWatcherBase *>())w->waitForFinished();
   backend.acquisition.stop();
   for(auto view:findChildren<QAbstractItemView *>()) {
@@ -133,31 +96,16 @@ Window::~Window(){
   delete takeCentralWidget();
 }
 
-void Window::shortcut(QKeySequence k, std::function<void()> f){
-    auto s = new QShortcut(k, this);
-    connect(s, &QShortcut::activated, this, f);
-    connect(s,&QShortcut::activated,this,[k]{applicationEvent("shortcut",k.toString());});
-  }
-
-
-
-
-
 void Window::toast(QString text){ applicationEvent("operator_notice",text);statusBar()->showMessage(text, 8000); }
 
-
-
-
-
 void Window::navigate(int n){
-    applicationEvent("navigate","",{{"from",page},{"to",n},{"unlocked",unlocked}});
+    QElapsedTimer navigationTime;
+    navigationTime.start();
+    applicationEvent("navigate","",{{"from",page},{"to",n}});
     if(n<0 || n>=int(desktop::pages.size())) return;
-    if (n != 0 && !unlocked) {
-      for (int i = 0; i < nav.size(); ++i)
-        nav[i]->setChecked(i == page);
-      toast("Open the local workspace first.");
-      return;
-    }
+    if(n==0 || n==1 || n==15) n=2;
+    if(n==5 || n==8 || n==9) n=4;
+    if(n==13) n=12;
     if(scroll)settings.setValue(QString("pageScroll/%1").arg(page),scroll->verticalScrollBar()->value());
     persistMonitorWorkspace();
     const auto workspacePage=[](int number){return number==6 || number==7 || number==12;};
@@ -190,55 +138,62 @@ void Window::navigate(int n){
     monitorStatus = nullptr;
     deviceTabs=nullptr;deviceTitles={};deviceStatuses={};selectedSummary=nullptr;monitorCsv=nullptr;
     sessionTable = nullptr;
-    const bool busAnalysis=n==5 || n==8 || n==9;
-    headerTitle->setText(workspacePage(n)?"ICD & Analysis":busAnalysis?"Bus Analysis":names[n]);
-    for (int i = 0; i < nav.size(); ++i)
-      {nav[i]->setChecked(i == (workspacePage(n)?12:n));
-       const auto original=nav[i]->property("navigationIcon").value<QIcon>();if(!original.isNull()){auto pixmap=original.pixmap(22,22);if(i==(workspacePage(n)?12:n)){QPainter painter(&pixmap);painter.setCompositionMode(QPainter::CompositionMode_SourceIn);painter.fillRect(pixmap.rect(),Qt::white);}nav[i]->setIcon(QIcon(pixmap));}}
+    const auto route=(n==7)?6:(n==11)?10:n;
+    const QString routeTitle=route==4?"Monitor & Record":route==6?"Engineering & Plots":route==10?"Sessions & Replay":route==12?"Signal Mappings":names[route];
+    updateShellHeading(route,routeTitle,route==16?QString():subtitle(n));
 
-    auto old = scroll->takeWidget();
-    if (old)
-      old->deleteLater();
-    content = new QWidget;
+    if (auto old = scroll->widget()) {
+      old->hide();
+      scroll->takeWidget()->deleteLater();
+    } else if(content) {
+      content->deleteLater();
+    }
+    const bool stagedAnalysis=n==7 && backend.acquisition.active();
+    content = new QWidget(stagedAnalysis?this:nullptr);
     Ui::Workspace workspaceForm;
     workspaceForm.setupUi(content);
     pageLayout = workspaceForm.pageLayout;
-    if (n == 0) {
-      licensePage();
-      finishPage();
-      return;
-    }
     auto heading = new QWidget;
     Ui::PageHeader headingForm;
     headingForm.setupUi(heading);
-    headingForm.pageTitle->setText(n == 1 ? "Welcome back" : n == 8 ? "Bus & RT Topology" : names[n]);
+    headingForm.pageTitle->setText(names[n]);
     headingForm.pageSubtitle->setText(subtitle(n));
     headingForm.eyebrow->hide();headingForm.pageSubtitle->hide();headingForm.pageTitle->hide();
-    if(n==4) heading->hide();
+    if(n==4 || n==12) heading->hide();
     titleActions = headingForm.pageActionsLayout;
     pageLayout->addWidget(heading);
-    if(busAnalysis) {
+    if(n==6 || n==7) {
       auto tabs=new QTabBar(content);
-      tabs->setObjectName("busAnalysisTabs");
-      tabs->setAccessibleName("Bus Analysis");
-      tabs->addTab("Inspector");
-      tabs->addTab("Topology");
-      tabs->addTab("Alerts");
-      tabs->setCurrentIndex(n==5?0:n==8?1:2);
+      tabs->setObjectName("subWorkspaceTabs");
+      tabs->setAccessibleName("Engineering and Plots");
+      tabs->addTab("Engineering Table");
+      tabs->addTab("Analysis Plots");
+      tabs->setCurrentIndex(n==6?0:1);
       pageLayout->addWidget(tabs);
       connect(tabs,&QTabBar::currentChanged,this,[this,activeTabs=QPointer<QTabBar>(tabs)](int index){
-        constexpr int pages[]{5,8,9};
-        if(!activeTabs || !content->isAncestorOf(activeTabs) || index<0 || index>=3) return;
+        if(!activeTabs || !content->isAncestorOf(activeTabs) || index<0 || index>1) return;
         const auto focused=activeTabs->hasFocus();
-        navigate(pages[index]);
-        if(focused) if(auto next=content->findChild<QTabBar *>("busAnalysisTabs")) next->setFocus(Qt::TabFocusReason);
+        navigate(index==0?6:7);
+        if(focused) if(auto next=content->findChild<QTabBar *>("subWorkspaceTabs")) next->setFocus(Qt::TabFocusReason);
+      },Qt::QueuedConnection);
+    } else if(n==10 || n==11) {
+      auto tabs=new QTabBar(content);
+      tabs->setObjectName("subWorkspaceTabs");
+      tabs->setAccessibleName("Sessions and Replay");
+      tabs->addTab("Saved Sessions");
+      tabs->addTab("Replay Timeline");
+      tabs->setCurrentIndex(n==10?0:1);
+      pageLayout->addWidget(tabs);
+      connect(tabs,&QTabBar::currentChanged,this,[this,activeTabs=QPointer<QTabBar>(tabs)](int index){
+        if(!activeTabs || !content->isAncestorOf(activeTabs) || index<0 || index>1) return;
+        const auto focused=activeTabs->hasFocus();
+        navigate(index==0?10:11);
+        if(focused) if(auto next=content->findChild<QTabBar *>("subWorkspaceTabs")) next->setFocus(Qt::TabFocusReason);
       },Qt::QueuedConnection);
     }
 
+    const auto setupMs=navigationTime.elapsed();
     switch (n) {
-    case 1:
-      welcome();
-      break;
     case 2:
       device();
       break;
@@ -248,20 +203,11 @@ void Window::navigate(int n){
     case 4:
       liveMonitor();
       break;
-    case 5:
-      inspector();
-      break;
     case 6:
       engineering();
       break;
     case 7:
       plotPage();
-      break;
-    case 8:
-      topology();
-      break;
-    case 9:
-      events();
       break;
     case 10:
       sessions();
@@ -270,16 +216,10 @@ void Window::navigate(int n){
       replay();
       break;
     case 12:
-      icdLibrary();
-      break;
-    case 13:
-      editor();
+      signalMappingsPage();
       break;
     case 14:
       exports();
-      break;
-    case 15:
-      security();
       break;
     case 16:
       preferences();
@@ -288,59 +228,85 @@ void Window::navigate(int n){
       diagnostics();
       break;
     }
-    auto footer = new QLabel;
-    Ui::PageFooter footerForm;
-    footerForm.setupUi(footer);
-    footer->hide();
-    if(n!=4 && n!=6 && n!=7) pageLayout->addStretch();
+    const auto formMs=navigationTime.elapsed();
+    if(n!=4 && n!=6 && n!=7 && n!=16) pageLayout->addStretch();
     refreshDataViews();
     refreshOperatorState();
+    const auto refreshMs=navigationTime.elapsed();
+    if(stagedAnalysis) {
+      // Let input and the recording indicator update before laying out the
+      // chart. A newer navigation request owns the scroll area from then on.
+      QTimer::singleShot(std::chrono::milliseconds(16),this,
+        [this,target=QPointer<QWidget>(content),navigationTime,setupMs,formMs,refreshMs]{
+          if(!target || target!=content)return;
+          QElapsedTimer layoutTime;
+          layoutTime.start();
+          finishPage();
+          if(navigationTime.elapsed()>100)
+            applicationEvent("slow_navigation","",{{"page",page},{"shell_ms",setupMs},{"form_ms",formMs-setupMs},
+              {"refresh_ms",refreshMs-formMs},{"layout_ms",layoutTime.elapsed()},{"total_ms",navigationTime.elapsed()}});
+        });
+      return;
+    }
     finishPage();
+    const auto totalMs=navigationTime.elapsed();
+    if(totalMs>100 && backend.acquisition.active())
+      applicationEvent("slow_navigation","",{{"page",n},{"shell_ms",setupMs},{"form_ms",formMs-setupMs},
+        {"refresh_ms",refreshMs-formMs},{"layout_ms",totalMs-refreshMs},{"total_ms",totalMs}});
   }
 
 void Window::finishPage(){
     if(page>=1&&page<=3)desktop::polishWorkspace(content);
     observeUiActions(content);
-    pageLayout->activate();
-    scroll->setWidget(page==6 || page==7 || page==12?attachIcdWorkspace():content);
+    QList<Plot *> charts;
+    if(page==7 && !recordedCsv && backend.acquisition.active()) {
+      for(auto plot:plots)if(!plot->isHidden()) {
+        auto sizing=plot->sizePolicy();
+        sizing.setRetainSizeWhenHidden(true);
+        plot->setSizePolicy(sizing);
+        plot->hide();
+        charts.append(plot);
+      }
+    }
+    scroll->setWidget(content);
     content->show();
     updateEngineeringDetails();
     scroll->verticalScrollBar()->setValue(settings.value(QString("pageScroll/%1").arg(page),0).toInt());
+    if(!charts.isEmpty())
+      QTimer::singleShot(std::chrono::milliseconds(16),content,[charts]{
+        for(auto plot:charts)plot->show();
+      });
   }
+
+bool Window::inWorkspace(const aero::Signal &signal) const {
+  return workspaceSubsystem.isEmpty() || QString::fromStdString(signal.subsystem)==workspaceSubsystem;
+}
+
+void Window::openSignalMappingForRoute(const PreFillMappingRoute &route) {
+  pendingPreFillRoute=route;
+  navigate(12);
+}
 
 QString Window::subtitle(int n){
     return QStringList{
         "",
         "Connect to your DDC interface or continue a local recording.",
-        "Discover the DDC USB interface and configure read-only monitor "
-        "channels.",
-        "Live overview of observed bus activity, signal health and recording "
-        "integrity.",
-        "Filter and inspect captured raw MIL-STD-1553 traffic in real time.",
-        "Word-by-word inspection with bit fields, source metadata and matching "
-        "ICD signals.",
-        "Live parameter values derived from a versioned ICD profile.",
-        "Synchronized engineering traces with windowing, cursors and "
-        "display-only pause.",
-        "Passive visualization of observed controllers and remote-terminal "
-        "addresses.",
-        "Review protocol errors, integrity notices and derived engineering "
-        "anomalies.",
-        "Search, inspect and recover locally recorded capture sessions.",
-        "Reconstruct a recorded session using original timestamps and "
-        "versioned ICD mappings.",
-        "Versioned mappings convert hexadecimal payload words to engineering "
-        "parameters.",
-        "Create or edit one engineering signal and preview conversion against "
-        "raw data.",
-        "Create timestamp-bound datasets and integrity-aware engineering "
-        "reports.",
-        "Inspect the local physical dongle and permitted offline product "
-        "features.",
-        "Customize display and recording behavior while preserving acquisition "
-        "integrity.",
-        "Verify build compatibility, acquisition health and offline "
-        "installation requirements."}
+        "Step 1 · Select DDC hardware or simulation mode, channels, and output folder.",
+        "Live RT 00–31 bus activity grid.",
+        "Step 2 · Capture MIL-STD-1553 bus traffic, view RT 00–31 matrix, inspect details, or export CSV.",
+        "",
+        "Step 4 · Inspect converted engineering values and preview raw-to-engineering formulas.",
+        "Step 4 · Synchronized engineering traces with Cursor, Pan, Zoom, Statistics, and Limits.",
+        "",
+        "",
+        "Step 5 · Browse, replay, and inspect saved local .atd recordings.",
+        "Step 5 · Reconstruct a recorded session along its timeline.",
+        "Step 3 · Define RT/SA/Tx commands and 0-based Word 0–31 signal fields manually or from JSON/CSV.",
+        "",
+        "Step 5 · Export time-bounded CSV, JSON, or Engineering datasets with SHA-256 checksums.",
+        "Inspect local security and product entitlements.",
+        "Customize display behavior, radix formatting, and application defaults.",
+        "Step-by-step guided workflow help, system health checks, and support bundles."}
         .value(n);
   }
 
@@ -392,6 +358,7 @@ void Window::disconnectDevices(){
 }
 
 void Window::startCapture(){
+    if(property("icdDeletePending").toBool()){toast("Finish pending profile deletion before recording.");return;}
     if(backend.captureConfig.hardware&&!backend.acquisition.connected()){toast("Connect devices before starting a recording");return;}
     if(backend.captureConfig.hardware&&discoveryRunning){toast("Wait for the DDC scan to finish before connecting");return;}
     applicationEvent("capture_request","",{{"hardware",backend.captureConfig.hardware},{"recordings",sessionDir},{"profile_count",int(backend.mappings().size())},{"run_id",applicationRunId()}});
@@ -400,16 +367,25 @@ void Window::startCapture(){
     if (!unlocked)
       return;
     if (backend.acquisition.active()) {
-      navigate(3);
+      navigate(4);
       return;
     }
     sessionSaveState.clear();
-    QStorageInfo storage(sessionDir);
+    const auto selectedFolder=settings.value("exportFolder").toString().trimmed();
+    const auto output=QDir(selectedFolder.isEmpty()?desktop::defaultExportDirectory():selectedFolder).absolutePath();
+    if(!QDir().mkpath(output)){toast("Cannot create the selected recording folder.");return;}
+    QStorageInfo storage(output);
     if (storage.bytesAvailable() < 100 * 1024 * 1024) {
       toast("Insufficient free space: at least 100 MB is required.");
       return;
     }
-    currentFile = QDir(sessionDir)
+    auto runName=settings.value("nextRunName").toString().trimmed();
+    if(runName.isEmpty())runName=desktop::suggestedRunName(output);
+    if(const auto error=desktop::validateRunName(runName);!error.isEmpty()){toast(error);return;}
+    for(const auto &suffix:{"_EXT.csv","_INT.csv"})
+      if(QFileInfo::exists(QDir(output).filePath(runName+suffix))){toast("The output folder already contains this run name. Choose a new name.");return;}
+    settings.setValue("exportFolder",output);settings.setValue("nextRunName",runName);
+    currentFile = QDir(output)
                       .filePath("Capture_" +
                                 QDateTime::currentDateTime().toString(
                                     "yyyyMMdd_HHmmss_zzz") +
@@ -444,14 +420,14 @@ void Window::startCapture(){
       toast(QString::fromStdString(backend.acquisition.metrics(false).error));
       return;
     }
-    if(auto error=desktop::describeSession(currentFile,backend.captureConfig);!error.isEmpty())toast(error);
+    if(auto error=desktop::describeSession(currentFile,backend.captureConfig,runName,desktop::csvOptions(settings));!error.isEmpty())toast(error);
     preserveSessionConnection(currentFile);
     model.records.clear();
     model.refresh();
     captureClock.restart();
     stateBadge->setText("● RECORDING");
     eventText = backend.captureConfig.hardware ? "DDC receive-only capture started" : "Simulator capture started";
-    navigate(QStandardPaths::isTestModeEnabled() ? 3 : 4);
+    navigate(4);
   }
 
 void Window::toggleCapture(){
@@ -472,7 +448,9 @@ void Window::updateLive(){
     if(previousHeartbeat && nowHeartbeat-previousHeartbeat>qMax(500,tick.interval()*4))applicationEvent("ui_heartbeat_delay","",{{"gap_ms",nowHeartbeat-previousHeartbeat},{"page",page},{"recording",currentFile}});previousHeartbeat=nowHeartbeat;
     if(!applicationLogError().isEmpty())statusBar()->showMessage(applicationLogError());
     finishConnection();
-    auto incoming = backend.acquisition.drain();
+    // Keep the GUI batch cost bounded even when recording is producing faster
+    // than the table can paint. The durable writer consumes its own queue.
+    auto incoming = backend.acquisition.drain(2048);
     const auto incomingCount=incoming.size();
     if (incomingCount) {
       if(!backend.selected.id) backend.selected=incoming.front();
@@ -543,7 +521,6 @@ void Window::closeEvent(QCloseEvent *e){
       auto watcher=new QFutureWatcher<void>(this);connect(watcher,&QFutureWatcher<void>::finished,this,[this,watcher]{if(connectionFuture.valid())connectionFuture.get();connecting=false;closingCapture=false;watcher->deleteLater();QTimer::singleShot(0,this,&QWidget::close);});watcher->setFuture(QtConcurrent::run([this]{backend.acquisition.stop();}));return;
     }
     if(closingCapture){e->ignore();return;}
-    if(documentDialog)documentDialog->close();
     applicationEvent("workspace_closed","",{{"capture",currentFile},{"recorded",double(backend.acquisition.metrics(false).recorded)},{"capture_error",QString::fromStdString(backend.acquisition.metrics(false).error)}});
     settings.sync();
     e->accept();

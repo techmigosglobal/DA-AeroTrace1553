@@ -31,12 +31,15 @@ bool Window::sessionWorkflowTest(const QString &directory) {
   for(int batch=0;batch<12;++batch){std::vector<aero::Record> records;for(int n=0;n<700;++n)records.push_back(aero::synthetic(batch*700+n));shared.append(records);filtered.syncAppend();}
   check(shared.records.size()==5000&&filtered.rowCount()==1250&&std::all_of(filtered.visible.begin(),filtered.visible.end(),[&](int i){return filtered.rows()[i].channel==2&&filtered.rows()[i].bus==1;}),"Incremental shared display retains exactly 5000 records with correct filtered identities");
   const auto output=directory+"/exports-"+QUuid::createUuid().toString(QUuid::Id128);
-  sessionDir=directory;settings.setValue("monitorRowMode","raw");settings.setValue("exportFolder",output);settings.setValue("nextRunName","");settings.setValue("exportFolder","");settings.setValue("monitorLayout","windows");settings.setValue("activeMonitorChannel",1);
+  sessionDir=directory;settings.setValue("monitorRowMode","raw");settings.setValue("exportFolder",output);settings.setValue("nextRunName","run1");settings.setValue("monitorLayout","windows");settings.setValue("activeMonitorChannel",1);
   for(int c=1;c<=2;++c)for(auto b:{"A","B"})settings.setValue(QString("channel%1Bus %2").arg(c).arg(b),true);
   unlocked=true;automaticHeld=true;backend.captureConfig.hardware=false;backend.captureConfig.simulatorRate=1000;
   backend.profile.clear();backend.captureConfig.hardware=true;discoveryRunning=true;const auto beforeScanCapture=currentFile;startCapture();check(!connecting&&currentFile==beforeScanCapture,"Hardware connection waits for discovery to finish");discoveryRunning=false;backend.captureConfig.hardware=false;
   startCapture();navigate(4);settle(600);
-  check(backend.acquisition.active()&&csvFolderEdit->text().isEmpty()&&runNameEdit->text().isEmpty(),"Monitoring starts without CSV folder or run name");
+  check(backend.acquisition.active()&&QFileInfo(currentFile).absolutePath()==QDir(output).absolutePath()&&
+        !content->findChild<QWidget *>("recordingSetup"),
+        "Raw recording opens in the selected output folder and the live monitor keeps setup controls out of the canvas");
+  check(nav[10]->isVisible()&&(!nav[11]||!nav[11]->isVisible()),"Sessions is accessible as a top-level destination");
   backend.captureConfig.hardware=true;rescanDdc();for(int i=0;i<150&&discoveryRunning;++i)settle(100);check(!discoveryRunning&&hardwareDiscovery.value("runtime_probe_blocked").toBool(),"Windows inventory refresh does not probe the SDK during capture");backend.captureConfig.hardware=false;
   check(monitorWorkspace&&paneViews[0]&&paneViews[1]&&paneModels[0].rowCount()>0&&paneModels[1].rowCount()>0,"Movable workspace displays both channels");
   check(channelWindows[0]->geometry().left()<channelWindows[1]->geometry().left(),"Initial channel windows are side by side");
@@ -46,19 +49,17 @@ bool Window::sessionWorkflowTest(const QString &directory) {
   paneViews[1]->selectRow(0);const auto selected=selectedMonitorRecord();const auto selectedId=selected?selected->id:0;
   check(selected&&selected->channel==2,"Selection resolves the Internal record");settle(150);
   check(selectedMonitorRecord()&&selectedMonitorRecord()->id==selectedId,"Incoming batches preserve active pane selection");
-  inspectSelection();check(page==5&&backend.selected.id==selectedId,"Inspect opens the selected pane record");navigate(4);
+  if(const auto r=selectedMonitorRecord())openRecordDetailsDialog(*r);auto dlg=findChild<QDialog *>("recordDetailsDialog");check(dlg&&backend.selected.id==selectedId,"Details opens the selected pane record");if(dlg)dlg->close();navigate(4);
   check(!content->findChild<QPushButton *>("pauseButton")->isVisible(),"Live display pause is removed");
   const auto recordedBefore=backend.acquisition.metrics().recorded;auto mode=content->findChild<QComboBox *>("workspaceLayout");mode->setCurrentIndex(1);settle(150);
   check(!monitorWorkspace->isVisible()&&deviceTabs->isVisible()&&backend.acquisition.metrics().recorded>recordedBefore,"Layout switches during uninterrupted capture");mode->setCurrentIndex(0);
   resize(1500,940);settle(50);navigate(3);check(rtLights[0][3]&&rtLights[0][3]->property("responseObserved").toBool(),"Dashboard shows recording-side RT responses");grab().save(directory+"/dashboard.png");navigate(4);
   resize(1500,940);settle(50);grab().save(directory+"/movable.png");resize(900,540);settle(50);grab().save(directory+"/movable-minimum.png");
-  check(paneViews[0]->height()>=90&&paneViews[1]->height()>=90&&monitorCsv->isVisible(),"Minimum window keeps both panes and save action available through scrolling");
-  QTimer cancelDialog;cancelDialog.setInterval(25);bool sawShortcuts=false;
-  connect(&cancelDialog,&QTimer::timeout,this,[&]{for(auto dialog:findChildren<QDialog *>())if(dialog->windowTitle()=="Save Internal and External CSVs"){QStringList text;for(auto button:dialog->findChildren<QPushButton *>())text<<button->text();sawShortcuts=text.contains("Desktop")&&text.contains("Documents")&&text.contains("Browse…");dialog->reject();cancelDialog.stop();}});cancelDialog.start();
-  stopAndSave();wait();cancelDialog.stop();check(sawShortcuts,"Missing-destination dialog offers Desktop, Documents and Browse shortcuts");check(!backend.acquisition.active()&&QFileInfo::exists(currentFile)&&sessionSaveState.contains("cancelled"),"Cancelling missing-destination dialog retains finalized recording");
+  check(paneViews[0]->height()>=90&&paneViews[1]->height()>=90&&recordButton&&recordButton->isVisible()&&recordButton->isEnabled(),
+        "Minimum window keeps both panes and the primary save action available through scrolling");
   QHash<quint64,QStringList> liveSnapshot;
   for(const auto &r:model.records)liveSnapshot.insert(r.id,{stamp(r.timestampNs),QString::number(r.channel),r.bus?"B":"A",hexword(r.commandWord),hexword(r.statusWord),words(r),QString::number(aero::command(r.commandWord).rt),QString::number(aero::command(r.commandWord).sa),aero::command(r.commandWord).transmit?"RT→BC":"BC→RT"});
-  csvFolderEdit->setText(output);runNameEdit->setText("run1");
+  settings.setValue("exportFolder",output);settings.setValue("nextRunName","run1");
   stopAndSave();stopAndSave();check(savingSession,"Duplicate Stop & save is guarded");wait();
   const auto metrics=backend.acquisition.metrics();check(!savingSession&&!backend.acquisition.active()&&sessionSaveState=="Complete","Stop & save finishes asynchronously");
   QFile manifest(currentFile+".export.json");QJsonObject metadata;if(manifest.open(QIODevice::ReadOnly))metadata=QJsonDocument::fromJson(manifest.readAll()).object();manifest.close();
@@ -71,7 +72,7 @@ bool Window::sessionWorkflowTest(const QString &directory) {
   check(same&&matched==int(metrics.recorded)&&matched>0,"Every finalized record matches the selected channel CSV with independent time deltas");
   resize(1500,940);settle(50);settings.setValue("monitorLayout","tabs");navigate(4);check(!monitorWorkspace->isVisible()&&deviceTabs->isVisible(),"Settings selects the tab layout");
   grab().save(directory+"/tabs.png");
-  check(QDir(output).entryList(QDir::Files|QDir::Hidden).size()==2,"CSV destination contains only the paired CSVs");
+  check(QFileInfo(currentFile).exists()&&QFileInfo(currentFile+".status.txt").exists()&&QDir(output).entryList({"*.csv"},QDir::Files).size()==2,"Output contains raw ATD, capture integrity report, and exactly two CSVs");
   loadSession(currentFile);wait();check(page==11&&backend.replayCount()==metrics.recorded,"Saved session opens for indexed replay");
   if(backend.replayCount()){seekReplay(backend.replayCount()-1);wait();check(backend.selected.id>0&&backend.replayIndex==backend.replayCount()-1,"Replay seeks to the end");}
   const auto liveCapture=currentFile;const auto older=directory+"/different-replay-"+QUuid::createUuid().toString(QUuid::Id128)+".atd";aero::Recorder otherWriter;bool otherCreated=otherWriter.open(std::filesystem::path(older.toStdWString()));auto otherRecord=aero::synthetic(99);otherRecord.words[0]=0xBEEF;otherCreated=otherCreated&&otherWriter.append(otherRecord)&&otherWriter.close();check(otherCreated,"Different replay fixture has distinct words and record identity");
@@ -89,8 +90,8 @@ bool Window::sessionWorkflowTest(const QString &directory) {
   check(saveProgress&&saveProgress->isVisible()&&saveProgressLabel->text()==sessionSaveState,"Slow saves show a responsive progress panel after 300 milliseconds");
   check(!close(),"Closing is blocked while a save is in progress");savingSession=false;finishSaveProgress();settle(20);check(!saveProgress,"Completed save removes its progress panel");
   const auto unsaved=directory+"/unsaved-"+QUuid::createUuid().toString(QUuid::Id128)+".atd";check(QFile::copy(older,unsaved),"Unsaved recording fixture retained on disk");
-  findUnsavedRecordings();wait();auto recovery=findChild<QDialog *>("unsavedRecordings");
-  check(recovery&&recovery->isVisible(),"Startup discovery offers retained recordings without a completed export");
+  scanUnfinishedRecordings(directory);wait();auto recovery=findChild<QDialog *>("unsavedRecordings");
+  check(recovery&&recovery->isVisible(),"Explicit folder recovery offers retained recordings without a completed export");
   if(recovery){for(auto button:recovery->findChildren<QPushButton *>())if(button->text()=="Later")button->click();settle(20);}
   check(QFileInfo::exists(unsaved)&&!backend.acquisition.active(),"Deferring recovery preserves raw bytes and never starts capture");
   backend.recordingIndex.reset();backend.replaySource=false;sessionDir=oldDir;settings.clear();for(auto i=previous.begin();i!=previous.end();++i)settings.setValue(i.key(),i.value());
@@ -133,7 +134,9 @@ bool Window::hardwareConnectionTest(const QString &reportDirectory,const QString
   const auto failure=connectionAttempt.value("error").toString();check(!failure.isEmpty()&&connectionAttempt.value("failure").toObject().contains("stage"),"Global pre-channel failure preserves structured connection detail");
   QEventLoop expiredToast;QTimer::singleShot(8200,&expiredToast,&QEventLoop::quit);expiredToast.exec();navigate(2);navigate(4);
   const auto persistent=content->findChild<QLabel *>("connectionResultSummary"),reason=content->findChild<QLabel *>("recordingDisabledReason");
-  check(persistent&&persistent->text().contains(failure)&&reason&&reason->text().contains(failure),"Failure and disabled reason survive toast expiry and navigation");
+  check(persistent&&persistent->text().contains(failure)&&reason&&reason->text().contains(failure),
+        QString("Failure and disabled reason survive toast expiry and navigation (summary=%1, reason=%2, failure=%3)")
+          .arg(persistent?persistent->text():"<missing>").arg(reason?reason->text():"<missing>").arg(failure));
   check(connectionAttempt.value("resolved_identity").isObject(),"Connection report retains resolved backend identity independently of discovery");
   navigate(2);QApplication::processEvents();
   auto method=content->findChild<QComboBox *>("ddcBackend");auto receive=content->findChild<QComboBox *>("ddcReceiveMode");

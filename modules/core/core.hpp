@@ -1,13 +1,16 @@
 #pragma once
 #include <cstdint>
+#include <cstdio>
 #include <filesystem>
 #include <fstream>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 #include <span>
 #include <functional>
 #include <mutex>
+#include <memory>
 
 namespace aero {
 struct Command {
@@ -27,6 +30,10 @@ struct Record {
   std::uint32_t tickResolutionNs{};
   bool operator==(const Record &) const = default;
 };
+enum class SignalWord { Payload, Command1, Command2, Status1, Status2 };
+std::string_view signalWordName(SignalWord);
+std::optional<SignalWord> parseSignalWord(std::string_view);
+class ConversionFormula;
 struct Signal {
   std::string id, unit;
   unsigned rt{3}, sa{2}, word{}, lsb{}, width{16};
@@ -43,28 +50,43 @@ struct Signal {
   bool simulationOnly{};
   std::string subsystem, messageId, sourceSignalId;
   std::string icdSetId, icdRevision;
+  SignalWord sourceWord{SignalWord::Payload};
+  int peerRt{-1}, peerSa{-1}; // Opposite command on an RT-to-RT route.
+  std::string conversionFormula;
+  std::shared_ptr<const ConversionFormula> preparedFormula;
+  int matchWord{-1}; // Optional 0-based payload header/tag word index (0..31); -1 = match all
+  std::uint16_t matchValue{};
 };
 inline bool matchesSignalRoute(const Record &record,const Signal &signal,const Command &command) {
   return command.rt==signal.rt && command.sa==signal.sa && command.transmit==signal.transmit &&
     (!signal.channel || signal.channel==record.channel) &&
-    (signal.bus<0 || signal.bus==record.bus);
+    (signal.bus<0 || signal.bus==record.bus) &&
+    (signal.matchWord<0 || (signal.sourceWord==SignalWord::Payload &&
+      std::size_t(signal.matchWord)<record.words.size() &&
+      record.words[std::size_t(signal.matchWord)]==signal.matchValue));
 }
 std::optional<double> decode(const Record &, const Signal &, bool exampleContext=false);
 std::string validate(const Signal &);
+bool prepareConversion(Signal &);
 std::string serializeProfile(const std::vector<Signal> &);
 Record synthetic(std::uint64_t index);
 std::uint32_t crc32(const std::vector<std::uint8_t> &);
 class Recorder {
-  std::ofstream out;
+  std::FILE *out{};
   std::vector<std::uint8_t> payloadBuffer,batchBuffer;
 
 public:
-  bool open(const std::filesystem::path &);
+  Recorder()=default;
+  Recorder(const Recorder &)=delete;
+  Recorder &operator=(const Recorder &)=delete;
+  ~Recorder();
+  bool open(const std::filesystem::path &,bool exclusive=false);
   bool append(const Record &);
   bool appendBatch(std::span<const Record>);
   bool flush();
+  bool checkpoint();
   bool close();
-  bool active() const { return out.is_open(); }
+  bool active() const { return out!=nullptr; }
 };
 struct ReadResult {
   std::vector<Record> records;

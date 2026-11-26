@@ -114,6 +114,9 @@ def query(request, profile, history, db):
             refs[source] = len(citations)
         first, last = row.get("word_first", -1), row.get("word_last", -1)
         words = row.get("printed_words") or (str(first) if first == last else f"{first}–{last}") if first >= 0 else "Review"
+        source_word = row.get("source_word", "payload")
+        if source_word in {"command1", "command2", "status1", "status2"}:
+            words = source_word[:-1].capitalize() + " " + source_word[-1]
         pdf_definition=""
         if published:
             original=original_rows.get(row["id"])

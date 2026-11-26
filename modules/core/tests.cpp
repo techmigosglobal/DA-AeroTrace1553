@@ -30,6 +30,17 @@ int main() {
     auto r = aero::synthetic(0);
     aero::Signal s{"TEMP", "degC"};
     CHECK(aero::decode(r, s).value() == 10.0);
+    auto custom=s;
+    custom.conversionFormula="max(0, pow(x / 100, 2) - 1)";
+    CHECK(aero::validate(custom).empty());
+    CHECK(aero::decode(r,custom).value()==99.0);
+    CHECK(aero::serializeProfile({custom}).find("aerotrace.icd.profile.v3")!=std::string::npos);
+    custom.conversionFormula="sqrt(-x)";
+    CHECK(!aero::decode(r,custom));
+    custom.conversionFormula="x / (x - x)";
+    CHECK(!aero::decode(r,custom));
+    custom.conversionFormula="system(x)";
+    CHECK(!aero::validate(custom).empty());
     s.expectedWordCount=32;CHECK(!aero::decode(r,s));
     auto full=r;full.commandWord=(3<<11)|(2<<5);full.words.resize(32);CHECK(aero::decode(full,s).value()==10.0);
     full.commandWord|=31;CHECK(!aero::decode(full,s));s.expectedWordCount=0;

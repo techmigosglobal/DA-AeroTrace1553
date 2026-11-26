@@ -30,6 +30,14 @@ int main(){try{
   auto p=interpret(r);CHECK(p.valid && p.rtToRt && p.payloadCommand.rt==4 && p.receiverRt==3 && p.transmitterRt==4);
   signal.rt=4;signal.sa=7;signal.transmit=true;CHECK(*decode(r,signal)==12);
   signal.rt=3;signal.sa=2;signal.transmit=false;CHECK(!decode(r,signal));
+  auto header=signal;header.peerRt=4;header.peerSa=7;header.sourceWord=SignalWord::Command1;
+  header.width=5;header.scale=1;CHECK(decode(r,header)==2);
+  header.sourceWord=SignalWord::Status2;header.lsb=3;header.width=1;
+  r.statusWord2|=8;CHECK(decode(r,header)==1 && !interpret(r).payloadEligible);
+  header.peerSa=6;CHECK(!decode(r,header));header.peerSa=7;
+  const auto statusExample=std::uint16_t((3<<11)|8);
+  CHECK(decode(previewSignalRecord(header,std::span(&statusExample,1),1,0),header)==1);
+  r.statusWord2&=~8;
   std::swap(r.statusWord,r.statusWord2);CHECK(!interpret(r).valid);std::swap(r.statusWord,r.statusWord2);
   r.commandWord2^=1;CHECK(!interpret(r).valid);r.commandWord2^=1;
   r.messageType=10;r.commandWord=(31<<11)|(2<<5)|2;r.validity=7;CHECK(interpret(r).valid && interpret(r).direction=="RT→Broadcast");

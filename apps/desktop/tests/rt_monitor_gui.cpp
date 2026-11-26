@@ -40,13 +40,12 @@ bool Window::rtMonitorWorkflowTest(const QString &directory) {
   check(rtModels[0].item(2,9)->text()==frozen&&paneCounts[0]->text()==frozenCaption&&backend.acquisition.metrics(false).recorded>recorded,"Pause freezes statistics and channel totals while raw recording continues");pause->click();settle(60);
   auto grouping=content->findChild<QComboBox *>("monitorRowMode");grouping->setCurrentIndex(1);settle(50);check(rtModels[0].rowCount()==2&&rtModels[0].columnCount()==6,"Message routes remain available as an alternate mode");
   rtViews[0]->expandAll();grab().save(directory+"/rt-routes.png");grouping->setCurrentIndex(0);settle(50);
-  const auto record=selectedMonitorRecord();const auto id=record?record->id:0;inspectSelection();check(page==5&&id&&backend.selected.id==id,"Inspect opens the exact grouped message");
+  const auto record=selectedMonitorRecord();const auto id=record?record->id:0;if(record)openRecordDetailsDialog(*record);auto dlg=findChild<QDialog *>("recordDetailsDialog");check(dlg&&id&&backend.selected.id==id,"Details opens the exact grouped message");if(dlg){dlg->close();QCoreApplication::sendPostedEvents(nullptr,QEvent::DeferredDelete);settle(20);}
   backend.acquisition.stop();navigate(4);auto mode=content->findChild<QComboBox *>("monitorRowMode");mode->setCurrentIndex(2);check(paneViews[0]->isVisible()&&!rtViews[0]->isVisible(),"Chronological raw view remains available");
   loadSession(currentFile);for(int i=0;i<200&&replayLoadPending;++i)settle(25);
   check(replayRtFrame&&backend.recordingIndex&&replayRtFrame->totalCommands[0]+replayRtFrame->totalCommands[1]==backend.recordingIndex->size(),"Replay statistics scan the entire indexed recording");
   if(auto action=content->findChild<QPushButton *>("showReplayRtStatistics")){action->click();settle(60);check(viewingReplayStatistics&&paneCounts[0]->text().contains("Recorded session · full file")&&displayedRtFrame==replayRtFrame,"Recorded statistics have explicit full-file scope and independent channel totals");grab().save(directory+"/rt-statistics-recorded.png");}else check(false,"Replay statistics action exists");
-  documentCenter();settle(50);QPointer<QDialog> closing=documentDialog;if(closing)closing->close();QCoreApplication::sendPostedEvents(nullptr,QEvent::DeferredDelete);settle(50);
-  check(closing.isNull(),"Closing an active document dialog cancels without callbacks into destroyed widgets");
+  settle(50);
   settings.clear();for(auto i=previous.begin();i!=previous.end();++i)settings.setValue(i.key(),i.value());settings.sync();
   QFile report(directory+"/rt-monitor.txt");if(!report.open(QIODevice::WriteOnly))return false;report.write(results.join('\n').toUtf8());return passed;
 }

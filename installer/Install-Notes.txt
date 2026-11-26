@@ -1,4 +1,4 @@
-AeroTrace 1553 V0.7.0
+AeroTrace 1553 V0.7.1
 
 All application libraries and the offline PDF/OCR/retrieval runtime and CPU-only AeroTrace Assistant are installed together. No separate Qt, Python, Node.js or internet connection is required.
 
