@@ -131,20 +131,33 @@ QToolButton:hover {background:#e5eee4;border-color:#adbfaa;}
 QToolButton:focus {border:2px solid #346449;}
 
 /* AeroTrace operator shell and shared compact controls. */
-QWidget#brand {background:transparent;}
-QLabel#brandText {font-size:18px;font-weight:700;color:#081722;}
-QLabel#brandSubtitle,QLabel#headerSubtitle {font-size:14px;color:#3b5268;}
-QLabel#sidebarWave {border-image:url(:/icons/sidebar-wave.svg) 0 0 0 0 stretch stretch;}
-QLabel#sidebarBrandCaption {font-size:13px;color:#284457;border-left:2px solid #498b72;padding-left:12px;}
+QFrame#sidebar {
+  background:qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #f5faf8,stop:1 #e5f1ec);
+  border-right:1px solid #d4e2dc;
+}
+QWidget#brand {
+  background:qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #1a6b49,stop:1 #0d5034);
+  border-radius:10px;
+}
+QLabel#brandText {font-size:17px;font-weight:700;color:#ffffff;}
+QLabel#brandSubtitle {font-size:12px;color:#d6eee3;}
+QLabel#headerSubtitle {font-size:14px;color:#4a6070;}
+QLabel#sidebarWave {display:none;}
+QLabel#sidebarBrandCaption {font-size:13px;color:#172d3e;border-left:0;padding-left:4px;}
 QWidget#sidebarFooter {background:transparent;}
-QPushButton[navigation="true"],QPushButton#moreTools {border:1px solid transparent;border-radius:8px;padding:10px 12px;min-height:25px;font-size:17px;color:#172d3e;}
+QPushButton[navigation="true"],QPushButton#moreTools {border:1px solid transparent;border-radius:8px;padding:7px 10px;min-height:20px;font-size:14px;color:#172d3e;}
 QPushButton[navigation="true"]:checked {
   color:white;font-weight:600;
-  background:qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #237650,stop:1 #0d5338);
+  background:#146343;
 }
-QPushButton[navigation="true"]:hover:!checked,QPushButton#moreTools:hover {background:#dcebe9;}
+QPushButton[navigation="true"]:hover:!checked,QPushButton#moreTools:hover {background:#dfeee7;}
 QPushButton[navigation="true"]:focus,QPushButton#moreTools:focus {border:1px solid #377bb0;}
 QPushButton[navigation="true"][collapsed="true"],QPushButton#moreTools[collapsed="true"] {padding:9px 1px;text-align:center;}
+QPushButton#sidebarToggle {
+  background:#ffffff;border:1px solid #d0dde5;border-radius:12px;
+  min-width:24px;max-width:24px;min-height:24px;max-height:24px;padding:2px;
+}
+QPushButton#sidebarToggle:hover {background:#eef6f2;}
 QWidget#secondaryNavigation QPushButton {font-size:14px;padding-top:6px;padding-bottom:6px;}
 QPushButton#alertsButton,QPushButton#preferencesButton {padding:7px;background:transparent;border:1px solid transparent;}
 QPushButton#alertsButton:hover,QPushButton#preferencesButton:hover {background:#e8f1f5;border:1px solid #ccdce7;}
@@ -163,10 +176,11 @@ QWidget#assistantPage,QWidget#workspaceStack {background:#f3f7fb;}
 QPushButton#icdChatButton,QPushButton#alertsButton,QPushButton#assistantNavigation,
 QPushButton#nav5,QPushButton#nav8,QPushButton#nav9,QPushButton#nav15 {display:none;}
 QFrame#recordingSetup[card="true"] {background:#ffffff;border:1px solid #ccd9e5;border-radius:8px;}
-QWidget#plotSurface {min-height:360px;}
+QWidget#plotSurface {min-height:240px;}
 QLineEdit,QComboBox,QSpinBox,QDoubleSpinBox {background:#fbfdff;border:1px solid #b8cbd9;border-radius:6px;color:#172b3a;padding:6px 8px;}
 QComboBox::down-arrow {image:url(:/icons/chevron-down.svg);width:13px;height:13px;}
 QTableView {background:#fbfdff;alternate-background-color:#f6f9fb;gridline-color:#dce6ee;border:1px solid #d2dee8;border-radius:7px;selection-background-color:#e0f0e5;selection-color:#15352c;}
+QHeaderView {background:#e8f0f4;border:0;}
 QHeaderView::section {background:#e8f0f4;color:#20394c;border-color:#d4e0e9;font-size:13px;}
 QTabBar::tab {background:transparent;color:#2f485b;border-bottom:2px solid #d6e2eb;}
 QTabBar::tab:selected {color:#145638;border-bottom:3px solid #125d3d;}
@@ -197,11 +211,11 @@ QPushButton[stepButton="true"][stepState="done"] {background:#e4f3ec;color:#1259
 QPushButton#signalPillButton {background:#e6f1fa;border:1px solid #b8d3ea;border-radius:12px;padding:4px 11px;color:#13456b;font-weight:600;font-size:12px;}
 QPushButton#signalPillButton:hover {background:#d6e8f7;}
 QFrame#postSaveBanner {background:#e6f4ed;border:1px solid #9bd1b5;border-radius:8px;}
-QTabBar#subWorkspaceTabs::tab {background:#eef4f8;border:1px solid #cfdde7;border-radius:7px;padding:7px 14px;margin-right:6px;font-weight:600;color:#2c4b62;}
-QTabBar#subWorkspaceTabs::tab:selected {background:#125b78;color:#ffffff;border-color:#0e4c65;}
-#analysisToolbar QToolButton {padding:3px 6px;font-size:12px;border:1px solid #d4e0e9;border-radius:6px;background:#ffffff;color:#214158;}
+QTabBar#subWorkspaceTabs::tab {background:#ffffff;border:1px solid #cfdde7;border-radius:8px;padding:8px 16px;margin-right:6px;font-weight:600;font-size:14px;color:#2c4b62;}
+QTabBar#subWorkspaceTabs::tab:selected {background:#146343;color:#ffffff;border-color:#146343;}
+#analysisToolbar QToolButton {padding:4px;border:1px solid #cddae4;border-radius:7px;background:#ffffff;color:#172b3a;}
 #analysisToolbar QToolButton:hover {background:#eef4f8;}
-#analysisToolbar QToolButton:checked {background:#125b78;color:#ffffff;border-color:#0e4c65;}
+#analysisToolbar QToolButton:checked {background:#e2f3e8;color:#145331;border-color:#8ac7a6;}
 QGroupBox[channelRole="external"] {background:#eff6fe;border:1px solid #8eb7e8;border-radius:8px;}
 QGroupBox[channelRole="internal"] {background:#f5f1fc;border:1px solid #b6a0dc;border-radius:8px;}
 QProgressBar[operatorBusy="true"] {background:#e5edf2;border:0;border-radius:3px;min-height:5px;max-height:5px;}
@@ -219,4 +233,17 @@ QWidget#PreferencesPage QFrame[card="true"] {border-radius:11px;}
 QWidget#PreferencesPage QCheckBox {padding:3px 0;}
 QWidget#PreferencesPage QPushButton#saveButton {padding-left:15px;padding-right:15px;}
 QWidget#PreferencesPage QFrame[sectionHeading] {min-height:52px;}
-QPushButton#sidebarToggle {min-width:17px;padding:3px;}
+
+/* Monitor & Record side-by-side channel windows */
+QMdiArea#monitorWorkspace {background:#f3f7fb;border:0;}
+QMdiSubWindow {background:#ffffff;border:1px solid #b8d2c7;border-radius:10px;}
+QMdiSubWindow::title {background:#eaf5f0;border-bottom:1px solid #d4e6dd;height:32px;padding:4px 8px;}
+QFrame[channelRole="external"],QFrame[channelRole="internal"] {background:#ffffff;border:0;}
+QLabel#paneCount0,QLabel#paneCount1 {font-size:13px;color:#243b4d;}
+QFrame#scopeFooter {background:#f7faf9;border-top:1px solid #e4ece8;border-radius:0;}
+QLabel#scopeNotice {font-size:12px;color:#3a5264;}
+QWidget#actionBar QPushButton,QWidget#actionBar QComboBox,
+QComboBox#monitorRowMode,QPushButton#monitorRtMatrixToggle,QPushButton#pauseRtDisplay {
+  background:#ffffff;border:1px solid #cddae4;border-radius:8px;padding:5px 9px;font-size:13px;color:#172b3a;
+}
+QPushButton#startRecordingButton {border-radius:8px;padding:7px 14px;font-weight:600;}

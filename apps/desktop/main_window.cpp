@@ -140,7 +140,7 @@ void Window::navigate(int n){
     sessionTable = nullptr;
     const auto route=(n==7)?6:(n==11)?10:n;
     const QString routeTitle=route==4?"Monitor & Record":route==6?"Engineering & Plots":route==10?"Sessions & Replay":route==12?"Signal Mappings":names[route];
-    updateShellHeading(route,routeTitle,route==16?QString():subtitle(n));
+    updateShellHeading(route,routeTitle,subtitle(n));
 
     if (auto old = scroll->widget()) {
       old->hide();
@@ -166,8 +166,11 @@ void Window::navigate(int n){
       auto tabs=new QTabBar(content);
       tabs->setObjectName("subWorkspaceTabs");
       tabs->setAccessibleName("Engineering and Plots");
-      tabs->addTab("Engineering Table");
-      tabs->addTab("Analysis Plots");
+      tabs->addTab(QIcon(":/icons/grid.svg"),"Engineering Table");
+      tabs->addTab(QIcon(":/icons/chart.svg"),"Plotting && Analysis");
+      tabs->setIconSize(QSize(16,16));
+      tabs->setExpanding(true);
+      tabs->setDocumentMode(true);
       tabs->setCurrentIndex(n==6?0:1);
       pageLayout->addWidget(tabs);
       connect(tabs,&QTabBar::currentChanged,this,[this,activeTabs=QPointer<QTabBar>(tabs)](int index){
@@ -176,13 +179,13 @@ void Window::navigate(int n){
         navigate(index==0?6:7);
         if(focused) if(auto next=content->findChild<QTabBar *>("subWorkspaceTabs")) next->setFocus(Qt::TabFocusReason);
       },Qt::QueuedConnection);
-    } else if(n==10 || n==11) {
+    } else if(n==11) {
       auto tabs=new QTabBar(content);
       tabs->setObjectName("subWorkspaceTabs");
       tabs->setAccessibleName("Sessions and Replay");
       tabs->addTab("Saved Sessions");
       tabs->addTab("Replay Timeline");
-      tabs->setCurrentIndex(n==10?0:1);
+      tabs->setCurrentIndex(1);
       pageLayout->addWidget(tabs);
       connect(tabs,&QTabBar::currentChanged,this,[this,activeTabs=QPointer<QTabBar>(tabs)](int index){
         if(!activeTabs || !content->isAncestorOf(activeTabs) || index<0 || index>1) return;
@@ -229,7 +232,7 @@ void Window::navigate(int n){
       break;
     }
     const auto formMs=navigationTime.elapsed();
-    if(n!=4 && n!=6 && n!=7 && n!=16) pageLayout->addStretch();
+    if(n!=2 && n!=4 && n!=6 && n!=7 && n!=16) pageLayout->addStretch();
     refreshDataViews();
     refreshOperatorState();
     const auto refreshMs=navigationTime.elapsed();
@@ -295,18 +298,18 @@ QString Window::subtitle(int n){
         "Live RT 00–31 bus activity grid.",
         "Step 2 · Capture MIL-STD-1553 bus traffic, view RT 00–31 matrix, inspect details, or export CSV.",
         "",
-        "Step 4 · Inspect converted engineering values and preview raw-to-engineering formulas.",
-        "Step 4 · Synchronized engineering traces with Cursor, Pan, Zoom, Statistics, and Limits.",
+        "Synchronized engineering traces with scientific plotting and analysis tools.",
+        "Synchronized engineering traces with scientific plotting and analysis tools.",
         "",
         "",
-        "Step 5 · Browse, replay, and inspect saved local .atd recordings.",
+        "Manage captured sessions, replay bus traffic, and export recordings.",
         "Step 5 · Reconstruct a recorded session along its timeline.",
         "Step 3 · Define RT/SA/Tx commands and 0-based Word 0–31 signal fields manually or from JSON/CSV.",
         "",
-        "Step 5 · Export time-bounded CSV, JSON, or Engineering datasets with SHA-256 checksums.",
+        "Export time-bounded CSV, JSON, or Engineering datasets with SHA-256 checksums.",
         "Inspect local security and product entitlements.",
-        "Customize display behavior, radix formatting, and application defaults.",
-        "Step-by-step guided workflow help, system health checks, and support bundles."}
+        "Configure application, capture, and data settings.",
+        "Get help, run diagnostics, and check system health."}
         .value(n);
   }
 

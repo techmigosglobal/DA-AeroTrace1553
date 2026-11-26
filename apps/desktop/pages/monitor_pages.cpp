@@ -67,53 +67,50 @@ void Window::liveMonitor() {
   recordButton=new QPushButton("Start recording");recordButton->setObjectName("startRecordingButton");
   recordButton->setProperty("primary",true);
   form.bodyLayout->insertWidget(0,recordButton);connect(recordButton,&QPushButton::clicked,this,[this]{if(backend.acquisition.active())stopAndSave();else startCapture();});
-  auto focus=new QPushButton("Focus view");
+  auto focus=new QPushButton("Focus");
   focus->setObjectName("monitorFocusMode");
   auto charts=new QPushButton("Plots");
   charts->setObjectName("monitorFocusPlots");
   desktop::actionIcon(charts,"chart");
   form.actionBarLayout->addWidget(charts);
   form.actionBarLayout->addWidget(focus);
-  auto layoutLabel=new QLabel("Layout");
-  layoutLabel->setObjectName("monitorLayoutLabel");
   auto layoutMode=new QComboBox;
   layoutMode->setObjectName("workspaceLayout");
   layoutMode->setAccessibleName("Monitor layout");
   layoutMode->addItem("Movable windows","windows");
   layoutMode->addItem("Tabs","tabs");
   layoutMode->setCurrentIndex(settings.value("monitorLayout","windows").toString()=="tabs"?1:0);
-  auto tile=new QPushButton("Tile");
-  tile->setObjectName("tileMonitorWindows");
-  desktop::actionIcon(tile,"grid",false,15);
-  auto cascade=new QPushButton("Cascade");
-  cascade->setObjectName("cascadeMonitorWindows");
-  desktop::actionIcon(cascade,"layers",false,15);
-  form.actionBarLayout->addWidget(layoutLabel);
+  auto arrange=new QPushButton("Tile / Cascade");
+  arrange->setObjectName("arrangeMonitorWindows");
+  desktop::actionIcon(arrange,"grid",false,15);
+  auto arrangeMenu=new QMenu(arrange);
+  auto tileAct=arrangeMenu->addAction(desktop::operatorIcon("grid"),"Tile");
+  auto cascadeAct=arrangeMenu->addAction(desktop::operatorIcon("layers"),"Cascade");
+  arrange->setMenu(arrangeMenu);
   form.actionBarLayout->addWidget(layoutMode);
-  form.actionBarLayout->addWidget(tile);
-  form.actionBarLayout->addWidget(cascade);
-  const auto updateLayoutActions=[layoutMode,tile,cascade] {
+  form.actionBarLayout->addWidget(arrange);
+  const auto updateLayoutActions=[layoutMode,arrange] {
     const bool windows=layoutMode->currentData().toString()=="windows";
-    tile->setVisible(windows);cascade->setVisible(windows);
-    tile->setEnabled(windows);cascade->setEnabled(windows);
+    arrange->setVisible(windows);
+    arrange->setEnabled(windows);
   };
   updateLayoutActions();
   connect(layoutMode,&QComboBox::currentIndexChanged,this,[this,layoutMode](int){
     persistMonitorWorkspace();settings.setValue("monitorLayout",layoutMode->currentData());applyMonitorLayout();
   });
   connect(layoutMode,&QComboBox::currentIndexChanged,this,[updateLayoutActions](int){updateLayoutActions();});
-  connect(tile,&QPushButton::clicked,this,[this]{
+  connect(tileAct,&QAction::triggered,this,[this]{
     if(monitorWorkspace){for(auto w:channelWindows)w->showNormal();monitorWorkspace->tileSubWindows();}
   });
-  connect(cascade,&QPushButton::clicked,this,[this]{
+  connect(cascadeAct,&QAction::triggered,this,[this]{
     if(monitorWorkspace){for(auto w:channelWindows)w->showNormal();monitorWorkspace->cascadeSubWindows();}
   });
   const auto resizeContent=[=,this] {
     form.deviceReadiness->setVisible(!monitorFocused);
     charts->setVisible(monitorFocused);
     const bool windows=layoutMode->currentData().toString()=="windows";
-    layoutLabel->setVisible(true);layoutMode->setVisible(true);tile->setVisible(windows);cascade->setVisible(windows);
-    focus->setText(monitorFocused?"Exit focus":"Focus view");
+    layoutMode->setVisible(true);arrange->setVisible(windows);
+    focus->setText(monitorFocused?"Exit":"Focus");
     desktop::actionIcon(focus,monitorFocused?"collapse":"expand");
   };
   connect(focus,&QPushButton::clicked,focus,[=,this]{
@@ -525,9 +522,14 @@ void Window::plotPage() {
   // One compact control row; the chart owns the remaining vertical space.
   auto header=form.actionBar->parentWidget();
   form.bodyLayout->insertWidget(0,form.actionBar);if(header&&header!=form.actionBar->parentWidget())header->hide();
-  form.actionBarLayout->setContentsMargins(0,0,0,0);form.actionBarLayout->setSpacing(5);
-  form.actionBar->setStyleSheet("QComboBox,QPushButton,QToolButton {padding:4px 7px;min-height:20px;}");
-  form.panel0Controls->hide();form.actionBarLayout->insertWidget(1,form.panel0Select,1);
+  form.actionBarLayout->setContentsMargins(0,0,0,0);form.actionBarLayout->setSpacing(6);
+  form.actionBar->setStyleSheet("QComboBox,QPushButton,QToolButton {padding:5px 8px;min-height:24px;border-radius:7px;}");
+  form.panel0Controls->hide();
+  form.restorePlotsButton->hide();
+  form.pausePlotsButton->hide();
+  form.exportPlotButton->hide();
+  form.actionBarLayout->insertWidget(1,form.panel0Select,1);
+  form.cursorTools->hide();
   for(auto button:expanders)button->hide();
   for(auto card:cards)if(auto l=qobject_cast<QVBoxLayout *>(card->layout()))l->setContentsMargins(4,4,4,4);
   form.plotsGrid->setContentsMargins(0,0,0,0);form.bodyLayout->setContentsMargins(0,0,0,0);

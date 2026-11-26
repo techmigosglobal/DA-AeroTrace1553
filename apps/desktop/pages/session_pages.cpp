@@ -17,11 +17,42 @@ QStringList Window::recordingFiles(){
 
 void Window::sessions() {
   auto form=showForm<Ui::SessionsPage>();
-  auto convert=new QPushButton("Open CSV Viewer…",content);desktop::actionIcon(convert,"file");
-  auto save=new QPushButton("Save selected session CSVs",content);save->setObjectName("saveSessionCsvs");desktop::actionIcon(save,"save");
-  if(titleActions){titleActions->addWidget(convert);titleActions->addWidget(save);}
+  form.sessionActions->hide();
+  form.sessionDetails->hide();
+  auto convert=new QPushButton("Open CSV Viewer",content);desktop::actionIcon(convert,"file");
+  form.actionBarLayout->addWidget(convert);
+  form.actionBarSpacer->changeSize(0,0,QSizePolicy::Ignored,QSizePolicy::Minimum);
+  for(auto btn:{form.newRecordingButton,form.openSelectedButton,form.importRecordingButton,form.exportAnalysisButton,convert})
+    form.actionBarLayout->setStretchFactor(btn,1);
+  form.selectedSessionBoxLayout->setStretch(1,1);
+  form.sessionStatusBannerLayout->setStretch(1,1);
+  desktop::actionIcon(form.newRecordingButton,"add-file",true);
+  desktop::actionIcon(form.openSelectedButton,"folder");
+  desktop::actionIcon(form.importRecordingButton,"download");
+  desktop::actionIcon(form.exportAnalysisButton,"download");
+  desktop::labelIcon(form.savedSessionsIcon,"layers",20);
+  desktop::labelIcon(form.replayCardIcon,"play",20);
+  desktop::labelIcon(form.selectedSessionIcon,"file",16);
+  {
+    auto infoPm=QIcon(":/icons/info.svg").pixmap(QSize(18,18),devicePixelRatioF());
+    QPainter p(&infoPm);p.setCompositionMode(QPainter::CompositionMode_SourceIn);p.fillRect(infoPm.rect(),QColor("#16804a"));p.end();
+    form.sessionInfoIcon->setPixmap(infoPm);
+  }
+  form.savedSessionsTitle->setStyleSheet("font-size:17px;font-weight:700;color:#142d3a;");
+  form.replayCardTitle->setStyleSheet("font-size:17px;font-weight:700;color:#142d3a;");
+  form.selectedSessionLabel->setStyleSheet("font-size:13px;font-weight:600;color:#172b3a;");
+  form.replayOptionsLabel->setStyleSheet("font-size:13px;font-weight:600;color:#172b3a;");
+  form.selectedSessionBox->setStyleSheet("background:#eef3f7;border:1px solid #d4e0e9;border-radius:8px;");
+  form.selectedSessionName->setStyleSheet("font-size:13px;font-weight:500;color:#172b3a;");
+  form.sessionStatusBanner->setStyleSheet("background:#eef6f1;border:1px solid #cde2d5;border-radius:8px;");
+  form.sessionCount->setStyleSheet("font-size:13px;color:#1b432e;");
+  form.sessionSearch->addAction(desktop::operatorIcon("search"),QLineEdit::LeadingPosition);
+  form.replayBusCombo->addItems({"All buses","Bus A","Bus B"});
+  form.replaySpeedCombo->addItems({"0.25×","Real-time (1×)","2×","5×"});
+  form.replaySpeedCombo->setCurrentIndex(1);
+  desktop::actionIcon(form.startReplayButton,"play",true);
   connect(convert,&QPushButton::clicked,this,[this]{const auto row=sessionTable?sessionTable->currentRow():-1;csvTools(sessionPaths.value(row));});
-  connect(save,&QPushButton::clicked,this,[this]{if(connecting||savingSession||backend.acquisition.active()){toast("Stop the active capture first");return;}const auto row=sessionTable->currentRow();if(row>=0&&row<sessionPaths.size()){stopAndSave(sessionPaths[row]);}});
+  connect(form.startReplayButton,&QPushButton::clicked,this,[this]{const auto row=sessionTable?sessionTable->currentRow():-1;if(row>=0&&row<sessionPaths.size())loadSession(sessionPaths[row]);else toast("Select a recording first.");});
   connect(form.newRecordingButton,&QPushButton::clicked,this,[this] { startCapture(); });
   connect(form.importRecordingButton,&QPushButton::clicked,this,[this] { openSession(); });
   connect(form.allSessionsButton,&QPushButton::clicked,this,[this] { navigate(10); });
@@ -56,8 +87,27 @@ void Window::sessions() {
   });
   sessionTable=form.sessionTable; sessionSearch=form.sessionSearch; sessionPaths=recordingFiles();
   QList<QStringList> rows;
-  for(const auto &path:sessionPaths) rows << QStringList{desktop::sessionDisplayName(path),QFileInfo(path).lastModified().toString("dd MMM, HH:mm"),fileSize(path),path==currentFile && backend.acquisition.active() ? "Recording" : "Local file","Validate on open"};
+  for(const auto &path:sessionPaths) rows << QStringList{desktop::sessionDisplayName(path),QFileInfo(path).lastModified().toString("dd MMM, HH:mm"),fileSize(path),path==currentFile && backend.acquisition.active() ? "Recording" : "Local file"};
   populate(sessionTable,rows);
+  for(int i=0;i<sessionTable->rowCount();++i) {
+    if(auto *item=sessionTable->item(i,0)) item->setIcon(desktop::operatorIcon("play"));
+  }
+  const auto updateSelectedSession=[this,form,total=rows.size()]{
+    const int row=sessionTable?sessionTable->currentRow():-1;
+    if(row>=0 && row<sessionPaths.size()) {
+      const auto name=desktop::sessionDisplayName(sessionPaths[row]);
+      const auto sz=fileSize(sessionPaths[row]);
+      const auto loc=sessionPaths[row]==currentFile && backend.acquisition.active() ? QString("Recording") : QString("Local file");
+      form.selectedSessionName->setText(name);
+      form.sessionCount->setText(QString("%1 of %2 sessions selected · %3 · %4").arg(row+1).arg(total).arg(sz,loc));
+    } else {
+      form.selectedSessionName->setText("No session selected");
+      form.sessionCount->setText(QString("%1 local sessions · No cloud storage").arg(total));
+    }
+  };
+  connect(sessionTable,&QTableWidget::currentCellChanged,this,[updateSelectedSession](int,int,int,int){updateSelectedSession();});
+  if(sessionTable->rowCount()>0) sessionTable->selectRow(0);
+  updateSelectedSession();
   connect(sessionSearch,&QLineEdit::textChanged,this,[this](const QString &text) {
     for(int i=0;i<sessionTable->rowCount();++i) sessionTable->setRowHidden(i,!sessionTable->item(i,0)->text().contains(text,Qt::CaseInsensitive));
   });
@@ -68,7 +118,6 @@ void Window::sessions() {
     const auto index=sessionTable->currentRow();
     if(index>=0 && index<sessionPaths.size()) loadSession(sessionPaths[index]);
   });
-  form.sessionCount->setText(QString("%1 local sessions · No cloud storage").arg(rows.size()));
   form.sessionRoot->setText(sessionDir);
   form.availableCapacity->setText(QString::number(QStorageInfo(sessionDir).bytesAvailable()/1073741824.,'f',1)+" GB");
 }

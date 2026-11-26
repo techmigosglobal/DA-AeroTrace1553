@@ -30,16 +30,28 @@ void Window::importIcdPath(const QString &path) {
 
 void Window::exports() {
   auto form=showForm<Ui::ExportsPage>();
-  auto csvBtn=new QPushButton("Open CSV Viewer…",content);
-  desktop::actionIcon(csvBtn,"file");
-  titleActions->addWidget(csvBtn);
-  connect(csvBtn,&QPushButton::clicked,this,[this]{csvTools(backend.replaySource ? currentReplay : QString());});
-
-  auto report=new QPushButton("Export signal report…",content);
-  desktop::actionIcon(report,"download");
-  desktop::actionIcon(form.createExportButton,"save",form.createExportButton->property("primary").toBool());
-  titleActions->addWidget(report);
-  connect(report,&QPushButton::clicked,this,[this]{exportSignalReport();});
+  form.configHeaderBar->setStyleSheet("background:#eaf5f0;border-bottom:1px solid #d4e6dd;border-top-left-radius:10px;border-top-right-radius:10px;");
+  form.previewHeaderBar->setStyleSheet("background:#eaf5f0;border-bottom:1px solid #d4e6dd;border-top-left-radius:10px;border-top-right-radius:10px;");
+  form.configurationTitle->setStyleSheet("font-size:16px;font-weight:700;color:#142d3a;");
+  form.exportPreviewTitle->setStyleSheet("font-size:16px;font-weight:700;color:#142d3a;");
+  form.formatLabel->setStyleSheet("font-size:13px;font-weight:600;color:#172b3a;");
+  form.timeRangeHeading->setStyleSheet("font-size:14px;font-weight:700;color:#142d3a;margin-top:4px;");
+  form.startLabel->setStyleSheet("font-size:12px;color:#4a6070;");
+  form.endLabel->setStyleSheet("font-size:12px;color:#4a6070;");
+  {
+    auto cfgPm=QIcon(":/icons/settings.svg").pixmap(QSize(18,18),devicePixelRatioF());
+    QPainter p(&cfgPm);p.setCompositionMode(QPainter::CompositionMode_SourceIn);p.fillRect(cfgPm.rect(),QColor("#16804a"));p.end();
+    form.configHeaderIcon->setPixmap(cfgPm);
+    auto prevPm=QIcon(":/icons/search.svg").pixmap(QSize(18,18),devicePixelRatioF());
+    QPainter p2(&prevPm);p2.setCompositionMode(QPainter::CompositionMode_SourceIn);p2.fillRect(prevPm.rect(),QColor("#16804a"));p2.end();
+    form.previewHeaderIcon->setPixmap(prevPm);
+  }
+  form.exportStart->addAction(desktop::operatorIcon("restore"),QLineEdit::LeadingPosition);
+  form.exportEnd->addAction(desktop::operatorIcon("restore"),QLineEdit::LeadingPosition);
+  desktop::actionIcon(form.viewAsCsvButton,"file",false,15);
+  desktop::actionIcon(form.createExportButton,"download",true,15);
+  connect(form.viewAsCsvButton,&QPushButton::clicked,this,[this]{csvTools(backend.replaySource ? currentReplay : QString());});
+  connect(form.closeExportsButton,&QPushButton::clicked,this,[this]{navigate(4);});
   connect(form.createExportButton,&QPushButton::clicked,this,[this] { createExport(); });
   exportFormat=form.exportFormat; exportStart=form.exportStart; exportEnd=form.exportEnd;
 
@@ -48,6 +60,8 @@ void Window::exports() {
   form.sourceName->setText(backend.replaySource ? QFileInfo(currentReplay).baseName() : backend.captureConfig.hardware ? "Current DDC capture" : "Current simulator capture");
   form.provenance->setText(backend.captureConfig.hardware ? "DDC MTI / device timestamps" : "Simulator");
   populate(form.previewTable,messageRows(data,3));
+  auto emptyNotice=new desktop::TableNotice(form.previewTable,"database",44);
+  emptyNotice->showState(form.previewTable->rowCount()==0,"No records to preview","Set the time range and export to view data.");
   const auto active=backend.mappings();
   form.available->setText(QString::number(data.size()));
   form.profile->setText(active.empty()?QString::fromStdString(backend.signal.id):QString("%1 active signal(s)").arg(active.size()));
@@ -67,9 +81,9 @@ void Window::exports() {
   };
   fillBounds();
 
-  auto fullRange=new QPushButton("Use full captured range",form.exportEnd->parentWidget());
-  desktop::actionIcon(fullRange,"restore");
-  if(auto *lay=qobject_cast<QVBoxLayout *>(form.exportEnd->parentWidget()->layout())) lay->addWidget(fullRange);
+  auto fullRange=new QPushButton("Use full captured range",form.rangeActions);
+  desktop::actionIcon(fullRange,"restore",false,15);
+  form.rangeActionsLayout->addWidget(fullRange);
   connect(fullRange,&QPushButton::clicked,content,[this,form]{
     const auto &records=backend.replaySource ? backend.replayRecords : backend.archive;
     if(records.empty()){form.exportStart->setText("00:00:00.000");form.exportEnd->setText("23:59:59.999");return;}

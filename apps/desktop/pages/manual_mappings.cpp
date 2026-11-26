@@ -126,12 +126,14 @@ public:
     summaryLabel->setStyleSheet("font-weight:600;font-size:13px;color:#142d3a;");
     summaryLabel->setWordWrap(true);
     badgeLabel = new QLabel("Ready", headerBar);
+    badgeLabel->setStyleSheet("background:#e2f3e8;color:#166534;border-radius:10px;padding:2px 10px;font-size:12px;font-weight:600;");
     auto dupBtn = new QPushButton("Duplicate", headerBar);
     dupBtn->setProperty("compactAction", true);
     dupBtn->setToolTip("Duplicate this field onto the next word");
+    desktop::actionIcon(dupBtn, "copy", false, 14);
     auto delBtn = new QPushButton("Remove", headerBar);
     delBtn->setProperty("compactAction", true);
-    desktop::actionIcon(delBtn, "cancel");
+    desktop::actionIcon(delBtn, "cancel", false, 14);
     header->addWidget(toggleButton);
     header->addWidget(summaryLabel, 1);
     header->addWidget(badgeLabel);
@@ -165,7 +167,7 @@ public:
     typeCombo->setCurrentIndex(qMax(0, typeCombo->findData(data["type"].toString("unsigned"))));
     unitEdit = new QLineEdit(data["unit"].toString(), bodyWidget);
     unitEdit->setObjectName("fieldUnitEdit");
-    unitEdit->setPlaceholderText("deg/s, C, m/s");
+    unitEdit->setPlaceholderText("e.g. Counts");
 
     row1->addWidget(fieldCaption("Signal name", bodyWidget), 0, 0);
     row1->addWidget(fieldCaption("Word (0–31)", bodyWidget), 0, 1);
@@ -181,17 +183,17 @@ public:
     row1->setColumnStretch(3, 1);
     bodyLayout->addLayout(row1);
 
-    // Row 2: Bit layout + Overlap opt-in (4 compact columns)
+    // Row 2: Scale, Offset, Bit length, Bit offset (b0), Byte order
     widthCombo = new QComboBox(bodyWidget);
     widthCombo->setObjectName("fieldWidthCombo");
-    for (int b = 1; b <= 32; ++b) widthCombo->addItem(QString("%1b").arg(b), b);
+    for (int b = 1; b <= 32; ++b) widthCombo->addItem(QString("%1 bits").arg(b), b);
     const int initWidth = qBound(1, data["width"].toInt(16), 64);
-    if (initWidth > 32 && widthCombo->findData(initWidth) < 0) widthCombo->addItem(QString("%1b").arg(initWidth), initWidth);
+    if (initWidth > 32 && widthCombo->findData(initWidth) < 0) widthCombo->addItem(QString("%1 bits").arg(initWidth), initWidth);
     widthCombo->setCurrentIndex(qMax(0, widthCombo->findData(initWidth)));
 
     lsbCombo = new QComboBox(bodyWidget);
     lsbCombo->setObjectName("fieldLsbCombo");
-    for (int b = 0; b < 16; ++b) lsbCombo->addItem(QString("Bit %1").arg(b), b);
+    for (int b = 0; b < 16; ++b) lsbCombo->addItem(QString("b%1").arg(b), b);
     lsbCombo->setCurrentIndex(qBound(0, data["lsb"].toInt(0), 15));
 
     orderCombo = new QComboBox(bodyWidget);
@@ -200,28 +202,35 @@ public:
     orderCombo->setToolTip("Multi-word order: LSW first = low 16 bits in first word; MSW first = high 16 bits first");
     orderCombo->setCurrentIndex(data["order"].toString() == "MSW first" ? 1 : 0);
 
+    scaleEdit = new QLineEdit(data["scale"].toString(), bodyWidget);
+    scaleEdit->setObjectName("fieldScaleEdit");
+    scaleEdit->setPlaceholderText("1.0");
+    offsetEdit = new QLineEdit(data["offset"].toString(), bodyWidget);
+    offsetEdit->setObjectName("fieldOffsetEdit");
+    offsetEdit->setPlaceholderText("0.0");
+
+    auto row2 = new QGridLayout;
+    row2->setHorizontalSpacing(8);
+    row2->setVerticalSpacing(2);
+    row2->addWidget(fieldCaption("Scale", bodyWidget), 0, 0);
+    row2->addWidget(fieldCaption("Offset", bodyWidget), 0, 1);
+    row2->addWidget(fieldCaption("Bit length", bodyWidget), 0, 2);
+    row2->addWidget(fieldCaption("Bit offset (b0)", bodyWidget), 0, 3);
+    row2->addWidget(fieldCaption("Byte order", bodyWidget), 0, 4);
+    row2->addWidget(scaleEdit, 1, 0);
+    row2->addWidget(offsetEdit, 1, 1);
+    row2->addWidget(widthCombo, 1, 2);
+    row2->addWidget(lsbCombo, 1, 3);
+    row2->addWidget(orderCombo, 1, 4);
+    for (int c = 0; c < 5; ++c) row2->setColumnStretch(c, 1);
+    bodyLayout->addLayout(row2);
+
+    // Row 3: Conversion mode / Custom formula + Overlap opt-in
     overlapCheck = new QCheckBox("Allow bit overlap", bodyWidget);
     overlapCheck->setObjectName("fieldOverlapCheck");
     overlapCheck->setChecked(data["allow_overlap"].toBool(false));
     overlapCheck->setToolTip("Enable when mapping both a whole word and discrete bit flags at the same word");
 
-    auto row2 = new QGridLayout;
-    row2->setHorizontalSpacing(8);
-    row2->setVerticalSpacing(2);
-    row2->addWidget(fieldCaption("Bits", bodyWidget), 0, 0);
-    row2->addWidget(fieldCaption("LSB", bodyWidget), 0, 1);
-    row2->addWidget(fieldCaption("Word order", bodyWidget), 0, 2);
-    row2->addWidget(widthCombo, 1, 0);
-    row2->addWidget(lsbCombo, 1, 1);
-    row2->addWidget(orderCombo, 1, 2);
-    row2->addWidget(overlapCheck, 1, 3);
-    row2->setColumnStretch(0, 1);
-    row2->setColumnStretch(1, 1);
-    row2->setColumnStretch(2, 1);
-    row2->setColumnStretch(3, 2);
-    bodyLayout->addLayout(row2);
-
-    // Row 3: Engineering Conversion (spacious, never clipped)
     auto row3Conv = new QGridLayout;
     row3Conv->setHorizontalSpacing(8);
     row3Conv->setVerticalSpacing(2);
@@ -231,20 +240,9 @@ public:
     modeCombo->setCurrentIndex(data["formula"].toString().trimmed().isEmpty() ? 0 : 1);
 
     linearBox = new QWidget(bodyWidget);
-    auto linearLayout = new QGridLayout(linearBox);
+    auto linearLayout = new QHBoxLayout(linearBox);
     linearLayout->setContentsMargins(0, 0, 0, 0);
-    linearLayout->setHorizontalSpacing(8);
-    linearLayout->setVerticalSpacing(2);
-    scaleEdit = new QLineEdit(data["scale"].toString(), linearBox);
-    scaleEdit->setObjectName("fieldScaleEdit");
-    scaleEdit->setPlaceholderText("1 (or 2^-10, 1/1024)");
-    offsetEdit = new QLineEdit(data["offset"].toString(), linearBox);
-    offsetEdit->setObjectName("fieldOffsetEdit");
-    offsetEdit->setPlaceholderText("0");
-    linearLayout->addWidget(fieldCaption("Scale", linearBox), 0, 0);
-    linearLayout->addWidget(fieldCaption("Offset", linearBox), 0, 1);
-    linearLayout->addWidget(scaleEdit, 1, 0);
-    linearLayout->addWidget(offsetEdit, 1, 1);
+    linearLayout->addWidget(overlapCheck);
 
     formulaBox = new QWidget(bodyWidget);
     auto formulaLayout = new QGridLayout(formulaBox);
@@ -619,7 +617,10 @@ public:
     collapseAllBtn = new QPushButton("Collapse all", this);
     collapseAllBtn->setObjectName("collapseAllManualFields");
     collapseAllBtn->setProperty("compactAction", true);
-    desktop::actionIcon(addFieldBtn, "add-file", false);
+    desktop::actionIcon(addFieldBtn, "add-file", false, 14);
+    desktop::actionIcon(bulkAddBtn, "add-file", false, 14);
+    desktop::actionIcon(expandAllBtn, "expand", false, 14);
+    desktop::actionIcon(collapseAllBtn, "collapse", false, 14);
     actions->addWidget(sectionTitle);
     actions->addStretch();
     actions->addWidget(addFieldBtn);
@@ -860,14 +861,26 @@ QWidget *Window::buildManualMappingsWidget(QWidget *parent, bool embedded) {
     "#manualMappingHost,#manualMappingDialog{background:#f3f7fb;}"
     "#manualMappingHost QLineEdit,#manualMappingHost QComboBox,#manualMappingHost QSpinBox,"
     "#manualMappingDialog QLineEdit,#manualMappingDialog QComboBox,#manualMappingDialog QSpinBox{"
-    "  padding:4px 8px;min-height:26px;font-size:13px;border-radius:5px;}"
+    "  padding:4px 8px;min-height:26px;font-size:13px;border-radius:6px;border:1px solid #cddae4;background:#ffffff;}"
     "#manualMappingHost QCheckBox,#manualMappingDialog QCheckBox{font-size:13px;padding:3px 0;}"
+    "#manualMappingHost QPushButton,#manualMappingDialog QPushButton{border-radius:8px;}"
     "#manualMappingHost QPushButton[compactAction=\"true\"],#manualMappingDialog QPushButton[compactAction=\"true\"]{"
-    "  padding:4px 10px;min-height:24px;font-size:12px;}"
-    "#manualRouteCard{background:#ffffff;border:1px solid #cddae4;border-radius:8px;}"
-    "#manualFieldCard{background:#ffffff;border:1px solid #cddae4;border-radius:8px;}"
-    "#manualFieldHeader{background:#f7fafc;border-bottom:1px solid #e4ecf2;border-top-left-radius:8px;border-top-right-radius:8px;}"
-    "#manualStatus{background:#eef5f0;border:1px solid #cce0d2;border-radius:6px;padding:7px 10px;font-size:13px;color:#1b432e;}"
+    "  padding:4px 10px;min-height:24px;font-size:12px;border-radius:7px;}"
+    "#commandsPanel{background:#ffffff;border:1px solid #d4e0e9;border-radius:10px;}"
+    "#commandsPanel QPushButton{margin:0 10px;padding:7px 12px;font-size:13px;font-weight:600;}"
+    "#manualCommands{border:0;background:transparent;outline:0;padding:4px 0;border-top-left-radius:10px;border-top-right-radius:10px;}"
+    "#manualCommands QHeaderView::section{background:#eef6f2;color:#142d3a;font-weight:700;font-size:13px;padding:10px 12px;border:0;border-bottom:1px solid #d4e6dd;border-top-left-radius:10px;border-top-right-radius:10px;}"
+    "#manualCommands::item{padding:7px 8px;margin:2px 6px;border-radius:7px;font-size:13px;color:#172b3a;}"
+    "#manualCommands::item:hover{background:#f0f7f3;}"
+    "#manualCommands::item:selected{background:#e3f3ea;color:#124d32;}"
+    "#manualCommands::indicator{width:16px;height:16px;border-radius:4px;border:1px solid #9bb0bf;background:#ffffff;}"
+    "#manualCommands::indicator:hover{border-color:#146343;}"
+    "#manualCommands::indicator:checked{background:#146343;border-color:#146343;image:url(:/icons/check.svg);}"
+    "#manualCommands::indicator:indeterminate{background:#146343;border-color:#146343;}"
+    "#manualRouteCard{background:#ffffff;border:1px solid #d4e0e9;border-radius:10px;}"
+    "#manualFieldCard{background:#ffffff;border:1px solid #d4e0e9;border-radius:10px;}"
+    "#manualFieldHeader{background:#f2f7f5;border-bottom:1px solid #e4ece8;border-top-left-radius:10px;border-top-right-radius:10px;}"
+    "#manualStatus{background:#eef6f1;border:1px solid #cde2d5;border-radius:8px;padding:8px 12px;font-size:13px;color:#1b432e;}"
   );
   auto hostLayout = qobject_cast<QVBoxLayout *>(host->layout());
   if (embedded && hostLayout) {
@@ -876,8 +889,6 @@ QWidget *Window::buildManualMappingsWidget(QWidget *parent, bool embedded) {
     auto topLayout = new QHBoxLayout(topBar);
     topLayout->setContentsMargins(0, 0, 0, 4);
     topLayout->setSpacing(8);
-    auto intro = new QLabel("Define RT/SA/Tx commands and 0-based Word 0–31 fields, or import JSON/CSV profiles.", topBar);
-    intro->setProperty("tone", "muted");
     auto importBtn = new QPushButton("Import JSON/CSV…", topBar);
     importBtn->setObjectName("importIcdButton");
     desktop::actionIcon(importBtn, "add-file");
@@ -887,15 +898,13 @@ QWidget *Window::buildManualMappingsWidget(QWidget *parent, bool embedded) {
     auto liveBtn = new QPushButton("Live Engineering", topBar);
     liveBtn->setObjectName("openLiveEngineeringButton");
     desktop::actionIcon(liveBtn, "chart");
-    auto nextBtn = new QPushButton("Next: Engineering && Plots →", topBar);
+    auto nextBtn = new QPushButton("→ Next: Engineering && Plots →", topBar);
     nextBtn->setObjectName("nextToEngineeringButton");
     nextBtn->setProperty("primary", true);
-    desktop::actionIcon(nextBtn, "chart", true);
-    topLayout->addWidget(intro, 1);
-    topLayout->addWidget(importBtn);
-    topLayout->addWidget(exportBtn);
-    topLayout->addWidget(liveBtn);
-    topLayout->addWidget(nextBtn);
+    topLayout->addWidget(importBtn, 1);
+    topLayout->addWidget(exportBtn, 1);
+    topLayout->addWidget(liveBtn, 1);
+    topLayout->addWidget(nextBtn, 1);
     hostLayout->insertWidget(0, topBar);
     hostLayout->setStretch(1, 1);
 
@@ -919,6 +928,13 @@ QWidget *Window::buildManualMappingsWidget(QWidget *parent, bool embedded) {
   }
   auto dialog = host;
 
+  form.commandsLayout->setContentsMargins(0,0,0,10);
+  form.commandsLayout->setSpacing(6);
+  form.manualCommands->header()->setSectionResizeMode(0,QHeaderView::Stretch);
+  form.manualCommands->setWordWrap(true);
+  form.manualCommands->setUniformRowHeights(false);
+  form.manualCommands->setIndentation(16);
+  form.manualCommands->setRootIsDecorated(true);
   auto editor = new CommandEditor(form.detailsPanel);
   form.detailsLayout->addWidget(editor);
   form.workspaceSplit->setStretchFactor(0, 0);
@@ -930,6 +946,17 @@ QWidget *Window::buildManualMappingsWidget(QWidget *parent, bool embedded) {
   if (commands->isEmpty()) *commands = desktop::normalizeManualCommands(manualRegistry["commands"].toArray());
   auto current = std::make_shared<int>(-1);
 
+  const auto formatTreeCommandLabel = [](const QJsonObject &cmd) {
+    auto route = desktop::manualRouteLabel(cmd);
+    const auto sep = route.lastIndexOf(QStringLiteral(" · "));
+    const QString head = (sep > 0 ? route.left(sep) : route).replace(QStringLiteral(" / "), QStringLiteral(" · "));
+    const QString hex = sep > 0 ? route.mid(sep + 3) : QString();
+    const int n = cmd["fields"].toArray().size();
+    const QString fieldText = n == 1 ? QStringLiteral("1 field") : QStringLiteral("%1 fields").arg(n);
+    return hex.isEmpty() ? QStringLiteral("%1\n%2").arg(head, fieldText)
+                         : QStringLiteral("%1\n%2 · %3").arg(head, hex, fieldText);
+  };
+
   const auto synchronize = [commands, current, editor] {
     if (*current < 0 || *current >= commands->size()) return;
     auto data = editor->command();
@@ -938,17 +965,16 @@ QWidget *Window::buildManualMappingsWidget(QWidget *parent, bool embedded) {
   };
 
   auto rebuildingTree = std::make_shared<bool>(false);
-  const auto updateCurrentTreeLabel = [form, current, commands, rebuildingTree] {
+  const auto updateCurrentTreeLabel = [form, current, commands, rebuildingTree, formatTreeCommandLabel] {
     if (*rebuildingTree || *current < 0 || *current >= commands->size()) return;
     if (auto item = form.manualCommands->currentItem(); item && item->data(0, Qt::UserRole).toInt() == *current) {
       const auto cmd = commands->at(*current).toObject();
-      const auto label = desktop::manualRouteLabel(cmd);
-      item->setText(0, label);
-      item->setToolTip(0, label);
+      item->setText(0, formatTreeCommandLabel(cmd));
+      item->setToolTip(0, desktop::manualRouteLabel(cmd));
     }
   };
 
-  const auto rebuildTreeOnly = [form, commands, current, rebuildingTree](int row) {
+  const auto rebuildTreeOnly = [form, commands, current, rebuildingTree, formatTreeCommandLabel](int row) {
     *rebuildingTree = true;
     const QSignalBlocker block(form.manualCommands);
     form.manualCommands->clear();
@@ -964,10 +990,13 @@ QWidget *Window::buildManualMappingsWidget(QWidget *parent, bool embedded) {
         node->setData(0, Qt::UserRole, -1);
         node->setFlags(node->flags() | Qt::ItemIsAutoTristate | Qt::ItemIsUserCheckable);
         node->setCheckState(0, Qt::Unchecked);
+        auto groupFont = node->font(0);
+        groupFont.setWeight(QFont::DemiBold);
+        node->setFont(0, groupFont);
+        node->setForeground(0, QColor("#143627"));
       }
-      const auto label = desktop::manualRouteLabel(command);
-      auto item = new QTreeWidgetItem(node, {label});
-      item->setToolTip(0, label);
+      auto item = new QTreeWidgetItem(node, {formatTreeCommandLabel(command)});
+      item->setToolTip(0, desktop::manualRouteLabel(command));
       item->setData(0, Qt::UserRole, index);
       item->setCheckState(0, command["active"].toBool() ? Qt::Checked : Qt::Unchecked);
       if (index == row) selected = item;

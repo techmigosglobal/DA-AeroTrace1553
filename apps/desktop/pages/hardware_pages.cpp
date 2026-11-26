@@ -181,11 +181,10 @@ const aero::Record *Window::selectedMonitorRecord() const {
 void Window::buildMonitorPanes(QTableView *original) {
   tabMonitor=original;
   auto container=original->parentWidget();auto layout=qobject_cast<QVBoxLayout *>(container->layout());
-  monitorWorkspace=new QMdiArea(container);monitorWorkspace->setObjectName("monitorWorkspace");monitorWorkspace->setBackground(QColor("#eef1e9"));monitorWorkspace->setMinimumHeight(280);auto workspacePalette=monitorWorkspace->palette();workspacePalette.setColor(QPalette::Highlight,QColor("#315f43"));workspacePalette.setColor(QPalette::HighlightedText,Qt::white);workspacePalette.setColor(QPalette::WindowText,QColor("#2e3931"));monitorWorkspace->setPalette(workspacePalette);
+  monitorWorkspace=new QMdiArea(container);monitorWorkspace->setObjectName("monitorWorkspace");monitorWorkspace->setBackground(QColor("#f3f7fb"));monitorWorkspace->setMinimumHeight(280);auto workspacePalette=monitorWorkspace->palette();workspacePalette.setColor(QPalette::Highlight,QColor("#eaf5f0"));workspacePalette.setColor(QPalette::HighlightedText,QColor("#142d3a"));workspacePalette.setColor(QPalette::WindowText,QColor("#142d3a"));monitorWorkspace->setPalette(workspacePalette);
   layout->insertWidget(layout->indexOf(original),monitorWorkspace,1);
   const auto rowMode=settings.value("monitorRowMode","statistics").toString();
   rtGrouped=rowMode!="raw";rtStatistics=rowMode!="rt";
-  auto rowTools=new QHBoxLayout;
   auto grouping=new QComboBox;
   grouping->setObjectName("monitorRowMode");
   grouping->setAccessibleName("Live monitor row grouping");
@@ -193,8 +192,12 @@ void Window::buildMonitorPanes(QTableView *original) {
   grouping->addItem(desktop::operatorIcon("mapping"),"Message routes");
   grouping->addItem(desktop::operatorIcon("columns"),"Chronological records");
   grouping->setCurrentIndex(rtGrouped?(rtStatistics?0:1):2);
-  auto matrixToggle=new QPushButton("RT Matrix (00–31)");matrixToggle->setObjectName("monitorRtMatrixToggle");matrixToggle->setCheckable(true);desktop::actionIcon(matrixToggle,"grid");
-  auto pause=new QPushButton("Pause RT display");pause->setObjectName("pauseRtDisplay");desktop::actionIcon(pause,"pause");rowTools->addWidget(grouping);rowTools->addWidget(matrixToggle);rowTools->addWidget(pause);rowTools->addStretch();layout->insertLayout(layout->indexOf(monitorWorkspace),rowTools);
+  auto matrixToggle=new QPushButton("RT Matrix");matrixToggle->setObjectName("monitorRtMatrixToggle");matrixToggle->setCheckable(true);desktop::actionIcon(matrixToggle,"grid");
+  auto pause=new QPushButton("Pause");pause->setObjectName("pauseRtDisplay");desktop::actionIcon(pause,"pause");
+  auto bar=container->findChild<QWidget *>("actionBar");
+  auto rowTools=bar ? qobject_cast<QHBoxLayout *>(bar->layout()) : nullptr;
+  if(!rowTools){rowTools=new QHBoxLayout;layout->insertLayout(layout->indexOf(monitorWorkspace),rowTools);}
+  rowTools->addWidget(grouping);rowTools->addWidget(matrixToggle);rowTools->addWidget(pause);rowTools->addStretch(1);
   if(recordButton)rowTools->addWidget(recordButton);
 
   auto matrixPanel=new QFrame(container);
@@ -263,7 +266,7 @@ void Window::buildMonitorPanes(QTableView *original) {
     if(matrixToggle->isChecked()) matrixToggle->setChecked(false);
     if(viewingReplayStatistics&&mode==2){viewingReplayStatistics=false;navigate(11);return;}
     rtGrouped=mode!=2;rtStatistics=mode==0;settings.setValue("monitorRowMode",mode==0?"statistics":mode==1?"rt":"raw");pause->setEnabled(rtGrouped);refreshMonitorPanes();});
-  connect(pause,&QPushButton::clicked,container,[this,pause]{rtDisplayPaused=!rtDisplayPaused;pause->setText(rtDisplayPaused?"Resume RT display":"Pause RT display");desktop::actionIcon(pause,rtDisplayPaused?"play":"pause");refreshRtMonitor();refreshOperatorState();});
+  connect(pause,&QPushButton::clicked,container,[this,pause]{rtDisplayPaused=!rtDisplayPaused;pause->setText(rtDisplayPaused?"Resume":"Pause");desktop::actionIcon(pause,rtDisplayPaused?"play":"pause");refreshRtMonitor();refreshOperatorState();});
   pause->setEnabled(rtGrouped);
   if(replayRtFrame){auto source=new QPushButton(viewingReplayStatistics?"Return to live monitor":"Recorded session RT statistics");source->setObjectName("monitorStatisticsSource");rowTools->addWidget(source);
     connect(source,&QPushButton::clicked,container,[this]{viewingReplayStatistics=!viewingReplayStatistics;rtDisplayPaused=false;settings.setValue("monitorRowMode","statistics");settings.setValue("monitorLayout","windows");navigate(4);});}
@@ -271,16 +274,57 @@ void Window::buildMonitorPanes(QTableView *original) {
     auto &source=paneModels[channel];source.channelFilter=channel+1;source.sharedSource=&model;source.refresh();
     if(!paneSelection[channel])paneSelection[channel]=settings.value(QString("pane%1Selection").arg(channel)).toULongLong();
     source.busFilter=settings.value(QString("pane%1Bus").arg(channel)).toString();source.rtFilter=settings.value(QString("pane%1Rt").arg(channel),-1).toInt();source.search=settings.value(QString("pane%1Search").arg(channel)).toString();
-    auto panel=new QFrame;panel->setProperty("channelRole",channel?"internal":"external");auto body=new QVBoxLayout(panel);body->setContentsMargins(0,0,0,0);body->setSpacing(4);
-    auto tools=new QHBoxLayout;auto count=new QLabel;count->setWordWrap(true);count->setMinimumWidth(80);paneCounts[channel]=count;body->addWidget(count);
+    auto panel=new QFrame;panel->setProperty("channelRole",channel?"internal":"external");auto body=new QVBoxLayout(panel);body->setContentsMargins(10,8,10,8);body->setSpacing(6);
+    auto tools=new QHBoxLayout;tools->setSpacing(6);auto count=new QLabel;count->setObjectName(QString("paneCount%1").arg(channel));count->setWordWrap(true);count->setMinimumWidth(80);paneCounts[channel]=count;body->addWidget(count);
     auto bus=new QComboBox;bus->setObjectName(QString("pane%1BusFilter").arg(channel));bus->addItems({"All buses","Bus A","Bus B"});bus->setCurrentIndex(source.busFilter=="A"?1:source.busFilter=="B"?2:0);bus->setAccessibleName(channel?"Internal bus filter":"External bus filter");
     auto rt=new QComboBox;rt->addItem("All RTs");for(int n=0;n<32;++n)rt->addItem("RT "+QString::number(n));rt->setCurrentIndex(source.rtFilter+1);rt->setAccessibleName("RT filter");
-    auto search=new QLineEdit(source.search);search->setPlaceholderText("Hex search");search->setMaximumWidth(180);search->setMinimumWidth(65);search->setAccessibleName("Hex word filter");
-    auto columns=new QPushButton("Raw columns");columns->setProperty("rawColumnsOnly",true);columns->setEnabled(!rtGrouped);tools->addWidget(bus);tools->addWidget(rt);tools->addWidget(search);tools->addWidget(columns);body->addLayout(tools);
+    auto search=new QLineEdit(source.search);search->setPlaceholderText("Hex search");search->addAction(desktop::operatorIcon("search"),QLineEdit::LeadingPosition);search->setMaximumWidth(180);search->setMinimumWidth(65);search->setAccessibleName("Hex word filter");
+    auto columns=new QPushButton("Raw columns");columns->setProperty("rawColumnsOnly",true);columns->setEnabled(!rtGrouped);tools->addWidget(bus);tools->addWidget(rt);tools->addWidget(search,1);tools->addWidget(columns);body->addLayout(tools);
     auto view=new QTableView(panel);paneViews[channel]=view;view->setObjectName(channel?"internalMonitor":"externalMonitor");view->setAccessibleName(channel?"Internal traffic":"External traffic");view->setModel(&source);view->setSelectionBehavior(QAbstractItemView::SelectRows);view->setSelectionMode(QAbstractItemView::SingleSelection);view->setAlternatingRowColors(true);view->setEditTriggers(QAbstractItemView::NoEditTriggers);view->verticalHeader()->hide();view->setMinimumHeight(90);view->verticalHeader()->setDefaultSectionSize(settings.value("dense",false).toBool()?26:32);body->addWidget(view,1);
     auto rtPanel=new QWidget(panel);Ui::RtChannelBody rtForm;rtForm.setupUi(rtPanel);body->addWidget(rtPanel,1);rtViews[channel]=rtForm.rtTree;
+    if(rtForm.infoIcon){
+      auto infoPm=QIcon(":/icons/info.svg").pixmap(QSize(16,16),devicePixelRatioF());
+      QPainter p(&infoPm);p.setCompositionMode(QPainter::CompositionMode_SourceIn);p.fillRect(infoPm.rect(),QColor("#16804a"));p.end();
+      rtForm.infoIcon->setPixmap(infoPm);
+    }
+    auto rtEmpty=new desktop::TableNotice(rtForm.rtTree,"database",48);
+    rtEmpty->setObjectName(QString("rtEmptyNotice%1").arg(channel));
+    const auto refreshRtEmpty=[this,rtEmpty,channel]{
+      const bool empty=!rtViews[channel] || rtModels[channel].rowCount()==0;
+      rtEmpty->showState(empty,{},"Waiting for capture data...");
+    };
+    connect(&rtModels[channel],&QAbstractItemModel::modelReset,rtEmpty,refreshRtEmpty);
+    connect(&rtModels[channel],&QAbstractItemModel::rowsInserted,rtEmpty,refreshRtEmpty);
+    connect(&rtModels[channel],&QAbstractItemModel::rowsRemoved,rtEmpty,refreshRtEmpty);
+    connect(&tick,&QTimer::timeout,rtEmpty,refreshRtEmpty);
+    refreshRtEmpty();
     rtForm.rtTree->setObjectName(channel?"internalRtMonitor":"externalRtMonitor");rtForm.rtTree->setAccessibleName(channel?"Internal RT activity":"External RT activity");rtForm.rtTree->setModel(&rtModels[channel]);rtForm.rtTree->setMinimumHeight(90);
     rtForm.rtTree->header()->setSectionResizeMode(QHeaderView::Interactive);rtForm.rtTree->setIndentation(14);
+    rtForm.rtTree->setHorizontalScrollMode(QAbstractItemView::ScrollPerItem);
+    {
+      class PhaseSizer final : public QObject {
+      public:
+        QTreeView *tree;
+        explicit PhaseSizer(QTreeView *t) : QObject(t), tree(t) { t->viewport()->installEventFilter(this); }
+        void apply() const {
+          if (!tree->model() || tree->model()->columnCount() != 10) return;
+          const int w = tree->viewport()->width();
+          if (w < 100) return;
+          const int p1[5]{18, 10, 24, 24, 24};
+          const int p2[5]{20, 20, 20, 20, 20};
+          int used1 = 0, used2 = 0;
+          for (int i = 0; i < 4; ++i) { const int cw = w * p1[i] / 100; tree->setColumnWidth(i, cw); used1 += cw; }
+          tree->setColumnWidth(4, w - used1);
+          for (int i = 0; i < 4; ++i) { const int cw = w * p2[i] / 100; tree->setColumnWidth(5 + i, cw); used2 += cw; }
+          tree->setColumnWidth(9, w - used2);
+        }
+        bool eventFilter(QObject *, QEvent *e) override {
+          if (e->type() == QEvent::Resize || e->type() == QEvent::Show) apply();
+          return false;
+        }
+      };
+      new PhaseSizer(rtForm.rtTree);
+    }
     connect(rtForm.rtTree->selectionModel(),&QItemSelectionModel::currentChanged,panel,[this,channel](const QModelIndex &i){if(const auto record=rtModels[channel].recordFor(i)){settings.setValue("activeMonitorChannel",channel);backend.selected=*record;selectedMonitorId=record->id;refreshOperatorState();}});
     connect(rtForm.rtTree,&QTreeView::clicked,panel,[this,channel](const QModelIndex &i){if(const auto record=rtModels[channel].recordFor(i)){settings.setValue("activeMonitorChannel",channel);backend.selected=*record;selectedMonitorId=record->id;refreshOperatorState();}});
       connect(rtForm.rtTree,&QTreeView::doubleClicked,panel,[this,channel](const QModelIndex &i){if(const auto record=rtModels[channel].recordFor(i)){settings.setValue("activeMonitorChannel",channel);backend.selected=*record;openRecordDetailsDialog(*record);}});
@@ -297,7 +341,7 @@ void Window::buildMonitorPanes(QTableView *original) {
       connect(view,&QTableView::doubleClicked,panel,[this,view](const QModelIndex &i){monitor=view;if(i.column()>=17)plotMonitorSelection();else if(const auto record=selectedMonitorRecord()){backend.selected=*record;openRecordDetailsDialog(*record);}});
     auto window=monitorWorkspace->addSubWindow(panel,Qt::SubWindow|Qt::CustomizeWindowHint|Qt::WindowTitleHint|Qt::WindowMinMaxButtonsHint);
     // Child windows stay inside the workspace; neither window can stop capture.
-    channelWindows[channel]=window;window->setWindowTitle(viewingReplayStatistics?QString("%1 / Recorded Channel %2").arg(channel?"Internal":"External").arg(channel+1):QString("%1 / Channel %2 / Logical %3").arg(channel?"Internal":"External").arg(channel+1).arg(backend.captureConfig.logicalDevices[channel]));window->setMinimumSize(320,220);window->show();
+    channelWindows[channel]=window;window->setWindowIcon(desktop::operatorIcon("device"));window->setWindowTitle(viewingReplayStatistics?QString("%1 / Recorded Channel %2").arg(channel?"Internal":"External").arg(channel+1):QString("%1 / Channel %2").arg(channel?"Internal":"External").arg(channel+1));window->setMinimumSize(320,220);window->show();
   }
   connect(monitorWorkspace,&QMdiArea::subWindowActivated,this,[this](QMdiSubWindow *w){for(int c=0;c<2;++c)if(w==channelWindows[c]){monitor=paneViews[c];settings.setValue("activeMonitorChannel",c);}});
   applyMonitorLayout();refreshMonitorPanes();
@@ -356,8 +400,9 @@ void Window::refreshRtMonitor() {
     const auto &filter=paneModels[c];const auto mode=rtStatistics?RtRecordModel::Mode::Statistics:RtRecordModel::Mode::Routes;
     if(rtModels[c].mode()!=mode){rtModels[c].setMode(mode);tree->setProperty("widthsSet",false);}
     if(!displayedRtFrame)continue;rtModels[c].update(*displayedRtFrame,c,filter.busFilter);
-    if(!tree->property("widthsSet").toBool()){const int statsWidths[]={96,45,110,110,90,90,110,105,110,100};const int routeWidths[]={110,135,135,85,125,90};
-      for(int i=0;i<rtModels[c].columnCount();++i){tree->setColumnHidden(i,false);tree->setColumnWidth(i,rtStatistics?statsWidths[i]:routeWidths[i]);}tree->setRootIsDecorated(!rtStatistics);tree->setUniformRowHeights(rtStatistics);tree->setProperty("widthsSet",true);}
+    if(!tree->property("widthsSet").toBool()){const int routeWidths[]={110,135,135,85,125,90};
+      if(rtStatistics){const int w=qMax(300,tree->viewport()->width());const int p1[5]{18,10,24,24,24},p2[5]{20,20,20,20,20};int u1=0,u2=0;for(int i=0;i<10;++i)tree->setColumnHidden(i,false);for(int i=0;i<4;++i){int cw=w*p1[i]/100;tree->setColumnWidth(i,cw);u1+=cw;}tree->setColumnWidth(4,w-u1);for(int i=0;i<4;++i){int cw=w*p2[i]/100;tree->setColumnWidth(5+i,cw);u2+=cw;}tree->setColumnWidth(9,w-u2);}
+      else for(int i=0;i<rtModels[c].columnCount();++i){tree->setColumnHidden(i,false);tree->setColumnWidth(i,routeWidths[i]);}tree->setRootIsDecorated(!rtStatistics);tree->setUniformRowHeights(rtStatistics);tree->setProperty("widthsSet",true);}
     if(!rtStatistics){tree->setColumnHidden(1,filter.busFilter=="B");tree->setColumnHidden(2,filter.busFilter=="A");}
     for(int row=0;row<rtModels[c].rowCount();++row){const auto parent=rtModels[c].index(row,0);const auto rt=parent.data(Qt::UserRole+1).toInt();bool matching=false;
       for(int child=0;child<rtModels[c].rowCount(parent);++child){const auto i=rtModels[c].index(child,0,parent);const auto r=rtModels[c].recordFor(i);const bool visible=r&&(filter.busFilter.isEmpty()||filter.busFilter==(r->bus?"B":"A"))&&(filter.search.isEmpty()||words(*r).contains(filter.search,Qt::CaseInsensitive));tree->setRowHidden(child,parent,!visible);matching|=visible;}
@@ -369,9 +414,10 @@ void Window::refreshRtMonitor() {
   }
 }
 QString Window::rtMonitorSummary(unsigned channel,const QString &state) const {
+  Q_UNUSED(channel);
+  Q_UNUSED(state);
   const auto total=displayedRtFrame?displayedRtFrame->totalCommands[channel]:0;
   const auto invalid=displayedRtFrame?displayedRtFrame->invalidCommands[channel]:0;
-  const auto identity=viewingReplayStatistics?QString("%1 · Recorded CH%2").arg(channel?"Internal":"External").arg(channel+1):QString("%1 · CH%2 / logical %3").arg(channel?"Internal":"External").arg(channel+1).arg(backend.captureConfig.logicalDevices[channel]);
-  return QString("%1 · %2\nTotal commands: %3 · Invalid commands: %4\n%5%6")
-    .arg(identity).arg(viewingReplayStatistics?"Recorded session":state).arg(total).arg(invalid).arg(rtFrameScope).arg(rtDisplayPaused?" · DISPLAY PAUSED":"");
+  return QString("Total commands: %1 · Invalid commands: %2\n%3%4")
+    .arg(total).arg(invalid).arg(rtFrameScope).arg(rtDisplayPaused?" · DISPLAY PAUSED":"");
 }

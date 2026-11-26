@@ -62,7 +62,19 @@ void Window::setupOperatorShell() {
   }
   desktop::actionIcon(csvNavigation,"file");
   desktop::actionIcon(recoveryNavigation,"folder");
-  connect(csvNavigation,&QPushButton::clicked,this,[this]{csvTools();});
+  connect(csvNavigation,&QPushButton::clicked,this,[this]{
+    if(auto old=scroll->widget()){old->hide();scroll->takeWidget()->deleteLater();}
+    else if(content)content->deleteLater();
+    page=18;
+    updateShellHeading(18,"CSV Viewer","Preview raw data, convert between formats, plot, or map to Signal Mappings.");
+    content=new QWidget;
+    auto lay=new QVBoxLayout(content);
+    lay->setContentsMargins(16,12,16,14);
+    lay->setSpacing(0);
+    lay->addWidget(buildCsvViewerWidget(content),1);
+    scroll->setWidget(content);
+    refreshOperatorState();
+  });
   connect(recoveryNavigation,&QPushButton::clicked,this,[this]{findUnsavedRecordings();});
   for(const auto &entry:std::array<std::pair<int,QString>,3>{
       {{2,"Device Setup"},{14,"Exports & Reports"},{17,"Help & Diagnostics"}}}) {
@@ -128,6 +140,7 @@ void Window::setupOperatorShell() {
     stepLayout->addSpacing(6);
     stepLayout->addWidget(signalPillButton,0);
     rightLayout->insertWidget(1,workflowStepper);
+    workflowStepper->hide();
     rightLayout->setStretch(0,0);
     rightLayout->setStretch(1,0);
     rightLayout->setStretch(2,1);
@@ -164,21 +177,23 @@ void Window::setupOperatorShell() {
 
 void Window::setSidebarCollapsed(bool collapsed) {
   sidebarCollapsed=collapsed;
-  sidebar->setFixedWidth(collapsed?66:width()>=1550?278:220);
+  sidebar->setFixedWidth(collapsed?66:width()>=1550?240:210);
   const bool wide=width()>=1550;
-  findChild<QLabel *>("brandText")->setStyleSheet(wide?"font-size:21px;":"font-size:15px;");
-  findChild<QVBoxLayout *>("sidebarLayout")->setContentsMargins(collapsed?7:14,wide?27:12,collapsed?7:14,wide?34:16);
+  findChild<QLabel *>("brandText")->setText("AeroTrace\n1553");
+  findChild<QLabel *>("brandText")->setStyleSheet(wide?"font-size:17px;font-weight:700;color:#ffffff;":"font-size:15px;font-weight:700;color:#ffffff;");
+  findChild<QVBoxLayout *>("sidebarLayout")->setContentsMargins(collapsed?7:10,collapsed?10:12,collapsed?7:10,14);
   findChild<QHBoxLayout *>("brandLayout")->setDirection(collapsed?QBoxLayout::TopToBottom:QBoxLayout::LeftToRight);
+  findChild<QHBoxLayout *>("brandLayout")->setContentsMargins(collapsed?4:12,10,collapsed?4:8,10);
   const auto brand=findChild<QLabel *>("brandIcon");
-  const int edge=collapsed?30:width()>=1550?48:34;
+  const int edge=collapsed?28:34;
   brand->setFixedSize(edge,edge);
-  brand->setPixmap(QIcon(":/icons/aerotrace.ico").pixmap(QSize(edge,edge),devicePixelRatioF()));
+  brand->setPixmap(QIcon(":/icons/aerotrace.svg").pixmap(QSize(edge,edge),devicePixelRatioF()));
   findChild<QLabel *>("brandText")->setVisible(!collapsed);
-  findChild<QLabel *>("brandSubtitle")->setVisible(!collapsed);
+  findChild<QLabel *>("brandSubtitle")->setVisible(false);
   findChild<QWidget *>("sidebarFooter")->setVisible(!collapsed);
   auto wave=findChild<QLabel *>("sidebarWave");
-  wave->setFixedHeight(wide?55:38);
-  wave->setVisible(!collapsed);
+  wave->setFixedHeight(0);
+  wave->setVisible(false);
   findChild<QFrame *>("sidebarRule")->setVisible(!collapsed);
   sidebarToggle->setIcon(QIcon(collapsed?":/icons/expand.svg":":/icons/collapse.svg"));
   sidebarToggle->setAccessibleName(collapsed?"Expand navigation":"Collapse navigation");
@@ -202,23 +217,23 @@ void Window::resizeEvent(QResizeEvent *event) {
   if(!sidebar)return;
   const bool wide=event->size().width()>=1550;
   auto brandText=findChild<QLabel *>("brandText");
-  const QString brandSize=wide?"font-size:21px;":"font-size:15px;";
+  const QString brandSize=wide?"font-size:17px;font-weight:700;color:#ffffff;":"font-size:15px;font-weight:700;color:#ffffff;";
   if(brandText->styleSheet()!=brandSize)brandText->setStyleSheet(brandSize);
   auto headerLayout=findChild<QHBoxLayout *>("headerLayout");
-  headerLayout->setContentsMargins(18,wide?21:14,18,wide?21:14);
+  headerLayout->setContentsMargins(18,wide?18:14,18,wide?18:14);
   auto sidebarLayout=findChild<QVBoxLayout *>("sidebarLayout");
-  sidebarLayout->setContentsMargins(sidebarCollapsed?7:14,wide?27:12,sidebarCollapsed?7:14,wide?34:16);
+  sidebarLayout->setContentsMargins(sidebarCollapsed?7:10,sidebarCollapsed?10:12,sidebarCollapsed?7:10,14);
   if(!sidebarCollapsed) {
-    findChild<QLabel *>("sidebarWave")->setFixedHeight(wide?55:38);
-    sidebar->setFixedWidth(wide?278:220);
+    findChild<QLabel *>("sidebarWave")->setVisible(false);
+    sidebar->setFixedWidth(wide?240:210);
     const auto brand=findChild<QLabel *>("brandIcon");
-    const QSize edge=wide?QSize(48,48):QSize(34,34);
+    const QSize edge=QSize(34,34);
     if(brand->size()!=edge) {
       brand->setFixedSize(edge);
-      brand->setPixmap(QIcon(":/icons/aerotrace.ico").pixmap(edge,devicePixelRatioF()));
+      brand->setPixmap(QIcon(":/icons/aerotrace.svg").pixmap(edge,devicePixelRatioF()));
     }
   }
-  findChild<QLabel *>("simulationBadge")->setVisible(width()>=1060);
+  findChild<QLabel *>("simulationBadge")->setVisible(page!=4 && width()>=1060);
   auto subtitleLabel=findChild<QLabel *>("headerSubtitle");
   subtitleLabel->setVisible(width()>=1150&&!subtitleLabel->text().isEmpty());
 }
@@ -229,14 +244,15 @@ void Window::updateShellHeading(int route,const QString &title,const QString &de
   subtitleLabel->setText(description);
   subtitleLabel->setVisible(width()>=1150&&!description.isEmpty());
   static const QHash<int,QString> icons{{-1,"sparkle"},{2,"device"},{4,"activity"},
-    {6,"chart"},{10,"folder"},{12,"file"},{14,"download"},{15,"shield"},{16,"settings"},{17,"help"}};
+    {6,"chart"},{10,"folder"},{12,"file"},{14,"download"},{15,"shield"},{16,"settings"},{17,"help"},{18,"file"}};
   desktop::labelIcon(findChild<QLabel *>("headerIcon"),icons.value(route,"dashboard"),28);
   for(int i=0;i<nav.size();++i) if(nav[i]) nav[i]->setChecked(i==route);
+  if(csvNavigation) csvNavigation->setChecked(route==18);
   refreshWorkflowStepper();
 }
 
 void Window::refreshWorkflowStepper() {
-  if(workflowStepper) workflowStepper->setVisible(true);
+  if(workflowStepper) workflowStepper->setVisible(false);
   const auto activeCount=backend.mappings().size();
   if(signalPillButton) {
     signalPillButton->setVisible(true);
@@ -489,7 +505,9 @@ void Window::finishConnection() {
 }
 
 void Window::refreshOperatorState() {
-  findChild<QLabel *>("simulationBadge")->setText(backend.captureConfig.hardware?"DDC · RECEIVE ONLY":"SIMULATOR");
+  auto simBadge=findChild<QLabel *>("simulationBadge");
+  simBadge->setText(backend.captureConfig.hardware?"DDC · RECEIVE ONLY":"SIMULATOR");
+  simBadge->setVisible(page!=4 && width()>=1060);
   if(!captureButton) return;
   refreshWorkflowStepper();
   const auto metrics=backend.acquisition.metrics(false);
@@ -497,6 +515,7 @@ void Window::refreshOperatorState() {
   captureButton->setEnabled(!savingSession&&!closingCapture&&!metrics.cleanupBlocked);
   captureButton->setToolTip(metrics.cleanupBlocked ? QString::fromStdString(metrics.error) : QString());
   captureButton->setText(metrics.cleanupBlocked ? "Connection blocked" : savingSession ? "Saving…" : connectAfterDiscovery ? "Checking assignments…" : connecting ? "Cancel connection" : backend.acquisition.connected() || backend.acquisition.active() ? "Disconnect devices" : !backend.captureConfig.hardware ? "Start simulator" : metrics.failed ? "Retry connection" : "Connect devices");
+  desktop::actionIcon(captureButton,(!backend.captureConfig.hardware && !backend.acquisition.connected() && !backend.acquisition.active())?"play":"link",true);
   stateBadge->setText(savingSession?"Saving recording":connecting||connectAfterDiscovery?"Checking devices":metrics.failed?
     (currentFile.isEmpty()?"Connection failed":"Recording incomplete"):backend.acquisition.active()?"● Recording":backend.acquisition.connected()?"● Connected":"● Disconnected");
   const auto detail=QString("CH1 A/B %1/%2 · CH2 A/B %3/%4 · %5 checkpointed · %6 display skips")
@@ -512,8 +531,8 @@ void Window::refreshOperatorState() {
       (metrics.error.empty()?QString():"\n"+QString::fromStdString(metrics.error)));
     captureSummary->setVisible(!currentFile.isEmpty()&&(backend.acquisition.active()||savingSession||metrics.failed));
   }
-  const auto color=metrics.failed ? "#b33a32" : backend.acquisition.active() && backend.captureConfig.hardware ? "#28624d" : "#62685f";
-  const auto badgeStyle=QString("color:%1;font-size:14px;padding:6px;").arg(color);
+  const auto color=metrics.failed ? "#b33a32" : backend.acquisition.active() && backend.captureConfig.hardware ? "#28624d" : "#5b6975";
+  const auto badgeStyle=QString("color:%1;background:#eef3f7;border:1px solid #d5e0e8;border-radius:14px;font-size:13px;font-weight:600;padding:4px 12px;").arg(color);
   if(stateBadge->styleSheet()!=badgeStyle)stateBadge->setStyleSheet(badgeStyle);
   for(unsigned i=0;i<2;++i) if(deviceStatuses[i]) {
     if(deviceTitles[i]) deviceTitles[i]->setText(QString("Device %1  /  %2").arg(backend.captureConfig.logicalDevices[i]).arg(i ? "Internal" : "External"));

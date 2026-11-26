@@ -5,51 +5,108 @@
 #include "ui_plots_page.h"
 
 namespace {
-struct CsvJobResult {QString error;QStringList header;QList<QStringList> rows,raw;quint64 processed{};unsigned verifiedChannel{};int radix{};bool compact{},more{},cancelled{};};
+struct CsvJobResult {QString error;QStringList header;QList<QStringList> rows,raw;quint64 processed{};unsigned verifiedChannel{};int radix{};bool compact{},generic{},more{},cancelled{};};
 }
 void Window::csvTools(const QString &recording) {
   auto dialog=new QDialog(this);dialog->setObjectName("savedCsvTools");dialog->setAttribute(Qt::WA_DeleteOnClose);dialog->setWindowTitle("CSV Viewer");dialog->resize(1100,680);
-  auto layout=new QVBoxLayout(dialog);auto pathRow=new QHBoxLayout;auto path=new QLineEdit(dialog);path->setObjectName("savedCsvPath");auto browse=new QPushButton("Open CSV");pathRow->addWidget(path,1);pathRow->addWidget(browse);layout->addLayout(pathRow);
-  auto options=new QHBoxLayout;auto inputBase=new QComboBox,outputBase=new QComboBox,mode=new QComboBox,channel=new QComboBox;
+  auto outer=new QVBoxLayout(dialog);outer->setContentsMargins(14,12,14,12);
+  outer->addWidget(buildCsvViewerWidget(dialog,recording),1);
+  dialog->show();
+}
+
+QWidget *Window::buildCsvViewerWidget(QWidget *parent,const QString &recording) {
+  auto dialog=new QWidget(parent);dialog->setObjectName("csvViewerHost");
+  dialog->setStyleSheet(
+    "#csvViewerHost{background:#f3f7fb;}"
+    "#csvViewerHost QFrame[card=\"true\"]{background:#ffffff;border:1px solid #d4e0e9;border-radius:10px;}"
+    "#csvViewerHost QTableWidget{background:#ffffff;border:1px solid #d4e0e9;border-radius:8px;}"
+    "#csvViewerHost QPushButton{border-radius:8px;padding:6px 14px;}"
+  );
+  auto layout=new QVBoxLayout(dialog);layout->setContentsMargins(0,0,0,0);layout->setSpacing(10);
+  auto card=new QFrame(dialog);card->setProperty("card",true);
+  auto cardLayout=new QVBoxLayout(card);cardLayout->setContentsMargins(16,14,16,14);cardLayout->setSpacing(12);
+  auto topRow=new QHBoxLayout;topRow->setSpacing(10);
+  auto browse=new QPushButton("Open CSV",card);browse->setProperty("primary",true);desktop::actionIcon(browse,"folder",true);
+  topRow->addStretch(1);topRow->addWidget(browse);cardLayout->addLayout(topRow);
+  auto path=new QLineEdit(card);path->setObjectName("savedCsvPath");path->hide();
+  auto options=new QHBoxLayout;options->setSpacing(8);
+  auto inputBase=new QComboBox,outputBase=new QComboBox,mode=new QComboBox,channel=new QComboBox;
   for(auto combo:{inputBase,outputBase}){combo->addItem("Hexadecimal",16);combo->addItem("Unsigned decimal",10);combo->addItem("Binary",2);combo->addItem("Octal",8);}
   inputBase->setObjectName("inputCsvBase");outputBase->setObjectName("outputCsvBase");mode->setObjectName("csvConversionMode");
-  mode->addItems({"Raw word base conversion","Engineering CSV from published rules"});channel->addItems({"External / CH1","Internal / CH2"});channel->setCurrentIndex(analysisChannel-1);
-  options->addWidget(new QLabel("Input base"));options->addWidget(inputBase);options->addWidget(new QLabel("Output base"));options->addWidget(outputBase);options->addWidget(mode,1);options->addWidget(channel);layout->addLayout(options);
+  mode->addItems({"Raw word base","Engineering CSV from published rules"});channel->addItems({"External / CH1","Internal / CH2"});channel->setCurrentIndex(analysisChannel-1);
+  for(auto combo:{inputBase,outputBase,mode,channel}){
+    combo->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+    combo->setMinimumContentsLength(8);
+    combo->setMinimumWidth(0);
+    combo->setSizePolicy(QSizePolicy::Expanding,QSizePolicy::Fixed);
+  }
+  options->addWidget(new QLabel("Input base"));options->addWidget(inputBase,1);options->addWidget(new QLabel("Output base"));options->addWidget(outputBase,1);options->addWidget(new QLabel("Conversion"));options->addWidget(mode,2);options->addWidget(new QLabel("Source"));options->addWidget(channel,1);cardLayout->addLayout(options);
   const auto sources=recording.isEmpty()?QList<desktop::SessionCsvSource>{}:desktop::sessionCsvSources(recording);
-  auto sessionFiles=new QComboBox(dialog);sessionFiles->setAccessibleName("Saved session CSV");
+  auto sessionFiles=new QComboBox(card);sessionFiles->setAccessibleName("Saved session CSV");
   for(const auto &source:sources)sessionFiles->addItem(QString("CH%1 · %2").arg(source.channel).arg(QFileInfo(source.path).fileName()));
-  if(!sources.empty())layout->insertWidget(1,sessionFiles);else sessionFiles->hide();
+  if(!sources.empty())cardLayout->insertWidget(1,sessionFiles);else sessionFiles->hide();
   std::vector<aero::Signal> mappings;for(const auto &s:backend.profile){
     const auto set=workspaceDocument["icd_set_id"].toString().toStdString();
     if(!set.empty()&&!s.icdSetId.empty()&&s.icdSetId!=set)continue;
     if(workspaceSubsystem.isEmpty()||(s.subsystem.empty()?QString("Unassigned"):QString::fromStdString(s.subsystem))==workspaceSubsystem)mappings.push_back(s);
   }
-  auto headerNote=new QLabel("Preview raw 1553 words, inspect hex/octal/binary conversion, plot columns, or send any row's RT/SA directly into Signal Mappings.",dialog);
-  headerNote->setWordWrap(true);headerNote->setProperty("tone","muted");layout->insertWidget(0,headerNote);
-  auto confirm=new QCheckBox(QString("Use %1 published rules in %2; imported CSV capture provenance is unverified").arg(mappings.size()).arg(workspaceSubsystem.isEmpty()?"all subsystems":workspaceSubsystem));confirm->setObjectName("confirmCsvRules");confirm->hide();layout->addWidget(confirm);
-  auto noRulesHint=new QFrame(dialog);noRulesHint->setProperty("card",true);auto hintLay=new QHBoxLayout(noRulesHint);hintLay->setContentsMargins(10,8,10,8);
+  auto confirm=new QCheckBox(QString("Use %1 published rules in %2; imported CSV capture provenance is unverified").arg(mappings.size()).arg(workspaceSubsystem.isEmpty()?"all subsystems":workspaceSubsystem));confirm->setObjectName("confirmCsvRules");confirm->hide();cardLayout->addWidget(confirm);
+  auto noRulesHint=new QFrame(card);noRulesHint->setProperty("card",true);auto hintLay=new QHBoxLayout(noRulesHint);hintLay->setContentsMargins(10,8,10,8);
   auto hintLbl=new QLabel("No active signal mappings published yet. Define Word 0–31 rules first to export Engineering CSV.",noRulesHint);hintLbl->setWordWrap(true);
   auto openMapBtn=new QPushButton("Open Signal Mappings…",noRulesHint);desktop::actionIcon(openMapBtn,"edit");
-  hintLay->addWidget(hintLbl,1);hintLay->addWidget(openMapBtn);noRulesHint->hide();layout->addWidget(noRulesHint);
-  connect(openMapBtn,&QPushButton::clicked,this,[this,dialog]{dialog->close();navigate(12);});
+  hintLay->addWidget(hintLbl,1);hintLay->addWidget(openMapBtn);noRulesHint->hide();cardLayout->addWidget(noRulesHint);
+  connect(openMapBtn,&QPushButton::clicked,this,[this,parent]{if(auto d=qobject_cast<QDialog *>(parent))d->close();navigate(12);});
   connect(mode,&QComboBox::currentIndexChanged,dialog,[mode,noRulesHint,mappings](int idx){noRulesHint->setVisible(idx==1 && mappings.empty());});
-  auto table=new QTableWidget(dialog);table->setObjectName("csvPreview");table->setEditTriggers(QAbstractItemView::NoEditTriggers);table->setWordWrap(false);table->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);layout->addWidget(table,1);
-  auto footer=new QHBoxLayout;auto previous=new QPushButton("Previous"),next=new QPushButton("Next 100"),preview=new QPushButton("Preview"),save=new QPushButton("Export new copy…"),cancel=new QPushButton("Cancel"),close=new QPushButton("Close");
+  auto table=new QTableWidget(card);table->setObjectName("csvPreview");table->setEditTriggers(QAbstractItemView::NoEditTriggers);table->setWordWrap(false);table->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);cardLayout->addWidget(table,1);
+  auto emptyOverlay=new QWidget(table->viewport());
+  auto emptyLay=new QVBoxLayout(emptyOverlay);emptyLay->setAlignment(Qt::AlignCenter);emptyLay->setSpacing(10);
+  auto emptyIcon=new QLabel(emptyOverlay);
+  emptyIcon->setFixedSize(56,56);emptyIcon->setAlignment(Qt::AlignCenter);
+  emptyIcon->setStyleSheet("background:#eaf5f0;border-radius:12px;");
+  {
+    auto pm=QIcon(":/icons/file.svg").pixmap(QSize(28,28),devicePixelRatioF());
+    QPainter p(&pm);p.setCompositionMode(QPainter::CompositionMode_SourceIn);p.fillRect(pm.rect(),QColor("#16804a"));p.end();
+    emptyIcon->setPixmap(pm);
+  }
+  auto emptyTitle=new QLabel("Open a CSV file to view data",emptyOverlay);
+  emptyTitle->setStyleSheet("font-size:17px;font-weight:700;color:#142d3a;");
+  auto emptySub=new QLabel("The data will be displayed here with the selected conversion.",emptyOverlay);
+  emptySub->setStyleSheet("font-size:13px;color:#526a5c;");
+  auto emptyBrowse=new QPushButton("Open CSV",emptyOverlay);
+  emptyBrowse->setProperty("primary",true);desktop::actionIcon(emptyBrowse,"folder",true);
+  connect(emptyBrowse,&QPushButton::clicked,browse,&QPushButton::click);
+  emptyLay->addStretch(1);
+  emptyLay->addWidget(emptyIcon,0,Qt::AlignHCenter);
+  emptyLay->addWidget(emptyTitle,0,Qt::AlignHCenter);
+  emptyLay->addWidget(emptySub,0,Qt::AlignHCenter);
+  emptyLay->addWidget(emptyBrowse,0,Qt::AlignHCenter);
+  emptyLay->addStretch(1);
+  auto vpLay=new QVBoxLayout(table->viewport());
+  vpLay->setContentsMargins(0,0,0,0);
+  vpLay->addWidget(emptyOverlay);
+  layout->addWidget(card,1);
+  auto footer=new QHBoxLayout;footer->setSpacing(8);auto previous=new QPushButton("Previous"),next=new QPushButton("Next 100"),preview=new QPushButton("Preview"),save=new QPushButton("Export"),cancel=new QPushButton("Cancel"),close=new QPushButton("Close");
   preview->setObjectName("previewCsv");save->setObjectName("convertCsv");cancel->setObjectName("cancelCsv");cancel->setEnabled(false);
-  auto mapRow=new QPushButton("Map row RT/SA in ICD →");mapRow->setObjectName("mapCsvRoute");mapRow->setEnabled(false);
-  auto plot=new QPushButton("Plot selected");plot->setObjectName("plotCsvSelection");plot->setEnabled(false);
-  for(auto b:{previous,next,preview,mapRow,plot,save,cancel,close})footer->addWidget(b);layout->addLayout(footer);
-  auto status=new QLabel("Choose a compact 11-column or legacy 42-column CSV. Select the base for unprefixed input words. Originals are never changed.");status->setObjectName("csvConversionStatus");status->setWordWrap(true);layout->addWidget(status);
+  previous->setEnabled(false);next->setEnabled(false);cancel->hide();
+  auto mapRow=new QPushButton("Map to ICD");mapRow->setObjectName("mapCsvRoute");mapRow->setEnabled(false);
+  auto plot=new QPushButton("Plot");plot->setObjectName("plotCsvSelection");plot->setEnabled(false);
+  desktop::actionIcon(preview,"file",false,15);
+  desktop::actionIcon(plot,"chart",false,15);
+  desktop::actionIcon(mapRow,"grid",false,15);
+  desktop::actionIcon(save,"download",false,15);
+  footer->addWidget(previous);footer->addWidget(next);footer->addWidget(cancel);footer->addStretch(1);
+  for(auto b:{preview,plot,mapRow,save,close})footer->addWidget(b);layout->addLayout(footer);
+  auto status=new QLabel("Choose a recorded .atd or session CSV (.csv) file to preview. Originals are never changed.");status->setObjectName("csvConversionStatus");status->setWordWrap(true);status->setStyleSheet("background:#eef6f1;border:1px solid #cde2d5;border-radius:8px;padding:6px 10px;font-size:12px;color:#1b432e;");layout->addWidget(status);
   auto page=std::make_shared<quint64>(0);auto generation=std::make_shared<quint64>(0);auto cancellation=std::make_shared<std::shared_ptr<std::atomic_bool>>(std::make_shared<std::atomic_bool>(false));
   auto run=std::make_shared<std::function<void(bool)>>();
-  struct Preview {QString path;int radix{};quint64 offset{};bool compact{};QList<QStringList> raw;unsigned verifiedChannel{};};
+  struct Preview {QString path;int radix{};quint64 offset{};bool compact{},generic{};QList<QStringList> raw;unsigned verifiedChannel{};};
   auto shown=std::make_shared<Preview>();
   connect(table,&QTableWidget::currentCellChanged,dialog,[plot,mapRow,mode,shown](int row,int,int,int){
-    const bool validRow=row>=0&&row<shown->raw.size();
+    const bool validRow=!shown->generic&&row>=0&&row<shown->raw.size();
     plot->setEnabled(mode->currentIndex()==0&&validRow);
     mapRow->setEnabled(mode->currentIndex()==0&&validRow);
   });
-  connect(mapRow,&QPushButton::clicked,dialog,[this,dialog,table,shown,channel]{
+  connect(mapRow,&QPushButton::clicked,dialog,[this,parent,table,shown,channel]{
     const int r=table->currentRow();
     if(r<0||r>=shown->raw.size())return;
     const auto &rawCols=shown->raw[r];
@@ -70,10 +127,10 @@ void Window::csvTools(const QString &recording) {
       const unsigned val=cleaned.toUInt(&wOk,shown->radix==16||parts[w].startsWith("0x",Qt::CaseInsensitive)?16:shown->radix?shown->radix:16);
       if(wOk && val<=0xFFFFu){route.sampleWords[w]=std::uint16_t(val);route.hasSample=true;}
     }
-    dialog->close();
+    if(auto d=qobject_cast<QDialog *>(parent))d->close();
     openSignalMappingForRoute(route);
   });
-  *run=[this,dialog,path,inputBase,outputBase,mode,channel,confirm,table,status,page,generation,cancellation,preview,save,previous,next,cancel,mappings,shown,plot,mapRow,sources](bool exporting){
+  *run=[this,dialog,path,inputBase,outputBase,mode,channel,confirm,table,emptyOverlay,status,page,generation,cancellation,preview,save,previous,next,cancel,mappings,shown,plot,mapRow,sources](bool exporting){
     if(path->text().trimmed().isEmpty())return;
     if(exporting&&mode->currentIndex()==1&&(!confirm->isChecked()||mappings.empty())){status->setText("Define and publish active signals first, and confirm the mapping checkbox before engineering conversion.");return;}
     QString output;
@@ -82,36 +139,96 @@ void Window::csvTools(const QString &recording) {
     for(auto b:{preview,save,previous,next,plot,mapRow})b->setEnabled(false);cancel->setEnabled(true);status->setText(exporting?"Converting the full CSV in the background…":"Loading 100 preview rows…");
     auto watcher=new QFutureWatcher<CsvJobResult>(dialog);
     const auto input=path->text().trimmed();const auto radix=inputBase->currentData().toInt();const auto offset=*page*100;
-    connect(watcher,&QFutureWatcher<CsvJobResult>::finished,dialog,[watcher,token,generation,table,status,preview,save,previous,next,cancel,page,exporting,output,input,radix,offset,shown,plot,mapRow,inputBase,channel]{auto result=watcher->result();watcher->deleteLater();if(token!=*generation)return;for(auto b:{preview,save,previous,next})b->setEnabled(true);cancel->setEnabled(false);previous->setEnabled(*page>0);next->setEnabled(result.more);if(!result.error.isEmpty()){status->setText(result.error);return;}if(result.cancelled){status->setText("Cancelled. No converted file was published.");return;}if(exporting){status->setText(QString("Exported %1 source rows to %2. Original CSV preserved.").arg(result.processed).arg(output));plot->setEnabled(!shown->raw.empty()&&table->currentRow()>=0);mapRow->setEnabled(!shown->raw.empty()&&table->currentRow()>=0);return;}if(result.verifiedChannel){inputBase->setCurrentIndex(inputBase->findData(result.radix));channel->setCurrentIndex(int(result.verifiedChannel)-1);}
-      *shown={input,result.radix?result.radix:radix,offset,result.compact,result.raw,result.verifiedChannel};table->clear();table->setColumnCount(result.header.size());table->setHorizontalHeaderLabels(result.header);table->setRowCount(result.rows.size());
+    connect(watcher,&QFutureWatcher<CsvJobResult>::finished,dialog,[this,watcher,token,generation,table,emptyOverlay,status,preview,save,previous,next,cancel,page,exporting,output,input,radix,offset,shown,plot,mapRow,inputBase,channel]{auto result=watcher->result();watcher->deleteLater();if(token!=*generation)return;for(auto b:{preview,save,previous,next})b->setEnabled(true);cancel->setEnabled(false);previous->setEnabled(*page>0);next->setEnabled(result.more);if(!result.error.isEmpty()){status->setStyleSheet("background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:6px 10px;font-size:12px;color:#991b1b;");status->setText(result.error);status->show();toast(result.error);return;}status->setStyleSheet("background:#eef6f1;border:1px solid #cde2d5;border-radius:8px;padding:6px 10px;font-size:12px;color:#1b432e;");if(result.cancelled){status->setText("Cancelled. No converted file was published.");return;}if(exporting){status->setText(QString("Exported %1 source rows to %2. Original file preserved.").arg(result.processed).arg(output));plot->setEnabled(!shown->generic&&!shown->raw.empty()&&table->currentRow()>=0);mapRow->setEnabled(!shown->generic&&!shown->raw.empty()&&table->currentRow()>=0);return;}if(result.verifiedChannel){inputBase->setCurrentIndex(inputBase->findData(result.radix));channel->setCurrentIndex(int(result.verifiedChannel)-1);}
+      *shown={input,result.radix?result.radix:radix,offset,result.compact,result.generic,result.raw,result.verifiedChannel};table->clear();table->setColumnCount(result.header.size());table->setHorizontalHeaderLabels(result.header);table->setRowCount(result.rows.size());emptyOverlay->setVisible(result.rows.isEmpty());
       QStringList labels;for(int r=0;r<result.rows.size();++r){labels<<QString::number(offset+r+1);for(int c=0;c<result.header.size();++c){auto item=new QTableWidgetItem(result.rows[r].value(c));item->setToolTip(result.raw.value(r).value(c,item->text()));table->setItem(r,c,item);}}
       table->setVerticalHeaderLabels(labels);for(int c=0;c<result.header.size();++c)table->setColumnWidth(c,c==8?320:150);if(table->rowCount())table->setCurrentCell(0,0);
-      status->setText(QString("%1 columns · Rows %2–%3 · %4").arg(result.header.size()).arg(offset+1).arg(offset+result.rows.size()).arg(result.verifiedChannel?"Export hash verified; channel and input base loaded":"Stored time and ordering preserved; select input base for unprefixed words"));});
+      if(result.rows.isEmpty()){status->setText(QString("No data rows found in %1.").arg(QFileInfo(input).fileName()));}
+      else if(result.generic){status->setText(QString("Generic CSV · %1 columns · Rows %2–%3").arg(result.header.size()).arg(offset+1).arg(offset+result.rows.size()));}
+      else {status->setText(QString("%1 columns · Rows %2–%3 · %4").arg(result.header.size()).arg(offset+1).arg(offset+result.rows.size()).arg(result.verifiedChannel?"Export hash verified; channel and input base loaded":"Stored time and ordering preserved; select input base for unprefixed words"));}});
     const auto metadata=std::find_if(sources.begin(),sources.end(),[&](const auto &s){return s.path==input;});
     const auto source=metadata==sources.end()?desktop::SessionCsvSource{}:*metadata;
     watcher->setFuture(QtConcurrent::run([input,output,exporting,inputRadix=radix,outputRadix=static_cast<aero::NumericRadix>(outputBase->currentData().toUInt()),engineering=mode->currentIndex()==1,selectedChannel=unsigned(channel->currentIndex()+1),offset,stopped,mappings,source]() mutable {
       CsvJobResult result;
       try {
+        if(input.endsWith(".atd",Qt::CaseInsensitive)){
+          aero::CsvExportOptions opts{aero::CsvLayout::Compact11,exporting?outputRadix:static_cast<aero::NumericRadix>(inputRadix)};
+          result.compact=true;result.radix=int(opts.radix);
+          result.header=engineering?QStringList{"source_row","card_time","channel","bus","signal_id","engineering_value","unit","quality"}:QString::fromStdString(aero::sessionCsvHeader(opts)).trimmed().split(',');
+          QSaveFile destination(output);std::unique_ptr<QLockFile> lock;
+          if(exporting){lock=std::make_unique<QLockFile>(output+".lock");lock->setStaleLockTime(0);if(!lock->tryLock(0)||QFileInfo::exists(output))throw std::runtime_error("Destination exists or another conversion is using it");if(!destination.open(QIODevice::WriteOnly))throw std::runtime_error(destination.errorString().toStdString());destination.write(desktop::csvLine(result.header));}
+          std::array<std::optional<std::uint64_t>,2> previous;
+          const auto scan=aero::scanRecording(std::filesystem::path(input.toStdWString()),[&](const aero::Record &record,std::uint64_t){
+            if(stopped->load()){result.cancelled=true;return false;}
+            const size_t chIdx=record.channel==2?1:0;
+            const auto line=QByteArray::fromStdString(aero::sessionCsvRecord(record,previous[chIdx],opts));
+            previous[chIdx]=record.timestampNs;
+            ++result.processed;
+            if(!exporting&&result.processed<=offset)return true;
+            if(!exporting&&result.processed>offset+100){result.more=true;return false;}
+            auto cells=desktop::csvCells(line);
+            if(!exporting)result.raw<<cells;
+            QList<QStringList> converted;
+            if(!engineering)converted<<cells;
+            else {
+              const auto protocol=aero::interpret(record);bool matched=false;
+              for(const auto &s:mappings){
+                if(!aero::matchesSignalRoute(record,s,aero::signalCommand(protocol,s)))continue;
+                if(s.sourceWord==aero::SignalWord::Payload && s.expectedWordCount &&
+                   (protocol.mode || protocol.payloadCommand.count!=s.expectedWordCount))continue;
+                matched=true;const auto value=aero::decodePayload(record,s,protocol,false);
+                converted<<QStringList{QString::number(result.processed),cells[0],QString::number(record.channel),cells[4],QString::fromStdString(s.id),value?QString::number(*value,'g',17):QString(),QString::fromStdString(s.unit),value?"Decoded from recording":"No eligible decoded value; inspect mapping / message quality"};
+              }
+              if(!matched)converted<<QStringList{QString::number(result.processed),cells[0],QString::number(record.channel),cells[4],{},{},{},"No matching published mapping"};
+            }
+            for(const auto &row:converted)if(exporting){const auto encoded=desktop::csvLine(row);if(destination.write(encoded)!=encoded.size())throw std::runtime_error("CSV output write failed");}else result.rows<<row;
+            return true;
+          });
+          if(result.cancelled)return result;
+          if(!scan.error.empty()&&result.rows.isEmpty()&&!exporting)throw std::runtime_error(scan.error);
+          if(exporting){if(QFileInfo::exists(output))throw std::runtime_error("Destination appeared during conversion; existing file preserved");if(!destination.commit())throw std::runtime_error("CSV output commit failed");}
+          return result;
+        }
         QFile file(input);if(!file.open(QIODevice::ReadOnly))throw std::runtime_error(file.errorString().toStdString());
         if(!source.sha256.isEmpty()){
           QCryptographicHash hash(QCryptographicHash::Sha256);while(!file.atEnd()){if(stopped->load()){result.cancelled=true;return result;}const auto chunk=file.read(256*1024);if(chunk.isEmpty())break;hash.addData(chunk);}
           if(QString::fromLatin1(hash.result().toHex()).compare(source.sha256,Qt::CaseInsensitive)==0){inputRadix=int(source.options.radix);selectedChannel=source.channel;result.verifiedChannel=source.channel;}
           if(!file.seek(0))throw std::runtime_error("Cannot rewind CSV after verification");
         }
-        desktop::CsvInput format(file);result.compact=format.compact;result.radix=inputRadix;
+        std::unique_ptr<desktop::CsvInput> format;
+        try {
+          format=std::make_unique<desktop::CsvInput>(file);
+        } catch(const std::exception &) {
+          if(exporting)throw;
+          if(!file.seek(0))throw;
+          const auto firstRow=desktop::csvRow(file);
+          if(firstRow.trimmed().isEmpty())throw std::runtime_error("CSV file is empty");
+          result.generic=true;
+          result.header=desktop::csvCells(firstRow);
+          while(!file.atEnd()){
+            if(stopped->load()){result.cancelled=true;return result;}
+            const auto bytes=desktop::csvRow(file);if(bytes.trimmed().isEmpty())continue;++result.processed;
+            if(result.processed<=offset)continue;
+            if(result.processed>offset+100){result.more=true;break;}
+            auto cells=desktop::csvCells(bytes);
+            result.raw<<cells;result.rows<<cells;
+          }
+          return result;
+        }
+        result.compact=format->compact;result.radix=inputRadix;
         QSaveFile destination(output);std::unique_ptr<QLockFile> lock;
         if(exporting){lock=std::make_unique<QLockFile>(output+".lock");lock->setStaleLockTime(0);if(!lock->tryLock(0)||QFileInfo::exists(output))throw std::runtime_error("Destination exists or another conversion is using it");if(!destination.open(QIODevice::WriteOnly))throw std::runtime_error(destination.errorString().toStdString());}
-        result.header=engineering?QStringList{"source_row","card_time","channel","bus","signal_id","engineering_value","unit","quality"}:format.header;
+        result.header=engineering?QStringList{"source_row","card_time","channel","bus","signal_id","engineering_value","unit","quality"}:format->header;
         if(exporting)destination.write(desktop::csvLine(result.header));
         while(!file.atEnd()){
           if(stopped->load()){result.cancelled=true;return result;}
           const auto bytes=desktop::csvRow(file);if(bytes.trimmed().isEmpty())continue;++result.processed;
           if(!exporting&&result.processed<=offset)continue;
           if(!exporting&&result.processed>offset+100){result.more=true;break;}
-          auto cells=desktop::csvCells(bytes);format.validate(cells);if(!exporting)result.raw<<cells;QList<QStringList> converted;
-          if(!engineering)converted<<format.convert(cells,inputRadix,outputRadix);
+          auto cells=desktop::csvCells(bytes);format->validate(cells);if(!exporting)result.raw<<cells;QList<QStringList> converted;
+          if(!engineering)converted<<format->convert(cells,inputRadix,outputRadix);
           else {
-            const auto record=format.record(cells,inputRadix,selectedChannel,result.processed);bool matched=false;
+            const auto record=format->record(cells,inputRadix,selectedChannel,result.processed);bool matched=false;
             const auto protocol=aero::interpret(record);
             for(const auto &s:mappings){
               if(!aero::matchesSignalRoute(record,s,aero::signalCommand(protocol,s)))continue;
@@ -128,14 +245,14 @@ void Window::csvTools(const QString &recording) {
       return result;
     }));
   };
-  connect(browse,&QPushButton::clicked,dialog,[dialog,path,page,run]{const auto file=QFileDialog::getOpenFileName(dialog,"Open saved CSV",{},"CSV (*.csv)");if(file.isEmpty())return;path->setText(file);*page=0;(*run)(false);});
+  connect(browse,&QPushButton::clicked,dialog,[this,dialog,path,page,run]{const auto file=QFileDialog::getOpenFileName(dialog,"Open recorded CSV or ATD",sessionDir,"CSV and Recordings (*.csv *.atd);;CSV (*.csv);;Recordings (*.atd)");if(file.isEmpty())return;path->setText(file);*page=0;(*run)(false);});
   connect(preview,&QPushButton::clicked,dialog,[run]{(*run)(false);});connect(save,&QPushButton::clicked,dialog,[run]{(*run)(true);});
   connect(previous,&QPushButton::clicked,dialog,[page,run]{if(*page)--*page;(*run)(false);});connect(next,&QPushButton::clicked,dialog,[page,run]{++*page;(*run)(false);});
   connect(mode,&QComboBox::currentIndexChanged,dialog,[confirm,outputBase,page,plot](int index){confirm->setVisible(index==1);outputBase->setEnabled(index==0);plot->setEnabled(false);*page=0;});
-  connect(cancel,&QPushButton::clicked,dialog,[cancellation]{(*cancellation)->store(true);});connect(close,&QPushButton::clicked,dialog,&QDialog::close);connect(dialog,&QObject::destroyed,[cancellation]{(*cancellation)->store(true);});
+  connect(cancel,&QPushButton::clicked,dialog,[cancellation]{(*cancellation)->store(true);});connect(close,&QPushButton::clicked,dialog,[this,parent]{if(auto d=qobject_cast<QDialog *>(parent))d->close();else navigate(4);});connect(dialog,&QObject::destroyed,[cancellation]{(*cancellation)->store(true);});
   connect(sessionFiles,&QComboBox::currentIndexChanged,dialog,[path,page,run,sources](int i){if(i>=0&&i<sources.size()){path->setText(sources[i].path);*page=0;(*run)(false);}});
   connect(table,&QTableWidget::cellDoubleClicked,dialog,[dialog,table,shown](int row,int){if(row<0||row>=shown->raw.size())return;QStringList cells;for(int c=0;c<table->columnCount();++c)cells<<table->horizontalHeaderItem(c)->text()+": "+shown->raw[row].value(c);auto details=new QDialog(dialog);details->setAttribute(Qt::WA_DeleteOnClose);details->setWindowTitle(QString("Source row %1").arg(shown->offset+row+1));auto layout=new QVBoxLayout(details);auto text=new QPlainTextEdit(cells.join('\n'),details);text->setReadOnly(true);layout->addWidget(text);details->resize(640,420);details->show();});
-  connect(plot,&QPushButton::clicked,dialog,[this,dialog,path,table,shown,inputBase,channel,mappings,mode]{
+  connect(plot,&QPushButton::clicked,dialog,[this,dialog,parent,path,table,shown,inputBase,channel,mappings,mode]{
     const auto row=table->currentRow();if(mode->currentIndex()!=0||row<0||row>=shown->raw.size()||path->text().trimmed()!=shown->path||inputBase->currentData().toInt()!=shown->radix){toast("Preview raw rows from this file and input base before plotting.");return;}
     const auto cells=shown->raw[row];
     try{
@@ -166,11 +283,12 @@ void Window::csvTools(const QString &recording) {
         }
         if(request.traces.empty()){error->setText("Select at least one trace.");return;}choose.accept();
       });
-      if(choose.exec()==QDialog::Accepted){recordedCsv=std::move(request);dialog->close();navigate(7);}
+      if(choose.exec()==QDialog::Accepted){recordedCsv=std::move(request);if(auto d=qobject_cast<QDialog *>(parent))d->close();navigate(7);}
     }catch(const std::exception &e){toast(QString::fromUtf8(e.what()));}
   });
-  dialog->show();
   if(!sources.empty()){path->setText(sources.front().path);(*run)(false);}
+  else if(!recording.isEmpty()&&QFileInfo(recording).isFile()){path->setText(recording);(*run)(false);}
+  return dialog;
 }
 
 void Window::recordedCsvPage() {

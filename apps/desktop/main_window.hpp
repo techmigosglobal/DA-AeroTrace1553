@@ -173,7 +173,7 @@ public:
     form.setupUi(panel);
     panel->setProperty("designerSource", desktop::pages.at(page).form);
     pageLayout->addWidget(panel,(page==4 || page==6 || page==7) ? 1 : 0);
-    if (auto bar = panel->findChild<QWidget *>("actionBar");bar && page!=4)
+    if (auto bar = panel->findChild<QWidget *>("actionBar");bar && page!=4 && page!=6 && page!=10 && page!=14 && page!=16 && page!=17)
       titleActions->addWidget(bar);
     return form;
   }
@@ -205,6 +205,7 @@ public:
   void configureAnalysisTools(bool recorded=false);
   void configureSignalAlerts();
   void csvTools(const QString &recording={});
+  QWidget *buildCsvViewerWidget(QWidget *parent,const QString &recording={});
   void recordedCsvPage();
   std::optional<desktop::RecordedCsvRequest> recordedCsv;
   void exportPlot();

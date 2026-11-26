@@ -2,32 +2,35 @@
 #include "services/operator_style.hpp"
 
 void Window::configureAnalysisTools(bool recorded) {
-  auto tools=new QWidget(content);tools->setObjectName("analysisToolbar");auto row=new QHBoxLayout(tools);row->setContentsMargins(0,0,0,0);row->setSpacing(4);
+  auto tools=new QWidget(content);tools->setObjectName("analysisToolbar");auto row=new QHBoxLayout(tools);row->setContentsMargins(0,0,0,0);row->setSpacing(5);
   auto body=content->findChild<QVBoxLayout *>("bodyLayout");
   auto actionBar=content->findChild<QWidget *>("actionBar");
   if(!actionBar)actionBar=titleActions?titleActions->parentWidget()->findChild<QWidget *>("actionBar"):nullptr;
   if(actionBar){
     if(auto pauseBtn=actionBar->findChild<QPushButton *>("pausePlotsButton")) pauseBtn->setText("Pause");
-    if(auto actions=qobject_cast<QHBoxLayout *>(actionBar->layout())) {actions->setSpacing(5);actions->addWidget(tools);}
+    if(auto actions=qobject_cast<QHBoxLayout *>(actionBar->layout())) {actions->setSpacing(6);actions->addWidget(tools);}
   }
-  auto menu=new QMenu(tools);auto menuButton=new QToolButton(tools);menuButton->setText("More");menuButton->setPopupMode(QToolButton::InstantPopup);menuButton->setMenu(menu);menuButton->setToolTip("Axes / range & CSV export");
+  auto menu=new QMenu(tools);auto menuButton=new QToolButton(tools);menuButton->setIcon(desktop::operatorIcon("download"));menuButton->setToolButtonStyle(Qt::ToolButtonIconOnly);menuButton->setPopupMode(QToolButton::InstantPopup);menuButton->setMenu(menu);menuButton->setToolTip("Axes / range & CSV export");
   const auto available=plots;
   const auto action=[menu,tools](const QString &text,const QString &help,std::function<void()> callback){auto item=menu->addAction(text);item->setToolTip(help);QObject::connect(item,&QAction::triggered,tools,std::move(callback));return item;};
   auto modes=new QActionGroup(tools);modes->setExclusive(true);
-  auto addToolbarAction=[&](const QString &text,const QString &help,std::function<void()> callback,bool checkable=false,bool checked=false){
-    auto act=new QAction(text,tools);
+  auto addToolbarAction=[&](const QString &text,const QString &iconName,const QString &help,std::function<void()> callback,bool checkable=false,bool checked=false){
+    auto act=new QAction(desktop::operatorIcon(iconName),text,tools);
     act->setToolTip(help);
     act->setCheckable(checkable);
     act->setChecked(checked);
     QObject::connect(act,&QAction::triggered,tools,std::move(callback));
     auto btn=new QToolButton(tools);
-    btn->setToolButtonStyle(Qt::ToolButtonTextOnly);
+    btn->setToolButtonStyle(Qt::ToolButtonIconOnly);
+    btn->setIconSize(QSize(16,16));
+    btn->setFixedSize(32,30);
     btn->setDefaultAction(act);
     row->addWidget(btn);
     return act;
   };
+  const QStringList modeIcons{"activity","layers","search"};
   for(int i=0;i<3;++i) {
-    auto act=addToolbarAction(QStringList{"Cursor","Pan","Zoom"}[i],
+    auto act=addToolbarAction(QStringList{"Cursor","Pan","Zoom"}[i],modeIcons[i],
       QStringList{"Inspect samples and place A/B cursors","Drag to pan the selected trace","Drag a rectangle to zoom"}[i],
       [available,i]{for(auto plot:available){
 #ifdef AEROTRACE_QWT
@@ -37,13 +40,14 @@ void Window::configureAnalysisTools(bool recorded) {
     }},true,i==0);
     modes->addAction(act);
   }
-  addToolbarAction("Back","Previous zoom",[available]{for(auto plot:available)if(plot->isVisible())plot->zoomBack();});
-  addToolbarAction(recorded?"Reset view":"Follow",recorded?"Reset axes for the recorded range":"Reset axes and follow incoming samples",[available]{for(auto plot:available)plot->resetView();});
+  addToolbarAction("Back","restore","Previous zoom",[available]{for(auto plot:available)if(plot->isVisible())plot->zoomBack();});
+  addToolbarAction(recorded?"Reset view":"Follow","expand",recorded?"Reset axes for the recorded range":"Reset axes and follow incoming samples",[available]{for(auto plot:available)plot->resetView();});
   auto stats=new QLabel(content);stats->setObjectName("rangeStatistics");stats->setWordWrap(false);stats->setFixedHeight(72);stats->hide();if(body&&!recorded)body->addWidget(stats);
   if(!recorded) {
-    addToolbarAction("Statistics","Show statistics for the visible range",[stats]{stats->setVisible(!stats->isVisible());},true,false);
-    addToolbarAction("Limits","Configure signal alerts and limit lines",[this]{configureSignalAlerts();});
+    addToolbarAction("Statistics","chart","Show statistics for the visible range",[stats]{stats->setVisible(!stats->isVisible());},true,false);
+    addToolbarAction("Limits","sliders","Configure signal alerts and limit lines",[this]{configureSignalAlerts();});
   }
+  menuButton->setFixedSize(32,30);menuButton->setIconSize(QSize(16,16));
   row->addWidget(menuButton);
   action("Axes / range","Set a card-time range and optional engineering limits",[this,available]{
     auto dialog=new QDialog(content);dialog->setAttribute(Qt::WA_DeleteOnClose);dialog->setWindowTitle("Plot axes and time range");auto layout=new QFormLayout(dialog);
@@ -56,16 +60,16 @@ void Window::configureAnalysisTools(bool recorded) {
   stats->setProperty("traceIndex",0);
   if(!available.empty()&&!recorded)available.front()->showStatistics(stats);
   for(auto plot:available){auto pick=plot->onPick;plot->onPick=[available,plot,pick,stats,recorded](QPointF point){stats->setProperty("traceIndex",available.indexOf(plot));if(!recorded){for(auto other:available)other->showStatistics(nullptr);plot->showStatistics(stats);}if(pick)pick(point);};}
-  auto focus=new QPushButton("Focus",tools);
+  auto focus=new QPushButton(tools);
   focus->setObjectName("focusPlot");
   focus->setCheckable(true);
-  desktop::actionIcon(focus,"expand");
+  focus->setFixedSize(32,30);
+  desktop::actionIcon(focus,"expand",false,16);
   focus->setToolTip("Hide navigation and surrounding ICD context to enlarge the live plot.");
-  row->insertWidget(0,focus);
+  row->insertWidget(3,focus);
   connect(focus,&QPushButton::toggled,content,[this,focus](bool on){
     sidebar->setVisible(!on);
-    focus->setText(on?"Exit":"Focus");
-    desktop::actionIcon(focus,on?"collapse":"expand");
+    desktop::actionIcon(focus,on?"collapse":"expand",false,16);
     if(auto workspace=scroll->widget()){
       if(auto panel=workspace->findChild<QWidget *>("subsystemPanel"))panel->setVisible(!on);
       if(auto tabs=workspace->findChild<QTabBar *>("workspaceTabs"))tabs->setVisible(!on);

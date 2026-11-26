@@ -6,16 +6,13 @@
 
 void Window::preferences() {
     auto form = showForm<Ui::PreferencesPage>();
-    form.interfaceLayout->insertWidget(0,desktop::sectionHeading("Interface Preferences","device"));
-    form.captureCardLayout->insertWidget(0,desktop::sectionHeading("Capture & Plotting","activity",true));
-    form.safetyLayout->insertWidget(0,desktop::sectionHeading("Advanced Safety","shield"));
-    form.pathsLayout->insertWidget(0,desktop::sectionHeading("Session Paths","folder",true));
-    const bool spacious=height()>=850;
-    form.preferencesGrid->setRowStretch(1,3);
-    form.preferencesGrid->setRowStretch(2,2);
-    form.preferencesGrid->setContentsMargins(0,0,0,spacious?52:0);
-    form.interfaceGroup->setMinimumHeight(spacious?324:232);
-    form.safetyGroup->setMinimumHeight(spacious?186:132);
+    form.interfaceLayout->insertWidget(0,desktop::sectionHeading("Interface","device"));
+    form.captureCardLayout->insertWidget(0,desktop::sectionHeading("Capture & Plotting","activity"));
+    form.safetyLayout->insertWidget(0,desktop::sectionHeading("Safety","shield"));
+    form.pathsLayout->insertWidget(0,desktop::sectionHeading("Session Path","folder"));
+    form.preferencesGrid->setRowStretch(0,1);
+    form.preferencesGrid->setRowStretch(1,1);
+    form.preferencesGrid->setContentsMargins(0,0,0,0);
     form.interfaceLayout->setContentsMargins(14,12,14,12);
     form.safetyLayout->setContentsMargins(14,12,14,12);
     form.captureCardLayout->setContentsMargins(14,12,14,12);
@@ -40,8 +37,8 @@ void Window::preferences() {
       preferenceChecks[i]->setProperty("key", keys[i]);
       preferenceChecks[i]->setChecked(settings.value(keys[i], i == 0).toBool());
     }
-    auto layoutRow=new QHBoxLayout;layoutRow->addWidget(new QLabel("Monitor layout"));
-    monitorLayoutEdit=new QComboBox;monitorLayoutEdit->setObjectName("monitorLayoutSetting");monitorLayoutEdit->addItem("Movable workspace windows","windows");monitorLayoutEdit->addItem("Tabs","tabs");monitorLayoutEdit->setCurrentIndex(settings.value("monitorLayout","windows").toString()=="tabs"?1:0);layoutRow->addWidget(monitorLayoutEdit,1);form.captureCardLayout->addLayout(layoutRow);
+    monitorLayoutEdit=new QComboBox;monitorLayoutEdit->setObjectName("monitorLayoutSetting");monitorLayoutEdit->addItem("Movable workspace windows","windows");monitorLayoutEdit->addItem("Tabs","tabs");monitorLayoutEdit->setCurrentIndex(settings.value("monitorLayout","windows").toString()=="tabs"?1:0);
+    form.captureLayout->addRow("Monitor layout",monitorLayoutEdit);
     form.captureCardLayout->addStretch();
     fpsEdit = form.fpsEdit;
     fpsEdit->setValue(settings.value("fps", 20).toInt());
@@ -77,34 +74,45 @@ void Window::savePreferences(){
 void Window::diagnostics() {
   auto form=showForm<Ui::DiagnosticsPage>();
   form.version->setText(QCoreApplication::applicationVersion());
-  auto rescan=new QPushButton("Rescan DDC devices / drivers",content);auto manager=new QPushButton("Open DDC Card Manager",content);
-  desktop::actionIcon(rescan,"search");
-  desktop::actionIcon(manager,"device");
-  if(titleActions){titleActions->addWidget(rescan);titleActions->addWidget(manager);}
-  auto guideCard=new QFrame(content);
-  guideCard->setProperty("card",true);
-  auto guideLayout=new QVBoxLayout(guideCard);
-  guideLayout->setContentsMargins(18,14,18,14);
-  guideLayout->setSpacing(6);
-  auto guideHeading=new QLabel("5-Step Guided Workflow",guideCard);
-  guideHeading->setProperty("sectionTitle",true);
-  auto guideText=new QLabel(
-    "Step 1 · Device Setup: Select DDC hardware or offline simulator, channels, and recording folder.\n"
-    "Step 2 · Monitor & Record: Inspect frames, switch between RT Statistics / Message Routes / Chronological / RT Matrix 00–31, click Details or Map in ICD →.\n"
-    "Step 3 · Signal Mappings: Define RT/SA/Tx commands and 0-based Word 0–31 fields manually or import JSON/CSV.\n"
-    "Step 4 · Engineering & Plots: Inspect live converted engineering values, preview raw words, or analyze Qwt charts.\n"
-    "Step 5 · Sessions & Exports: Browse/replay saved .atd files, run streaming CSV Viewer, and export time-bounded datasets.",
-    guideCard);
-  guideText->setWordWrap(true);
-  guideLayout->addWidget(guideHeading);
-  guideLayout->addWidget(guideText);
-  pageLayout->insertWidget(1,guideCard);
-  desktop::actionIcon(form.exportDiagnosticsButton,"download");
-  desktop::actionIcon(form.selfTestButton,"activity");
-  desktop::actionIcon(form.collectBundleButton,"folder");
-  desktop::actionIcon(form.openLogsButton,"file");
-  desktop::actionIcon(form.openGuideButton,"help");
-  connect(rescan,&QPushButton::clicked,this,[this]{rescanDdc();});connect(manager,&QPushButton::clicked,this,&Window::openCardManager);
+  form.systemLayout->insertWidget(0,desktop::sectionHeading("System Information","device"));
+  form.checksLayout->insertWidget(0,desktop::sectionHeading("Troubleshooting Checks","settings"));
+  for(auto card:{form.system,form.checks}) desktop::addCardShadow(card);
+  auto setupTile=[this](QPushButton *btn,const QString &iconName,const QString &caption,bool highlight){
+    btn->setAccessibleName(caption);
+    btn->setText(QString());
+    btn->setFixedHeight(86);
+    btn->setSizePolicy(QSizePolicy::Expanding,QSizePolicy::Fixed);
+    btn->setStyleSheet(highlight
+      ? "QPushButton{background:#e3f3eb;border:1px solid #b5dcc8;border-radius:10px;padding:8px;min-height:70px;} QPushButton:hover{background:#d6ede1;}"
+      : "QPushButton{background:#ffffff;border:1px solid #d4e0e9;border-radius:10px;padding:8px;min-height:70px;} QPushButton:hover{background:#f2f7fa;}");
+    auto lay=new QVBoxLayout(btn);
+    lay->setContentsMargins(8,10,8,10);lay->setSpacing(6);lay->setAlignment(Qt::AlignCenter);
+    auto ico=new QLabel(btn);ico->setFixedSize(28,28);ico->setAlignment(Qt::AlignCenter);
+    auto pm=QIcon(":/icons/"+iconName+".svg").pixmap(QSize(28,28),devicePixelRatioF());
+    QPainter p(&pm);p.setCompositionMode(QPainter::CompositionMode_SourceIn);p.fillRect(pm.rect(),QColor("#145331"));p.end();
+    ico->setPixmap(pm);
+    auto lbl=new QLabel(caption,btn);lbl->setAlignment(Qt::AlignCenter);
+    lbl->setStyleSheet("font-size:13px;font-weight:600;color:#142d3a;");
+    lay->addWidget(ico,0,Qt::AlignHCenter);lay->addWidget(lbl,0,Qt::AlignHCenter);
+  };
+  setupTile(form.selfTestButton,"activity","Run Self Test",true);
+  setupTile(form.collectBundleButton,"folder","Collect Support Bundle",false);
+  setupTile(form.openLogsButton,"file","Open Logs",false);
+  setupTile(form.exportDiagnosticsButton,"download","Export Diagnostics",false);
+  setupTile(form.openGuideButton,"help","User Guide",false);
+  form.captureState->setSizePolicy(QSizePolicy::Maximum,QSizePolicy::Fixed);
+  form.captureState->setStyleSheet("background:#e2f3e8;color:#166534;border-radius:10px;padding:3px 12px;font-size:12px;font-weight:700;");
+  for(const auto *item:{"Secure physical dongle","DDC device connectivity","Driver compatibility","Sufficient disk space","Record folder access"}) {
+    auto row=new QHBoxLayout;row->setSpacing(10);
+    auto badge=new QLabel(form.checksList);badge->setFixedSize(20,20);badge->setAlignment(Qt::AlignCenter);
+    badge->setStyleSheet("background:#146343;border-radius:4px;");
+    auto pm=QIcon(":/icons/check.svg").pixmap(QSize(13,13),devicePixelRatioF());
+    QPainter p(&pm);p.setCompositionMode(QPainter::CompositionMode_SourceIn);p.fillRect(pm.rect(),Qt::white);p.end();
+    badge->setPixmap(pm);
+    auto text=new QLabel(item,form.checksList);text->setStyleSheet("font-size:14px;color:#172b3a;");
+    row->addWidget(badge);row->addWidget(text,1);
+    form.checksListLayout->addLayout(row);
+  }
   const auto runtime=aero::inspectDdcRuntime(backend.captureConfig.runtime);
   form.sdk->setText(runtime.available ? "Runtime ready" : "Unavailable");form.sdk->setToolTip(QString::fromStdString(runtime.message));
   connect(form.exportDiagnosticsButton,&QPushButton::clicked,this,[this] { exportDiagnostics(); });

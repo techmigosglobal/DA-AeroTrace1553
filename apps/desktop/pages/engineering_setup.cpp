@@ -1,10 +1,39 @@
 #include "main_window.hpp"
 #include "record_csv.hpp"
+#include "services/operator_style.hpp"
 #include "ui_engineering_page.h"
 
 void Window::engineering() {
   auto form=showForm<Ui::EngineeringPage>();
   form.loadProfileButton->hide();
+  form.profileBadge->hide();
+  form.analysisSource->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+  form.rtFilterCombo->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+  form.saFilterCombo->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+  form.wordRangeCombo->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+  form.rtFilterCombo->addItem("All RTs",-1);
+  for(int r=0;r<=31;++r)form.rtFilterCombo->addItem(QString("RT %1").arg(r,2,10,QChar('0')),r);
+  form.saFilterCombo->addItem("All SAs",-1);
+  for(int s=1;s<=30;++s)form.saFilterCombo->addItem(QString("SA %1").arg(s,2,10,QChar('0')),s);
+  form.wordRangeCombo->addItem("Word 0 – 31");
+  desktop::actionIcon(form.liveEngineeringButton,"chart",false,16);
+  desktop::actionIcon(form.openPlotsButton,"play",true,14);
+  form.liveEngineeringButton->setText(QString());
+  form.liveEngineeringButton->setFixedSize(34,30);
+  form.openPlotsButton->setProperty("primary",true);
+  desktop::actionIcon(form.useRecord,"save",false,15);
+  desktop::actionIcon(form.previewButton,"play",false,15);
+  desktop::actionIcon(form.advancedButton,"info",false,15);
+  desktop::labelIcon(form.previewIcon,"settings",18);
+  form.previewTitle->setStyleSheet("font-size:15px;font-weight:700;color:#142d3a;");
+  form.engineeringValueBanner->setStyleSheet("background:#e2f3e8;border:1px solid #cce2d5;border-radius:7px;");
+  form.lblEngVal->setStyleSheet("font-weight:700;color:#142d3a;");
+  form.valEngVal->setStyleSheet("font-weight:700;color:#145331;font-size:14px;");
+  form.statusLivePill->setStyleSheet("background:#e2f3e8;color:#166534;border-radius:10px;padding:3px 10px;font-size:12px;font-weight:600;");
+  form.previewButton->setStyleSheet("background:#eaf5f0;border:1px solid #96c7b0;color:#145331;font-weight:600;border-radius:8px;padding:6px 12px;");
+  form.useRecord->setStyleSheet("background:#ffffff;border:1px solid #cddae4;color:#172b3a;border-radius:8px;padding:6px 12px;");
+  form.previewResult->setStyleSheet("background:#eaf5f0;border:1px solid #d4e6dd;border-radius:8px;color:#145331;font-weight:600;padding:8px 10px;");
+  form.previewResult->setPlainText("Result    —");
   engineeringDetails=form.profileBadge;qualityTable=form.qualityTable;
   form.analysisSource->addItems({"External · CH1 / A","External · CH1 / B","Internal · CH2 / A","Internal · CH2 / B"});
   form.analysisSource->setCurrentIndex((analysisChannel-1)*2+analysisBus);
@@ -19,8 +48,65 @@ void Window::engineering() {
   qualityTable->setHorizontalHeaderLabels({"Signal","Source words","Encoding","Unit","Conversion","Latest hex","Live value","Status"});
   qualityTable->setRowCount(mappings.size());qualityTable->verticalHeader()->hide();qualityTable->verticalHeader()->setDefaultSectionSize(36);
   qualityTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);
-  const int widths[]{90,95,110,60,125,95,110,120};
-  for(int i=0;i<8;++i){qualityTable->setColumnWidth(i,widths[i]);qualityTable->setColumnHidden(i,false);}
+  qualityTable->setHorizontalScrollMode(QAbstractItemView::ScrollPerItem);
+  for(int i=0;i<8;++i)qualityTable->setColumnHidden(i,false);
+  {
+    class TablePhaseSizer final : public QObject {
+    public:
+      QTableWidget *tbl;
+      QWidget *overlay{};
+      explicit TablePhaseSizer(QTableWidget *t, QWidget *ov) : QObject(t), tbl(t), overlay(ov) {
+        t->installEventFilter(this);
+        t->viewport()->installEventFilter(this);
+      }
+      void apply() const {
+        const int w = tbl->viewport()->width();
+        if (w < 100) return;
+        const int p1[6]{16, 18, 18, 10, 22, 16};
+        int u1 = 0;
+        for (int i = 0; i < 5; ++i) { const int cw = w * p1[i] / 100; tbl->setColumnWidth(i, cw); u1 += cw; }
+        tbl->setColumnWidth(5, w - u1);
+        const int cw6 = w * 48 / 100;
+        tbl->setColumnWidth(6, cw6);
+        tbl->setColumnWidth(7, w - cw6);
+        if (overlay) {
+          const auto g = tbl->viewport()->geometry();
+          overlay->setGeometry(g);
+        }
+      }
+      bool eventFilter(QObject *, QEvent *e) override {
+        if (e->type() == QEvent::Resize || e->type() == QEvent::Show || e->type() == QEvent::LayoutRequest) apply();
+        return false;
+      }
+    };
+    QWidget *emptyOverlay = nullptr;
+    if(mappings.empty()) {
+      emptyOverlay=new QWidget(qualityTable);
+      emptyOverlay->setObjectName("engineeringEmptyNotice");
+      auto emptyLay=new QVBoxLayout(emptyOverlay);
+      emptyLay->setAlignment(Qt::AlignCenter);
+      emptyLay->setSpacing(8);
+      auto iconLbl=new QLabel(emptyOverlay);
+      desktop::labelIcon(iconLbl,"device-empty",64);
+      auto titleLbl=new QLabel("No published signals yet.",emptyOverlay);
+      titleLbl->setStyleSheet("font-size:17px;font-weight:700;color:#142d3a;");
+      auto subLbl=new QLabel("Open Signal Mappings to publish signals\nand preview engineering values.",emptyOverlay);
+      subLbl->setAlignment(Qt::AlignCenter);
+      subLbl->setStyleSheet("font-size:13px;color:#526a5c;");
+      auto openMapBtn=new QPushButton("Open Signal Mappings →",emptyOverlay);
+      desktop::actionIcon(openMapBtn,"file",false,16);
+      openMapBtn->setStyleSheet("background:#ffffff;border:1px solid #146343;color:#146343;font-weight:600;border-radius:8px;padding:7px 14px;");
+      connect(openMapBtn,&QPushButton::clicked,this,[this]{navigate(12);});
+      emptyLay->addStretch(1);
+      emptyLay->addWidget(iconLbl,0,Qt::AlignHCenter);
+      emptyLay->addWidget(titleLbl,0,Qt::AlignHCenter);
+      emptyLay->addWidget(subLbl,0,Qt::AlignHCenter);
+      emptyLay->addWidget(openMapBtn,0,Qt::AlignHCenter);
+      emptyLay->addStretch(1);
+    }
+    auto *sizer = new TablePhaseSizer(qualityTable, emptyOverlay);
+    QTimer::singleShot(0, qualityTable, [sizer]{ sizer->apply(); });
+  }
   for(unsigned row=0;row<mappings.size();++row){const auto &s=mappings[row];const auto last=s.word+(s.lsb+s.width+15)/16-1;
     const auto wordsText=s.word==last?QString("Payload %1").arg(s.word):QString("Payload %1–%2").arg(s.word).arg(last);
     const auto source=s.sourceWord==aero::SignalWord::Payload?wordsText:QString::fromStdString(std::string(aero::signalWordName(s.sourceWord)));
@@ -67,7 +153,7 @@ void Window::engineering() {
   connect(form.rawWords,&QPlainTextEdit::textChanged,content,[selected]{selected->reset();});
   connect(form.rawBase,&QComboBox::currentIndexChanged,content,[selected]{selected->reset();});
   connect(form.previewButton,&QPushButton::clicked,content,preview);
-  form.useRecord->setText("Use latest / selected record");
+  form.useRecord->setText("Use latest selected record");
   connect(form.useRecord,&QPushButton::clicked,content,[this,form,mappings,selected,preview]{
     if(preferredSignalIndex>=mappings.size())return;
     const auto &s=mappings[preferredSignalIndex];
@@ -85,7 +171,7 @@ void Window::engineering() {
     form.rawWords->setPlainText(raw.join(' '));*selected=match;preview();
   });
   connect(form.editRule,&QPushButton::clicked,this,&Window::manualMappings);
-  connect(qualityTable,&QTableWidget::currentCellChanged,content,[this,form,mappings,selected](int row,int,int,int){if(row<0||row>=int(mappings.size()))return;preferredSignalIndex=row;selected->reset();const auto &s=mappings[row];if(s.channel)analysisChannel=s.channel;if(s.bus>=0)analysisBus=s.bus;const QSignalBlocker block(form.analysisSource);form.analysisSource->setCurrentIndex((analysisChannel-1)*2+analysisBus);form.ruleDetails->setText(QString("%1 bits · offset %2 · %3 · scale %4 · offset %5\nRoute: RT %6 / SA %7 / %8 · Word %9").arg(s.width).arg(s.lsb).arg(s.leastSignificantWordFirst?"LSW first":"MSW first").arg(desktop::displayValue(s.scale)).arg(desktop::displayValue(s.offset)).arg(s.rt).arg(s.sa).arg(s.transmit?"Tx":"Rx").arg(s.word));form.previewResult->setPlainText("Enter raw words or click Use latest / selected record, then preview.");updateEngineeringDetails();});
+  connect(qualityTable,&QTableWidget::currentCellChanged,content,[this,form,mappings,selected](int row,int,int,int){if(row<0||row>=int(mappings.size()))return;preferredSignalIndex=row;selected->reset();const auto &s=mappings[row];if(s.channel)analysisChannel=s.channel;if(s.bus>=0)analysisBus=s.bus;const QSignalBlocker block(form.analysisSource);form.analysisSource->setCurrentIndex((analysisChannel-1)*2+analysisBus);form.valRtSa->setText(QString("%1 / %2").arg(s.rt,2,10,QChar('0')).arg(s.sa,2,10,QChar('0')));form.valDir->setText(s.transmit?"Transmit":"Receive");form.valWord->setText(QString("%1").arg(s.word,2,10,QChar('0')));form.valScale->setText(desktop::displayValue(s.scale));form.valOffset->setText(desktop::displayValue(s.offset));form.statusRt->setText(QString("RT: %1").arg(s.rt,2,10,QChar('0')));form.statusSa->setText(QString("SA: %1").arg(s.sa,2,10,QChar('0')));form.ruleDetails->setText(QString("%1 bits · offset %2 · %3 · scale %4 · offset %5\nRoute: RT %6 / SA %7 / %8 · Word %9").arg(s.width).arg(s.lsb).arg(s.leastSignificantWordFirst?"LSW first":"MSW first").arg(desktop::displayValue(s.scale)).arg(desktop::displayValue(s.offset)).arg(s.rt).arg(s.sa).arg(s.transmit?"Tx":"Rx").arg(s.word));form.previewResult->setPlainText("Enter raw words or click Use latest / selected record, then preview.");updateEngineeringDetails();});
   if(preferredSignalIndex>=mappings.size())preferredSignalIndex=0;
   if(!mappings.empty())qualityTable->selectRow(preferredSignalIndex);
   form.engineeringSplitter->restoreState(settings.value("engineeringSplitter").toByteArray());

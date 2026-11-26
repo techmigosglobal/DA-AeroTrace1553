@@ -8,21 +8,13 @@
    <property name="topMargin"><number>0</number></property>
    <property name="rightMargin"><number>0</number></property>
    <property name="bottomMargin"><number>0</number></property>
-   <item row="0" column="0" colspan="2">
-    <widget class="QWidget" name="actionBar">
-     <layout class="QHBoxLayout" name="preferencesActionsLayout">
-      <item><spacer name="actionsSpacer"><property name="orientation"><enum>Qt::Horizontal</enum></property></spacer></item>
-      <item><widget class="QPushButton" name="restoreButton"><property name="text"><string>Restore Defaults</string></property></widget></item>
-      <item><widget class="QPushButton" name="saveButton"><property name="text"><string>Save Preferences</string></property><property name="primary" stdset="0"><bool>true</bool></property></widget></item>
-     </layout>
-    </widget>
-   </item>
-   <item row="1" column="0">
+   <item row="0" column="0">
     <widget class="QFrame" name="interfaceGroup">
      <property name="card" stdset="0"><bool>true</bool></property>
      <layout class="QVBoxLayout" name="interfaceLayout">
       <item>
        <layout class="QFormLayout" name="interfaceValues">
+        <property name="verticalSpacing"><number>8</number></property>
         <item row="0" column="0"><widget class="QLabel" name="themeLabel"><property name="text"><string>Theme</string></property></widget></item>
         <item row="0" column="1"><widget class="QLabel" name="themeValue"><property name="text"><string>Professional Light</string></property><property name="fixedValue" stdset="0"><bool>true</bool></property></widget></item>
         <item row="1" column="0"><widget class="QLabel" name="timeZoneLabel"><property name="text"><string>Time zone</string></property></widget></item>
@@ -35,7 +27,7 @@
      </layout>
     </widget>
    </item>
-   <item row="1" column="1">
+   <item row="0" column="1">
     <widget class="QFrame" name="captureGroup">
      <property name="card" stdset="0"><bool>true</bool></property>
      <layout class="QVBoxLayout" name="captureCardLayout">
@@ -48,24 +40,28 @@
         <item row="1" column="1"><widget class="QLabel" name="tracesValue"><property name="text"><string>8 maximum</string></property><property name="fixedValue" stdset="0"><bool>true</bool></property></widget></item>
         <item row="2" column="0"><widget class="QLabel" name="formatLabel"><property name="text"><string>Raw format</string></property></widget></item>
         <item row="2" column="1"><widget class="QLabel" name="formatValue"><property name="text"><string>CRC-protected ATD2</string></property><property name="fixedValue" stdset="0"><bool>true</bool></property></widget></item>
-        <item row="3" column="0"><widget class="QLabel" name="compressionLabel"><property name="text"><string>Compression</string></property></widget></item>
-        <item row="3" column="1"><widget class="QLabel" name="compressionValue"><property name="text"><string>Unavailable</string></property><property name="fixedValue" stdset="0"><bool>true</bool></property></widget></item>
        </layout>
       </item>
      </layout>
     </widget>
    </item>
-   <item row="2" column="0">
+   <item row="1" column="0">
     <widget class="QFrame" name="safetyGroup">
      <property name="card" stdset="0"><bool>true</bool></property>
      <layout class="QVBoxLayout" name="safetyLayout">
-      <item><widget class="QLabel" name="safetyNotice"><property name="text"><string>Read-only monitor mode. No hardware transmit API is implemented.</string></property><property name="wordWrap"><bool>true</bool></property></widget></item>
-      <item><widget class="QLabel" name="diskLabel"><property name="text"><string>Minimum free disk space: 100 MB</string></property><property name="fixedValue" stdset="0"><bool>true</bool></property></widget></item>
-      <item><widget class="QLabel" name="recoveryLabel"><property name="text"><string>Recovery retains CRC-valid records.</string></property><property name="wordWrap"><bool>true</bool></property></widget></item>
+      <item>
+       <layout class="QFormLayout" name="safetyValues">
+        <property name="verticalSpacing"><number>8</number></property>
+        <item row="0" column="0"><widget class="QLabel" name="modeLabel"><property name="text"><string>Mode</string></property></widget></item>
+        <item row="0" column="1"><widget class="QLabel" name="safetyNotice"><property name="text"><string>Read-only monitor (no transmit API)</string></property><property name="fixedValue" stdset="0"><bool>true</bool></property><property name="wordWrap"><bool>true</bool></property></widget></item>
+        <item row="1" column="0"><widget class="QLabel" name="diskKeyLabel"><property name="text"><string>Minimum free disk space</string></property></widget></item>
+        <item row="1" column="1"><widget class="QLabel" name="diskLabel"><property name="text"><string>100 MB</string></property><property name="fixedValue" stdset="0"><bool>true</bool></property></widget></item>
+       </layout>
+      </item>
      </layout>
     </widget>
    </item>
-   <item row="2" column="1">
+   <item row="1" column="1">
     <widget class="QFrame" name="pathsGroup">
      <property name="card" stdset="0"><bool>true</bool></property>
      <layout class="QVBoxLayout" name="pathsLayout">
@@ -77,6 +73,19 @@
        </layout>
       </item>
       <item><spacer name="pathsSpacer"><property name="orientation"><enum>Qt::Vertical</enum></property></spacer></item>
+     </layout>
+    </widget>
+   </item>
+   <item row="2" column="0" colspan="2">
+    <widget class="QWidget" name="actionBar">
+     <layout class="QHBoxLayout" name="preferencesActionsLayout">
+      <property name="leftMargin"><number>0</number></property>
+      <property name="topMargin"><number>4</number></property>
+      <property name="rightMargin"><number>0</number></property>
+      <property name="bottomMargin"><number>0</number></property>
+      <item><spacer name="actionsSpacer"><property name="orientation"><enum>Qt::Horizontal</enum></property></spacer></item>
+      <item><widget class="QPushButton" name="restoreButton"><property name="text"><string>Restore Defaults</string></property></widget></item>
+      <item><widget class="QPushButton" name="saveButton"><property name="text"><string>Save Preferences</string></property><property name="primary" stdset="0"><bool>true</bool></property></widget></item>
      </layout>
     </widget>
    </item>
